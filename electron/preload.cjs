@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('nestDesktop', {
   prepareExtension: browser => ipcRenderer.invoke('extension:prepare', browser),
   openAsset: id => ipcRenderer.invoke('library:open-asset', id), revealAsset: (id, migrate = false) => ipcRenderer.invoke('library:reveal-asset', id, migrate),
   startExternalDrag: ids => ipcRenderer.send('library:start-external-drag', ids),
+  onExternalDragError: callback => { const listener = (_, message) => callback(message); ipcRenderer.on('library:external-drag-error', listener); return () => ipcRenderer.removeListener('library:external-drag-error', listener); },
   exportAsset: id => ipcRenderer.invoke('library:export-asset', id), duplicateAsset: id => ipcRenderer.invoke('library:duplicate-asset', id), copyAssetPath: id => ipcRenderer.invoke('library:copy-path', id),
   addFolder: options => ipcRenderer.invoke('library:add-folder', options), updateFolder: (id, changes) => ipcRenderer.invoke('library:update-folder', id, changes), deleteFolder: id => ipcRenderer.invoke('library:delete-folder', id), importAssets: folderId => ipcRenderer.invoke('library:import', folderId), importDropped: (files, folderId) => ipcRenderer.invoke('library:import-dropped', files.map(file=>webUtils.getPathForFile(file)).filter(Boolean), folderId),
   addTag: name => ipcRenderer.invoke('library:add-tag', name),
