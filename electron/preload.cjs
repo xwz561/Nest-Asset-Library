@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld('nestDesktop', {
   health: () => ipcRenderer.invoke('library:health'), repair: () => ipcRenderer.invoke('library:repair'),
   prepareExtension: browser => ipcRenderer.invoke('extension:prepare', browser),
   openBugFeedback: () => ipcRenderer.invoke('app:open-bug-feedback'),
+  checkUpdate: () => ipcRenderer.invoke('app:check-update'), downloadUpdate: options => ipcRenderer.invoke('app:download-update', options), installUpdate: filePath => ipcRenderer.invoke('app:install-update', filePath),
+  onUpdateProgress: callback => { const listener=(_,progress)=>callback(progress);ipcRenderer.on('app:update-progress',listener);return()=>ipcRenderer.removeListener('app:update-progress',listener) },
   openAsset: id => ipcRenderer.invoke('library:open-asset', id), revealAsset: (id, migrate = false) => ipcRenderer.invoke('library:reveal-asset', id, migrate),
   startExternalDrag: ids => ipcRenderer.send('library:start-external-drag', ids),
   onExternalDragError: callback => { const listener = (_, message) => callback(message); ipcRenderer.on('library:external-drag-error', listener); return () => ipcRenderer.removeListener('library:external-drag-error', listener); },
