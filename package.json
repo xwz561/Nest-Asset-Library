@@ -1,8 +1,8 @@
 {
   "name": "nest-asset-library",
   "private": true,
-  "version": "1.8.7",
-  "description": "Nest 本地素材资源库",
+  "version": "1.8.8",
+  "description": "小旺仔本地素材资源库",
   "author": {
     "name": "xwz"
   },
@@ -31,7 +31,7 @@
   },
   "build": {
     "appId": "cn.nest.assetlibrary",
-    "productName": "Nest 素材库",
+    "productName": "小旺仔素材库",
     "directories": {
       "output": "release-${version}"
     },
@@ -77,7 +77,7 @@
       "gatekeeperAssess": false
     },
     "dmg": {
-      "title": "Nest 素材库 ${version}",
+      "title": "小旺仔素材库 ${version}",
       "artifactName": "Nest-Asset-Library-${version}-macOS-${arch}.${ext}"
     },
     "nsis": {
