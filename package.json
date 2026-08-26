@@ -15,7 +15,7 @@
     "preview": "vite preview",
     "package:win": "npm run build && electron-builder --win nsis --config.artifactName=Nest-Asset-Library-${version}-Setup.${ext} && electron-builder --win portable --config.artifactName=Nest-Asset-Library-${version}-Portable.${ext}",
     "icon:mac": "electron scripts/generate-mac-icon.cjs",
-    "package:mac": "npm run build && npm run icon:mac && electron-builder --mac dmg zip"
+    "package:mac": "npm run build && npm run icon:mac && electron-builder --mac dmg zip --x64 --arm64"
   },
   "main": "electron/main.cjs",
   "dependencies": {
