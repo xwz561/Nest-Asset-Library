@@ -1,0 +1,61 @@
+{
+  "name": "nest-asset-library",
+  "private": true,
+  "version": "1.8.1",
+  "description": "Nest 本地素材资源库",
+  "author": {
+    "name": "xwz"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "desktop": "npm run build && electron .",
+    "test": "node --test test/*.test.cjs",
+    "build": "vite build",
+    "preview": "vite preview",
+    "package:win": "npm run build && electron-builder --win nsis --config.artifactName=Nest-Asset-Library-${version}-Setup.${ext} && electron-builder --win portable --config.artifactName=Nest-Asset-Library-${version}-Portable.${ext}"
+  },
+  "main": "electron/main.cjs",
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "lucide-react": "latest"
+  },
+  "devDependencies": {
+    "electron": "latest",
+    "electron-builder": "latest"
+  },
+  "build": {
+    "appId": "cn.nest.assetlibrary",
+    "productName": "Nest 素材库",
+    "directories": {
+      "output": "release-1.8.1"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "browser-extension/**/*",
+      "build/icon.ico",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "browser-extension/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.ico",
+      "legalTrademarks": "xwz"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

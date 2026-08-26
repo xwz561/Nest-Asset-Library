@@ -1,0 +1,15 @@
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
+contextBridge.exposeInMainWorld('nestDesktop', {
+  currentLibrary: () => ipcRenderer.invoke('library:current'), createLibrary: () => ipcRenderer.invoke('library:create'), openLibrary: () => ipcRenderer.invoke('library:open'),
+  health: () => ipcRenderer.invoke('library:health'), repair: () => ipcRenderer.invoke('library:repair'),
+  prepareExtension: browser => ipcRenderer.invoke('extension:prepare', browser),
+  openAsset: id => ipcRenderer.invoke('library:open-asset', id), revealAsset: (id, migrate = false) => ipcRenderer.invoke('library:reveal-asset', id, migrate),
+  startExternalDrag: ids => ipcRenderer.send('library:start-external-drag', ids),
+  exportAsset: id => ipcRenderer.invoke('library:export-asset', id), duplicateAsset: id => ipcRenderer.invoke('library:duplicate-asset', id), copyAssetPath: id => ipcRenderer.invoke('library:copy-path', id),
+  addFolder: options => ipcRenderer.invoke('library:add-folder', options), updateFolder: (id, changes) => ipcRenderer.invoke('library:update-folder', id, changes), deleteFolder: id => ipcRenderer.invoke('library:delete-folder', id), importAssets: folderId => ipcRenderer.invoke('library:import', folderId), importDropped: (files, folderId) => ipcRenderer.invoke('library:import-dropped', files.map(file=>webUtils.getPathForFile(file)).filter(Boolean), folderId),
+  addTag: name => ipcRenderer.invoke('library:add-tag', name),
+  deleteTag: name => ipcRenderer.invoke('library:delete-tag', name),
+  importUrl: (url, folderId) => ipcRenderer.invoke('library:import-url', url, folderId),
+  updateAsset: (id, changes) => ipcRenderer.invoke('library:update-asset', id, changes), batchUpdate: (ids, changes) => ipcRenderer.invoke('library:batch-update', ids, changes), batchDelete: ids => ipcRenderer.invoke('library:batch-delete', ids), deleteAsset: id => ipcRenderer.invoke('library:delete-asset', id),
+  onLibraryChanged: callback => { const listener = (_, library) => callback(library); ipcRenderer.on('library:changed', listener); return () => ipcRenderer.removeListener('library:changed', listener); },
+});
