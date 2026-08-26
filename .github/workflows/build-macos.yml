@@ -2,6 +2,11 @@ name: Build macOS
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to receive the macOS packages
+        required: false
+        default: v1.8.7
   push:
     tags:
       - 'v*'
@@ -20,7 +25,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - run: npm run package:mac
+      - run: npm run package:mac -- --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - uses: actions/upload-artifact@v4
@@ -30,9 +35,10 @@ jobs:
             release-*/Nest-Asset-Library-*-macOS-*.dmg
             release-*/Nest-Asset-Library-*-macOS-*.zip
       - name: Upload packages to tagged release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || inputs.release_tag != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
           files: |
             release-*/Nest-Asset-Library-*-macOS-*.dmg
             release-*/Nest-Asset-Library-*-macOS-*.zip
