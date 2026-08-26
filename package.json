@@ -1,7 +1,7 @@
 {
   "name": "nest-asset-library",
   "private": true,
-  "version": "1.8.3",
+  "version": "1.8.4",
   "description": "Nest 本地素材资源库",
   "author": {
     "name": "xwz"
@@ -33,7 +33,7 @@
     "appId": "cn.nest.assetlibrary",
     "productName": "Nest 素材库",
     "directories": {
-      "output": "release-1.8.1"
+      "output": "release-${version}"
     },
     "files": [
       "dist/**/*",
