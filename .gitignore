@@ -6,5 +6,4 @@ release-*/
 .DS_Store
 Thumbs.db
 build/icon.icns
-build/icon.png
 dist-config-check/

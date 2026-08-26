@@ -1,7 +1,7 @@
 {
   "name": "nest-asset-library",
   "private": true,
-  "version": "1.8.6",
+  "version": "1.8.7",
   "description": "Nest 本地素材资源库",
   "author": {
     "name": "xwz"
@@ -50,7 +50,7 @@
         "nsis",
         "portable"
       ],
-      "icon": "build/icon.ico",
+      "icon": "build/icon.png",
       "legalTrademarks": "xwz"
     },
     "mac": {
