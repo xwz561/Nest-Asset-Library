@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Archive, Bell, Box, Briefcase, Brush, Camera, ChevronDown, ClipboardCopy, Copy, Download, Eye, FileText, Folder, FolderOpen, Grid2X2, Heart, Image as ImageIcon, Import, Info, LayoutGrid, List, Maximize2, Menu, MoreHorizontal, Music, Pencil, Plus, Puzzle, RotateCw, Search, SlidersHorizontal, Sparkles, Star, StickyNote, Tag, Trash2, Video, X } from 'lucide-react';
+import { Archive, Bell, Box, Briefcase, Brush, Bug, Camera, ChevronDown, ClipboardCopy, Copy, Download, Eye, FileText, Folder, FolderOpen, Grid2X2, Heart, Image as ImageIcon, Import, Info, LayoutGrid, List, Maximize2, Menu, MoreHorizontal, Music, Pencil, Plus, Puzzle, RotateCw, Search, SlidersHorizontal, Sparkles, Star, StickyNote, Tag, Trash2, Video, X } from 'lucide-react';
 import './styles.css';
 
 const DB_NAME = 'nest-assets';
@@ -143,6 +143,7 @@ function App(){
     {dialogState&&<AppDialog state={dialogState} resolve={resolveDialog}/>} 
     {extensionPanel&&<ExtensionPanel busy={extensionBusy} result={extensionResult} install={prepareExtension} close={()=>setExtensionPanel(false)}/>} 
     {themePanel&&<ThemePanel color={themeColor} setColor={color=>{setThemeColor(color);localStorage.setItem(THEME_COLOR_KEY,color)}} close={()=>setThemePanel(false)}/>} 
+    <button className="bug-feedback" title="打开腾讯文档 Bug 反馈表" onClick={()=>window.open('https://docs.qq.com/form/page/DV2JNUUd3cEVqSHZt','_blank','noopener,noreferrer')}><Bug size={16}/><span>Bug 反馈</span></button>
   </div>
 }
 
