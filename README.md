@@ -42,7 +42,19 @@ npm run package:win
 
 ## 当前边界
 
-当前同时提供浏览器版和 Electron Windows 桌面版。示例图库已内置，可完全离线使用；用户导入的图片保存在应用的 IndexedDB 中。后续可继续接入原生文件系统、缩略图缓存、重复检测与浏览器扩展。
+当前提供浏览器版，以及 Electron Windows/macOS 桌面版。示例图库已内置，可完全离线使用；用户导入的图片保存在应用的 IndexedDB 中。
+
+## macOS 构建
+
+项目支持 Intel Mac（x64）和 Apple Silicon（arm64）。macOS 安装包必须在 Mac 上构建：
+
+```bash
+npm ci
+npm test
+npm run package:mac
+```
+
+产物包括两种架构的 DMG 安装包和 ZIP 免安装包。推送 `v*` 标签后，GitHub Actions 也会在 macOS 运行器上自动构建并上传到对应 Release。当前自动构建未配置 Apple Developer 签名与公证，因此首次打开时可能需要在 Finder 中右键选择“打开”。
 
 ## 0.1.1 修复
 

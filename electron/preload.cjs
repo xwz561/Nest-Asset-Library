@@ -1,5 +1,6 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('nestDesktop', {
+  platform: process.platform,
   currentLibrary: () => ipcRenderer.invoke('library:current'), createLibrary: () => ipcRenderer.invoke('library:create'), openLibrary: () => ipcRenderer.invoke('library:open'),
   health: () => ipcRenderer.invoke('library:health'), repair: () => ipcRenderer.invoke('library:repair'),
   prepareExtension: browser => ipcRenderer.invoke('extension:prepare', browser),
