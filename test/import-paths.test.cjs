@@ -38,3 +38,23 @@ test('keeps explicitly dropped unsupported files so import reports an error', as
   const result = await expandImportPaths([unsupported]);
   assert.deepEqual(result.files, [unsupported]);
 });
+
+test('stops scanning oversized folder trees even when files are unsupported', async t => {
+  const root = fixture(t);
+  for (let index = 0; index < 12; index += 1) {
+    fs.writeFileSync(path.join(root, `ignored-${index}.txt`), 'ignore');
+  }
+  await assert.rejects(
+    expandImportPaths([root], { maxEntries: 8 }),
+    /单次最多扫描 8 个文件和文件夹/,
+  );
+});
+
+test('reports scanning progress for folder imports', async t => {
+  const root = fixture(t);
+  const updates = [];
+  await expandImportPaths([root], { onProgress: progress => updates.push(progress) });
+  assert.equal(updates.at(-1).phase, 'scanning');
+  assert.equal(updates.at(-1).found, 3);
+  assert.ok(updates.at(-1).scanned >= 5);
+});
