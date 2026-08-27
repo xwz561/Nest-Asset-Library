@@ -32,10 +32,19 @@ test('recovers a damaged index from the previous known-good copy', t => {
 test('keeps only the configured number of rolling index backups', t => {
   const dir = temporaryDirectory(t);
   const file = path.join(dir, '.nest-library.json');
-  atomicWriteJson(file, { version: 0 }, { maxBackups: 2 });
+  atomicWriteJson(file, { version: 0 }, { maxBackups: 2, backupIntervalMs: 0 });
   for (let version = 1; version <= 4; version += 1) {
-    atomicWriteJson(file, { version }, { maxBackups: 2 });
+    atomicWriteJson(file, { version }, { maxBackups: 2, backupIntervalMs: 0 });
   }
   const backups = fs.readdirSync(path.join(dir, '.nest-backups'));
   assert.equal(backups.length, 2);
+});
+
+test('throttles large rolling backups while retaining the immediate recovery copy', t => {
+  const dir = temporaryDirectory(t);
+  const file = path.join(dir, '.nest-library.json');
+  atomicWriteJson(file, { version: 0 });
+  for (let version = 1; version <= 5; version += 1) atomicWriteJson(file, { version });
+  assert.equal(fs.readdirSync(path.join(dir, '.nest-backups')).length, 1);
+  assert.deepEqual(JSON.parse(fs.readFileSync(`${file}.previous`, 'utf8')), { version: 4 });
 });

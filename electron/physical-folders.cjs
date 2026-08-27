@@ -65,4 +65,8 @@ function syncPhysicalFolders(root, data) {
   return data;
 }
 
-module.exports = { folderParts, physicalAssetPath, safeRelativeFile, syncPhysicalFolders };
+function needsPhysicalLayoutSync(data, version = 1) {
+  return Boolean(data) && data.physicalLayoutVersion !== version;
+}
+
+module.exports = { folderParts, physicalAssetPath, safeRelativeFile, syncPhysicalFolders, needsPhysicalLayoutSync };

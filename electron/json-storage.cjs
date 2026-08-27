@@ -23,10 +23,15 @@ function readJson(file, { recover = true } = {}) {
   return recovered;
 }
 
-function snapshotLibraryIndex(file, maxBackups = 30) {
+function snapshotLibraryIndex(file, maxBackups = 30, minIntervalMs = 5 * 60 * 1000) {
   if (path.basename(file) !== '.nest-library.json' || !fs.existsSync(file)) return;
   const backupDir = path.join(path.dirname(file), '.nest-backups');
   fs.mkdirSync(backupDir, { recursive: true });
+  const existing = fs.readdirSync(backupDir)
+    .filter(name => /^library-.*\.json$/.test(name))
+    .map(name => ({ name, time: fs.statSync(path.join(backupDir, name)).mtimeMs }))
+    .sort((a, b) => b.time - a.time);
+  if (minIntervalMs > 0 && existing[0] && Date.now() - existing[0].time < minIntervalMs) return;
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   fs.copyFileSync(file, path.join(backupDir, `library-${stamp}-${crypto.randomUUID()}.json`));
 
@@ -37,7 +42,7 @@ function snapshotLibraryIndex(file, maxBackups = 30) {
   for (const old of backups.slice(maxBackups)) fs.rmSync(path.join(backupDir, old.name), { force: true });
 }
 
-function atomicWriteJson(file, value, { backup = true, maxBackups = 30 } = {}) {
+function atomicWriteJson(file, value, { backup = true, maxBackups = 30, backupIntervalMs = 5 * 60 * 1000 } = {}) {
   const dir = path.dirname(file);
   fs.mkdirSync(dir, { recursive: true });
   const temp = path.join(dir, `.${path.basename(file)}.${process.pid}.${crypto.randomUUID()}.tmp`);
@@ -53,7 +58,7 @@ function atomicWriteJson(file, value, { backup = true, maxBackups = 30 } = {}) {
     descriptor = undefined;
 
     if (fs.existsSync(file)) {
-      if (backup) snapshotLibraryIndex(file, maxBackups);
+      if (backup) snapshotLibraryIndex(file, maxBackups, backupIntervalMs);
       fs.copyFileSync(file, previous);
     }
     fs.renameSync(temp, file);

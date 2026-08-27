@@ -3,11 +3,16 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { folderParts, physicalAssetPath, syncPhysicalFolders } = require('../electron/physical-folders.cjs');
+const { folderParts, physicalAssetPath, syncPhysicalFolders, needsPhysicalLayoutSync } = require('../electron/physical-folders.cjs');
 
 test('builds nested physical folder parts from the virtual tree', () => {
   const folders = [{ id:'a', name:'角色', parentId:null }, { id:'b', name:'主角', parentId:'a' }];
   assert.deepEqual(folderParts(folders, 'b'), ['角色', '主角']);
+});
+
+test('physical layout migration runs once and is skipped on later launches', () => {
+  assert.equal(needsPhysicalLayoutSync({ assets: [] }), true);
+  assert.equal(needsPhysicalLayoutSync({ assets: [], physicalLayoutVersion: 1 }), false);
 });
 
 test('moves existing root assets into their classified physical folder', () => {
