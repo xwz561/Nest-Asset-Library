@@ -29,3 +29,36 @@ test('a rejected import does not poison later imports', async () => {
   assert.deepEqual(logged, ['broken import']);
   assert.equal(queue.pending(), 0);
 });
+
+test('a long import cannot overwrite a later rename or library switch', async () => {
+  const queue = createTaskQueue();
+  const stores = {
+    A: { assets: [{ id: 'old', name: 'Old' }] },
+    B: { assets: [] }
+  };
+  let activeLibrary = 'A';
+  let releaseImport;
+  const importGate = new Promise(resolve => { releaseImport = resolve; });
+
+  const longImport = queue(async () => {
+    const snapshot = structuredClone(stores[activeLibrary]);
+    await importGate;
+    snapshot.assets.push({ id: 'new', name: 'Imported' });
+    stores[activeLibrary] = snapshot;
+  });
+  const rename = queue(async () => {
+    stores[activeLibrary].assets[0].name = 'Renamed';
+  });
+  const switchLibrary = queue(async () => {
+    activeLibrary = 'B';
+  });
+
+  releaseImport();
+  await Promise.all([longImport, rename, switchLibrary]);
+  assert.deepEqual(stores.A.assets, [
+    { id: 'old', name: 'Renamed' },
+    { id: 'new', name: 'Imported' }
+  ]);
+  assert.deepEqual(stores.B.assets, []);
+  assert.equal(activeLibrary, 'B');
+});

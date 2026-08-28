@@ -1,0 +1,7 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const {OpenAICompatibleProvider,normalizeProvider,parseJson,redact}=require('../electron/ai-provider.cjs');
+
+test('normalizes OpenAI, DeepSeek and compatible providers behind one adapter',()=>{assert.equal(normalizeProvider({type:'openai'}).baseUrl,'https://api.openai.com/v1');assert.equal(normalizeProvider({type:'deepseek'}).model,'deepseek-chat');assert.equal(normalizeProvider({id:'x',type:'compatible',baseUrl:'https://example.test/v1/'}).baseUrl,'https://example.test/v1')});
+test('provider sends bearer auth without leaking it in result',async()=>{let request;const provider=new OpenAICompatibleProvider({apiKey:'sk-super-secret-key',baseUrl:'https://example.test/v1',model:'model',temperature:.2,timeout:5000},{fetchImpl:async(url,options)=>{request={url,options};return{ok:true,json:async()=>({model:'model',choices:[{message:{content:'{"answer":"ok"}'}}]})}}});const result=await provider.chat({messages:[{role:'user',content:'hello'}]});assert.equal(request.url,'https://example.test/v1/chat/completions');assert.equal(request.options.headers.authorization,'Bearer sk-super-secret-key');assert.equal(result.text,'{"answer":"ok"}');assert.equal(JSON.stringify(result).includes('super-secret'),false)});
+test('redacts keys and parses JSON embedded in prose',()=>{assert.equal(redact('bad sk-abcdefghijk secret').includes('abcdefghijk'),false);assert.deepEqual(parseJson('result: {"ok":true}'),{ok:true})});

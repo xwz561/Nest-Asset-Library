@@ -1,0 +1,421 @@
+.ai-header-button {
+  color: #ddd6fe !important;
+}
+.icon-btn.ai-header-button.on {
+  padding: 0 12px !important;
+  width: auto !important;
+  background: linear-gradient(135deg, #7048f0, #925cff) !important;
+  color: #fff !important;
+  box-shadow: 0 5px 18px #7048f04a;
+}
+.icon-btn.ai-header-button.on:after {
+  content: "AI 助手";
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ai-assistant {
+  --ai-purple: #8b5cf6;
+  transform-origin: right center;
+  animation: ai-inspector-enter 0.18s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--bg-main) 96%, #312e81),
+    var(--bg-main)
+  );
+}
+@keyframes ai-inspector-enter {
+  from {
+    opacity: 0.25;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.ai-assistant .inspector-tabs {
+  height: 48px;
+  padding: 0 18px;
+  gap: 12px;
+  background: transparent;
+}
+.ai-assistant .inspector-tabs button {
+  position: relative;
+  border-radius: 8px 8px 0 0;
+  font-size: 11px;
+}
+.ai-assistant .inspector-tabs button.active {
+  background: color-mix(in srgb, var(--ai-purple) 10%, var(--bg-card));
+  color: var(--text-primary);
+}
+.ai-assistant .inspector-tabs button.active:after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #7048f0, #c15cff);
+  box-shadow: 0 0 9px #9b5cff;
+}
+.ai-assistant .ai-head {
+  min-height: 54px;
+  padding: 10px 15px;
+}
+.ai-assistant .ai-head strong {
+  font-size: 13px;
+}
+.ai-assistant .ai-head strong em {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #8b5cf626;
+  color: #c084fc;
+  font-size: 8px;
+  font-style: normal;
+}
+.ai-assistant .ai-scroll {
+  padding: 12px 13px 20px;
+}
+.ai-assistant .ai-scroll section {
+  border-color: color-mix(in srgb, var(--ui-border) 80%, #8b5cf6);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--bg-card) 96%, #312e81),
+    var(--bg-card)
+  );
+  box-shadow: inset 0 1px 0 #ffffff08;
+}
+.ai-assistant .ai-context {
+  padding: 13px;
+  gap: 9px;
+}
+.ai-assistant .ai-context small {
+  font-size: 11px;
+  color: var(--text-primary);
+}
+.ai-assistant .ai-context b,
+.ai-assistant .ai-context span {
+  font-size: 10px;
+}
+.ai-assistant .ai-context b svg {
+  color: #c4d743;
+}
+.ai-assistant .ai-context span svg {
+  color: #34d399;
+}
+.ai-section-title {
+  margin: 18px 0 9px;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+.ai-assistant .ai-quick {
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  gap: 8px;
+}
+.ai-assistant .ai-quick button {
+  height: 68px;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 9px;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--bg-card) 93%, #6d5bd0),
+    var(--bg-card)
+  );
+  text-align: left;
+}
+.ai-assistant .ai-quick button > i {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background: #7654d129;
+  color: #a78bfa;
+  font-style: normal;
+}
+.ai-assistant .ai-quick button:nth-child(2) > i,
+.ai-assistant .ai-quick button:nth-child(4) > i {
+  background: #10b98120;
+  color: #34d399;
+}
+.ai-assistant .ai-quick button:nth-child(3) > i,
+.ai-assistant .ai-quick button:nth-child(5) > i {
+  background: #f59e0b1c;
+  color: #f59e0b;
+}
+.ai-assistant .ai-quick button:nth-child(6) > i {
+  background: #ec489920;
+  color: #f472b6;
+}
+.ai-assistant .ai-quick button:nth-child(8) > i {
+  background: #a855f720;
+  color: #d8b4fe;
+}
+.ai-assistant .ai-quick button svg {
+  width: 16px;
+  height: 16px;
+  color: inherit;
+}
+.ai-assistant .ai-quick button > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ai-assistant .ai-quick button b {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 10px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ai-assistant .ai-quick button small {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 8px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ai-assistant .ai-quick button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--ai-purple);
+  box-shadow: 0 8px 18px #0003;
+}
+.ai-suggestions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  margin-bottom: 14px;
+}
+.ai-suggestions button {
+  max-width: 100%;
+  padding: 7px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+  color: var(--text-primary);
+  font-size: 9px;
+  text-align: left;
+}
+.ai-suggestions button:hover {
+  border-color: var(--ai-purple);
+  background: #8b5cf614;
+}
+.ai-assistant .ai-chat {
+  position: relative;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+.ai-assistant .ai-chat textarea {
+  height: 72px;
+  padding: 12px 56px 12px 12px;
+  border-radius: 9px;
+  resize: none;
+}
+.ai-assistant .ai-chat > button {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  width: 38px;
+  height: 38px;
+  margin: 0;
+  padding: 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #7048f0, #925cff);
+  box-shadow: 0 5px 15px #7048f04d;
+}
+.ai-disclaimer {
+  margin: 8px 0 12px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 8px;
+}
+.ai-assistant > .ai-scroll > .ai-privacy {
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+  font-size: 8px;
+  line-height: 1.5;
+}
+.ai-assistant .ai-history {
+  margin-top: 8px;
+}
+@media (max-width: 1100px) {
+  .icon-btn.ai-header-button.on:after {
+    display: none;
+  }
+  .icon-btn.ai-header-button.on {
+    width: 36px !important;
+    padding: 0 !important;
+  }
+}
+@media (max-width: 520px) {
+  .ai-assistant .ai-quick {
+    grid-template-columns: 1fr;
+  }
+  .ai-assistant .ai-quick button {
+    height: 60px;
+  }
+}
+
+/* AI panel readability: intentionally scoped so the asset grid keeps its compact density. */
+.app.detail-open:has(.ai-assistant) {
+  grid-template-columns: var(--sidebar-width, 248px) minmax(460px, 1fr) 350px;
+}
+.app.detail-open:has(.ai-assistant) .bug-feedback {
+  right: 368px;
+}
+.ai-assistant .inspector-tabs button {
+  font-size: 13px;
+}
+.ai-assistant .ai-head strong {
+  font-size: 15px;
+}
+.ai-assistant .ai-head strong em {
+  font-size: 9px;
+}
+.ai-assistant .ai-head > button {
+  width: 34px;
+  height: 34px;
+}
+.ai-assistant .ai-context small {
+  font-size: 13px;
+}
+.ai-assistant .ai-context b,
+.ai-assistant .ai-context span {
+  font-size: 12px;
+  line-height: 1.45;
+}
+.ai-section-title {
+  font-size: 13px;
+}
+.ai-assistant .ai-quick button {
+  height: 76px;
+  padding: 12px;
+}
+.ai-assistant .ai-quick button > i {
+  width: 34px;
+  height: 34px;
+}
+.ai-assistant .ai-quick button svg {
+  width: 18px;
+  height: 18px;
+}
+.ai-assistant .ai-quick button b {
+  font-size: 12px;
+}
+.ai-assistant .ai-quick button small {
+  font-size: 10px;
+  line-height: 1.35;
+}
+.ai-assistant .ai-quick button:disabled {
+  opacity: 0.68;
+}
+.ai-suggestions {
+  gap: 9px;
+}
+.ai-suggestions button {
+  padding: 8px 13px;
+  font-size: 11px;
+  line-height: 1.25;
+}
+.ai-assistant .ai-chat textarea {
+  height: 80px;
+  font-size: 12px;
+}
+.ai-disclaimer {
+  font-size: 10px;
+}
+.ai-assistant > .ai-scroll > .ai-privacy {
+  font-size: 10px;
+}
+.ai-assistant .ai-history > strong {
+  font-size: 12px;
+}
+.ai-assistant .ai-history small,
+.ai-assistant .ai-history p {
+  font-size: 10px;
+}
+.ai-assistant .ai-result p,
+.ai-assistant .ai-error,
+.ai-assistant .ai-progress span,
+.ai-assistant .ai-progress button {
+  font-size: 11px;
+}
+@media (max-width: 1120px) {
+  .app.detail-open:has(.ai-assistant) {
+    grid-template-columns: var(--sidebar-width, 220px) minmax(390px, 1fr) 350px;
+  }
+  .app.detail-open:has(.ai-assistant) .bug-feedback {
+    right: 368px;
+  }
+}
+@media (max-width: 900px) {
+  .app.detail-open:has(.ai-assistant) {
+    grid-template-columns: var(--sidebar-width, 210px) minmax(0, 1fr);
+  }
+  .ai-assistant {
+    width: min(350px, 92vw);
+  }
+}
+
+/* Keep every AI surface inside the inspector; no horizontal scrollbar or clipped cards. */
+.ai-assistant {
+  min-width: 0;
+  overflow: hidden;
+}
+.ai-assistant .inspector-tabs button,
+.ai-assistant .ai-scroll,
+.ai-assistant .ai-scroll section {
+  min-width: 0;
+}
+.ai-assistant .ai-scroll {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.ai-assistant .ai-quick {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  min-width: 0;
+}
+.ai-assistant .ai-quick button,
+.ai-assistant .ai-chat,
+.ai-assistant .ai-chat textarea,
+.ai-suggestions {
+  min-width: 0;
+  max-width: 100%;
+}
+.ai-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  overflow: hidden;
+}
+
+/* Windows caption buttons occupy the inspector's top-right corner. Keep both
+   inspector tabs inside the remaining draggable title-bar area. */
+html[data-platform="win32"] .ai-assistant .inspector-tabs {
+  width: calc(100% - 138px);
+  margin-right: 138px;
+  padding: 6px 4px 0 10px;
+  gap: 4px;
+}
+html[data-platform="win32"] .ai-assistant .inspector-tabs button {
+  overflow: hidden;
+  padding: 0 6px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ai-assistant .inspector-tabs button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
