@@ -62,6 +62,20 @@ test('does not accept a selection outside the configured AI Flow root', async t 
   assert.deepEqual(selected, [fs.realpathSync(path.join(root, 'latest.mp4'))]);
 });
 
+test('accepts an in-root material reached through a path alias after realpath canonicalization', async t => {
+  const root = fixture(t);
+  const alias = `${root}-alias`;
+  try {
+    fs.symlinkSync(root, alias, process.platform === 'win32' ? 'junction' : 'dir');
+  } catch (error) {
+    t.skip(`无法创建测试链接：${error.message}`);
+    return;
+  }
+  t.after(() => fs.rmSync(alias, { recursive: true, force: true }));
+  const selected = await validateLocalVideoSelections(alias, [path.join(alias, 'latest.mp4')]);
+  assert.deepEqual(selected, [fs.realpathSync(path.join(root, 'latest.mp4'))]);
+});
+
 test('does not accept unsupported or out-of-root local AI Flow material selections', async t => {
   const root = fixture(t);
   const outside = path.join(os.tmpdir(), `nest-aiflow-outside-${Date.now()}.png`);

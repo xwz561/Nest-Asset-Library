@@ -144,7 +144,7 @@ async function validateLocalSelections(root, paths, {
   const allowed = [];
   for (const value of Array.isArray(paths) ? paths : []) {
     const candidate = path.resolve(String(value || ''));
-    if (!isWithinRoot(resolvedRoot, candidate) || !extensions.has(extensionOf(candidate))) continue;
+    if (!extensions.has(extensionOf(candidate))) continue;
     try {
       const stat = await fs.promises.lstat(candidate);
       if (stat.isSymbolicLink() || !stat.isFile()) continue;
