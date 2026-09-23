@@ -36,9 +36,15 @@ jobs:
         shell: bash
         run: |
           for test_file in test/*.test.cjs; do
-            if ! node --test "$test_file"; then
-              echo "::error title=macOS source test failed::$test_file"
-              exit 1
+            set +e
+            output="$(node --test "$test_file" 2>&1)"
+            status=$?
+            set -e
+            printf '%s\n' "$output"
+            if [ "$status" -ne 0 ]; then
+              failure="$(printf '%s\n' "$output" | grep -m1 '^not ok' || true)"
+              echo "::error title=macOS source test failed::$test_file ${failure:-unknown test failure}"
+              exit "$status"
             fi
           done
 
