@@ -1,5 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { MarkdownReader } from './markdown-reader.jsx';
+import { LanChat } from './lan-chat.jsx';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { waveformCache } from "./waveform-cache.js";
+import { subscribeAssetAudio } from "./audio-asset-subscription.js";
 import {
   Archive,
   ArrowDownAZ,
@@ -12,12 +16,14 @@ import {
   Camera,
   Check,
   ChevronDown,
+  Clapperboard,
   ClipboardCopy,
   Clock,
   Columns3,
   Copy,
   Download,
   Eye,
+  ExternalLink,
   FileText,
   Filter,
   Folder,
@@ -27,12 +33,17 @@ import {
   Heart,
   Image as ImageIcon,
   Import,
+  Infinity as InfinityIcon,
   Info,
   LayoutGrid,
+  Link2,
   List,
+  LogIn,
+  LogOut,
   MapPin,
   Maximize2,
   Menu,
+  Minus,
   MoreHorizontal,
   Music,
   Palette,
@@ -44,6 +55,7 @@ import {
   RotateCw,
   Search,
   Settings,
+  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Star,
@@ -53,11 +65,16 @@ import {
   Video,
   Volume2,
   X,
+  Zap,
 } from "lucide-react";
 import "./styles.css";
 import "./ai-assistant.css";
 import "./ai-settings-page.css";
+import ReferenceBoard from "./reference-board.jsx";
 import appIcon from "../build/icon.png";
+import directorPrankVideo from "./assets/director-prank.mp4";
+import communitySupportAvatar from "./assets/community-support-avatar.png";
+import communitySupportPaymentQr from "./assets/community-support-payment-qr.png";
 import { buildFolderRows, toggleExpandedFolder } from "./folder-tree.js";
 import {
   DEFAULT_THEME,
@@ -76,9 +93,38 @@ import {
   themeStyle,
 } from "./theme-utils.js";
 import { audioPreviewManager } from "./audio-preview-manager.js";
+import { BACKGROUND_MUSIC_STORAGE_KEY, BACKGROUND_MUSIC_VOLUME_STORAGE_KEY, backgroundMusic, backgroundMusicEnabledFromStorage, backgroundMusicVolumeFromStorage } from "./background-music.js";
+import { assetMatchesTag, buildTagTree } from "./tag-tree.js";
 
 const APP_VERSION =
-  typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "2.0.9";
+  typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "3.0.4";
+const CURRENT_RELEASE_NOTES = [
+  {
+    type: "新增",
+    title: "深度视频转换",
+    items: ["视频右键即可生成灰度深度视频，原视频和音频会保留。", "转换过程显示进度，未完成时可取消并自动清理临时文件。"],
+  },
+  {
+    type: "优化",
+    title: "AI Flow 文件夹同步",
+    items: ["连接文件夹中的导入、移动和上传会进入同步队列。", "自动刷新开启后会更新连接素材的显示状态。"],
+  },
+  {
+    type: "优化",
+    title: "聊天与文件传输",
+    items: ["支持发送任意文件，单个附件上限提升至 10 GB。", "新加入成员可读取历史消息，接收文件保留原始下载名称。"],
+  },
+  {
+    type: "优化",
+    title: "素材与参考画布",
+    items: ["Markdown 可作为素材导入并按标题、列表、表格和代码块阅读。", "无限参考板底部素材栏可调整高度，并可从中拖入素材。"],
+  },
+  {
+    type: "修复",
+    title: "界面与资源库稳定性",
+    items: ["移除不再使用的“合集”，简化素材库侧栏与插件权限。", "旧资源库会自动清理历史合集数据，不影响素材和真实文件夹。"],
+  },
+];
 const DB_NAME = "nest-assets";
 const STORE = "assets";
 const seed = [
@@ -192,6 +238,8 @@ const FILTER_TYPES = [
   ["image", "图片"],
   ["video", "视频"],
   ["audio", "音频"],
+  ["text", "剧本"],
+  ["application", "文档"],
 ];
 const FILTER_FORMATS = [
   "JPG",
@@ -204,6 +252,11 @@ const FILTER_FORMATS = [
   "MP3",
   "WAV",
   "FLAC",
+  "PDF",
+  "DOCX",
+  "TXT",
+  "MD",
+  "FOUNTAIN",
 ];
 const MIME_FORMAT = {
   jpeg: "JPG",
@@ -215,6 +268,7 @@ const MIME_FORMAT = {
   "x-ms-wma": "WMA",
 };
 const assetFormat = (asset) => {
+  if (asset.documentFormat) return asset.documentFormat;
   const fromName = asset.name?.match(/\.([a-z0-9]+)$/i)?.[1];
   if (fromName) return (MIME_FORMAT[fromName.toLowerCase()] || fromName).toUpperCase();
   const subtype = (asset.type?.split("/")[1] || "").toLowerCase();
@@ -222,6 +276,7 @@ const assetFormat = (asset) => {
 };
 const clampSidebarWidth = (value) =>
   Math.min(440, Math.max(190, Number(value) || 232));
+const TETRIS_ACCESS_CODE = "963";
 function readPending() {
   try {
     return JSON.parse(localStorage.getItem(PENDING_KEY) || "{}");
@@ -285,6 +340,172 @@ const folderIcon = (key) =>
 if (window.nestDesktop?.platform)
   document.documentElement.dataset.platform = window.nestDesktop.platform;
 
+function PixelImportIcon({ size = 16 }) {
+  return (
+    <svg
+      className="pixel-icon pixel-icon--grass"
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      focusable="false"
+      shapeRendering="crispEdges"
+    >
+      <rect x="1" y="1" width="14" height="14" fill="#10291d" />
+      <rect x="2" y="2" width="12" height="4" fill="#51c878" />
+      <rect x="2" y="5" width="12" height="2" fill="#287347" />
+      <rect x="2" y="7" width="12" height="7" fill="#70442b" />
+      <rect x="3" y="8" width="3" height="2" fill="#925c3b" />
+      <rect x="10" y="10" width="3" height="2" fill="#542f22" />
+      <path d="M7 4h2v4h2v2H9v2H7v-2H5V8h2z" fill="#effff5" />
+    </svg>
+  );
+}
+
+function PixelChestIcon({ size = 20 }) {
+  return (
+    <svg
+      className="pixel-icon pixel-icon--chest"
+      width={size}
+      height={size}
+      viewBox="0 0 20 20"
+      aria-hidden="true"
+      focusable="false"
+      shapeRendering="crispEdges"
+    >
+      <rect x="2" y="6" width="16" height="11" fill="#0a0d0d" />
+      <rect x="3" y="5" width="14" height="5" fill="#5b341c" />
+      <rect x="4" y="4" width="12" height="1" fill="#754820" />
+      <rect x="4" y="5" width="12" height="3" fill="#ba7837" />
+      <rect x="5" y="5" width="7" height="1" fill="#efb665" />
+      <rect x="12" y="5" width="3" height="2" fill="#895321" />
+      <rect x="4" y="8" width="12" height="1" fill="#815022" />
+      <rect x="3" y="9" width="14" height="7" fill="#8f4f25" />
+      <rect x="4" y="10" width="3" height="5" fill="#bc7135" />
+      <rect x="7" y="10" width="6" height="5" fill="#9d5929" />
+      <rect x="13" y="10" width="3" height="5" fill="#5c3019" />
+      <rect x="3" y="15" width="14" height="1" fill="#482415" />
+      <rect x="8" y="8" width="4" height="5" fill="#17120d" />
+      <rect x="9" y="9" width="2" height="3" fill="#f1cf67" />
+      <rect x="9" y="9" width="1" height="1" fill="#fff1a1" />
+      <rect x="9" y="11" width="2" height="1" fill="#a76924" />
+    </svg>
+  );
+}
+
+function PixelPortalIcon({ size = 16 }) {
+  return (
+    <svg
+      className="pixel-icon pixel-icon--portal"
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      focusable="false"
+      shapeRendering="crispEdges"
+    >
+      <rect x="1" y="1" width="14" height="14" fill="#160b2a" />
+      <rect x="2" y="2" width="12" height="12" fill="#392153" />
+      <rect x="3" y="3" width="10" height="10" fill="#6e3ca1" />
+      <rect x="4" y="4" width="8" height="8" fill="#8d54c9" />
+      <rect x="5" y="4" width="3" height="2" fill="#d5adff" />
+      <rect x="8" y="7" width="3" height="2" fill="#562a86" />
+      <rect x="5" y="10" width="4" height="1" fill="#c088ff" />
+      <rect x="10" y="3" width="2" height="2" fill="#f1e2ff" />
+    </svg>
+  );
+}
+
+function PixelNavIcon({ kind, size = 17 }) {
+  return (
+    <svg
+      className={`pixel-nav-icon pixel-nav-icon--${kind}`}
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      focusable="false"
+      shapeRendering="crispEdges"
+    >
+      {kind === "all" && (
+        <>
+          <rect x="1" y="1" width="6" height="6" fill="#21423f" />
+          <rect x="2" y="2" width="3" height="3" fill="#63d9c2" />
+          <rect x="9" y="1" width="6" height="6" fill="#21423f" />
+          <rect x="10" y="2" width="3" height="3" fill="#36a98d" />
+          <rect x="1" y="9" width="6" height="6" fill="#21423f" />
+          <rect x="2" y="10" width="3" height="3" fill="#36a98d" />
+          <rect x="9" y="9" width="6" height="6" fill="#21423f" />
+          <rect x="10" y="10" width="3" height="3" fill="#8ff5dd" />
+        </>
+      )}
+      {kind === "unclassified" && (
+        <>
+          <rect x="2" y="3" width="12" height="11" fill="#1a2020" />
+          <rect x="3" y="4" width="10" height="8" fill="#72837c" />
+          <rect x="3" y="4" width="10" height="2" fill="#a7b6ae" />
+          <rect x="4" y="7" width="8" height="1" fill="#44524d" />
+          <rect x="5" y="9" width="6" height="2" fill="#52635d" />
+        </>
+      )}
+      {kind === "favorite" && (
+        <path
+          d="M2 4h3v1h1V4h4v1h1V4h3v2h1v4h-1v1h-1v1h-1v1h-1v1H7v-1H6v-1H5v-1H4v-1H3V6H2z"
+          fill="#e07587"
+        />
+      )}
+      {kind === "recent" && (
+        <>
+          <path d="M5 1h6v1h2v2h1v8h-1v2h-2v1H5v-1H3v-2H2V4h1V2h2z" fill="#5e4c26" />
+          <rect x="5" y="3" width="6" height="1" fill="#f0d274" />
+          <rect x="4" y="5" width="8" height="7" fill="#c79b42" />
+          <rect x="7" y="6" width="2" height="4" fill="#fff0a4" />
+          <rect x="9" y="9" width="2" height="2" fill="#fff0a4" />
+        </>
+      )}
+      {kind === "image" && (
+        <>
+          <rect x="1" y="2" width="14" height="12" fill="#392618" />
+          <rect x="2" y="3" width="12" height="10" fill="#9bd8f0" />
+          <rect x="3" y="4" width="2" height="2" fill="#fff3a2" />
+          <path d="M2 11h3v-2h2v1h2V8h2v2h3v3H2z" fill="#36a878" />
+          <rect x="2" y="12" width="12" height="1" fill="#1d6a52" />
+        </>
+      )}
+      {kind === "video" && (
+        <>
+          <rect x="1" y="3" width="14" height="11" fill="#12191e" />
+          <rect x="2" y="4" width="12" height="8" fill="#405563" />
+          <rect x="2" y="2" width="12" height="2" fill="#77909b" />
+          <rect x="4" y="2" width="2" height="2" fill="#15252b" />
+          <rect x="8" y="2" width="2" height="2" fill="#15252b" />
+          <path d="M7 6h2v1h1v2H9v1H7z" fill="#8bffd0" />
+        </>
+      )}
+      {kind === "audio" && (
+        <>
+          <rect x="8" y="2" width="2" height="9" fill="#69d4bb" />
+          <rect x="10" y="2" width="4" height="2" fill="#9bf4dd" />
+          <rect x="3" y="10" width="5" height="4" fill="#2f7d6b" />
+          <rect x="4" y="9" width="4" height="4" fill="#6ad5bc" />
+          <rect x="8" y="11" width="5" height="3" fill="#2f7d6b" />
+          <rect x="9" y="10" width="4" height="3" fill="#8fe5d0" />
+        </>
+      )}
+      {kind === "script" && (
+        <>
+          <rect x="3" y="1" width="10" height="14" fill="#4a351e" />
+          <rect x="4" y="2" width="8" height="12" fill="#e8d09a" />
+          <rect x="5" y="4" width="5" height="1" fill="#946e3e" />
+          <rect x="5" y="7" width="6" height="1" fill="#946e3e" />
+          <rect x="5" y="10" width="4" height="1" fill="#946e3e" />
+          <rect x="10" y="12" width="2" height="2" fill="#c29352" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 function App() {
   const [assets, setAssets] = useState([]),
     [selected, setSelected] = useState(null),
@@ -307,15 +528,19 @@ function App() {
         : "standard",
     ),
     [selectedIds, setSelectedIds] = useState([]),
+    [referenceAssetIds, setReferenceAssetIds] = useState([]),
+    [referenceUploadPreparing, setReferenceUploadPreparing] = useState(false),
     [marquee, setMarquee] = useState(null),
     [dropFolderId, setDropFolderId] = useState(undefined),
     [importing, setImporting] = useState(false),
     [importProgress, setImportProgress] = useState(null),
+    [importCancelRequested, setImportCancelRequested] = useState(false),
+    [depthVideoJob, setDepthVideoJob] = useState(null),
     [previewId, setPreviewId] = useState(null),
     [zoom, setZoom] = useState(1),
     [rotation, setRotation] = useState(0),
     [checker, setChecker] = useState(false),
-    [visibleLimit, setVisibleLimit] = useState(160),
+    [virtualRange, setVirtualRange] = useState({ start: 0, end: 200, before: 0, after: 0 }),
     [libraryChoosing, setLibraryChoosing] = useState(false);
   const [dialogState, setDialogState] = useState(null),
     [themePanel, setThemePanel] = useState(false),
@@ -328,20 +553,47 @@ function App() {
     [quickTypes, setQuickTypes] = useState([]),
     [quickFormats, setQuickFormats] = useState([]);
   const [contextMenu, setContextMenu] = useState(null);
+  const [renamingFolder, setRenamingFolder] = useState(null);
+  const [batchRenamePanel, setBatchRenamePanel] = useState(false);
+  const [aiFlowImportPanel, setAiFlowImportPanel] = useState(false);
   const [extensionPanel, setExtensionPanel] = useState(false),
     [extensionResult, setExtensionResult] = useState(null),
-    [extensionBusy, setExtensionBusy] = useState(false);
+    [extensionBusy, setExtensionBusy] = useState(false),
+    [plugins, setPlugins] = useState([]),
+    [mcpConfig, setMcpConfig] = useState(null);
   const [updateInfo, setUpdateInfo] = useState(null),
     [updatePanel, setUpdatePanel] = useState(false),
     [updateChecking, setUpdateChecking] = useState(false);
   const [updateProgress, setUpdateProgress] = useState(null),
     [updateFile, setUpdateFile] = useState(""),
     [updateError, setUpdateError] = useState("");
+  const [supportPanel, setSupportPanel] = useState(false);
+  const [backgroundMusicEnabled, setBackgroundMusicEnabled] = useState(() => backgroundMusicEnabledFromStorage());
+  const [backgroundMusicVolume, setBackgroundMusicVolume] = useState(() => backgroundMusicVolumeFromStorage());
+  const supportWelcomeKey = `nest-support-welcome-${APP_VERSION}`;
   const [aiPanel, setAiPanel] = useState(false),
     [aiSettingsPanel, setAiSettingsPanel] = useState(false),
     [aiResultIds, setAiResultIds] = useState(null);
+  const [activeModule, setActiveModule] = useState("library");
+  const [directorPrankPlaying, setDirectorPrankPlaying] = useState(false);
+  const directorPrankVideoRef = useRef(null);
+  const directorPrankEscCount = useRef(0);
+  const [tetrisPasswordOpen, setTetrisPasswordOpen] = useState(false),
+    [tetrisPassword, setTetrisPassword] = useState(""),
+    [tetrisPasswordError, setTetrisPasswordError] = useState("");
+  const [activeReferenceBoardId, setActiveReferenceBoardId] = useState(null);
   const [diskInfo, setDiskInfo] = useState(null);
+  const [teamPanel, setTeamPanel] = useState(false);
+  const [expandedTags, setExpandedTags] = useState(() => new Set());
+  const [dropTag, setDropTag] = useState(null);
   const desktop = Boolean(window.nestDesktop);
+  const canEdit = !desktop || ["owner", "admin", "editor"].includes(library?.currentMember?.role);
+  const allTags = useMemo(() => [...new Set([...(library?.tags || []), ...assets.flatMap(asset => asset.tags || [])])], [library?.tags, assets]);
+  const tagRows = useMemo(() => buildTagTree(allTags, expandedTags), [allTags, expandedTags]);
+  const referenceAssets = useMemo(
+    () => referenceAssetIds.map((id) => assets.find((asset) => asset.id === id)).filter(Boolean),
+    [assets, referenceAssetIds],
+  );
   const resolvedThemeMode =
     theme.mode === "system" ? (systemDark ? "dark" : "light") : theme.mode;
   const renderedTheme =
@@ -354,6 +606,31 @@ function App() {
     media.addEventListener?.("change", change);
     return () => media.removeEventListener?.("change", change);
   }, []);
+  useEffect(() => {
+    const volume = backgroundMusic.setVolume(backgroundMusicVolume);
+    try { localStorage.setItem(BACKGROUND_MUSIC_VOLUME_STORAGE_KEY, String(volume)); } catch { /* storage can be blocked */ }
+  }, [backgroundMusicVolume]);
+  useEffect(() => {
+    try { localStorage.setItem(BACKGROUND_MUSIC_STORAGE_KEY, String(backgroundMusicEnabled)); } catch { /* storage can be blocked */ }
+    if (backgroundMusicEnabled) void backgroundMusic.start();
+    else backgroundMusic.pause();
+    return () => backgroundMusic.pause();
+  }, [backgroundMusicEnabled]);
+  useEffect(() => {
+    if (!desktop || !ready || localStorage.getItem(supportWelcomeKey)) return;
+    setSupportPanel(true);
+  }, [desktop, ready, supportWelcomeKey]);
+  const closeSupportPanel = () => {
+    localStorage.setItem(supportWelcomeKey, "seen");
+    setSupportPanel(false);
+  };
+  useEffect(() => {
+    if (!window.nestDesktop?.setTitleBarColors) return;
+    window.nestDesktop.setTitleBarColors({
+      background: normalizeHex(renderedTheme.colors.sidebar),
+      symbols: readableText(renderedTheme.colors.sidebar),
+    });
+  }, [renderedTheme.colors.sidebar]);
   const recycleBinName =
     window.nestDesktop?.platform === "darwin" ? "废纸篓" : "回收站";
   const input = useRef(),
@@ -366,10 +643,16 @@ function App() {
     marqueeBase = useRef(new Set()),
     lastSelectedId = useRef(null),
     sidebarResizing = useRef(false),
+    contextMenuRef = useRef(null),
     externalDragActive = useRef(false),
     externalDragTimer = useRef(null),
     lastUpdateCheck = useRef(0),
-    lastNotifiedVersion = useRef("");
+    lastNotifiedVersion = useRef(""),
+    mainScrollRef = useRef(null),
+    assetGridRef = useRef(null),
+    virtualRaf = useRef(0),
+    folderRenameInputRef = useRef(null),
+    folderRenameSaving = useRef(false);
   const askText = (title, defaultValue = "", placeholder = "") =>
     new Promise((resolve) =>
       setDialogState({
@@ -417,8 +700,6 @@ function App() {
             setLibrary(lib);
             assetsRef.current = lib.assets;
             setAssets(lib.assets);
-            setMessage("网页采集的新素材已加入");
-            setTimeout(() => setMessage(""), 3500);
           }
         },
       );
@@ -490,6 +771,19 @@ function App() {
         : undefined,
     [desktop],
   );
+  useEffect(
+    () =>
+      desktop
+        ? window.nestDesktop.depthVideo?.onProgress?.((progress) => {
+            setDepthVideoJob((current) =>
+              current?.assetId === progress?.assetId
+                ? { ...current, ...progress }
+                : current,
+            );
+          })
+        : undefined,
+    [desktop],
+  );
   useEffect(() => {
     if (!desktop || !library?.path || !window.nestDesktop?.storageInfo) {
       setDiskInfo(null);
@@ -510,6 +804,20 @@ function App() {
       clearInterval(timer);
     };
   }, [desktop, library?.path]);
+  useEffect(() => {
+    if (!window.nestDesktop?.setExtensionImportTarget) return;
+    void Promise.resolve(
+      window.nestDesktop.setExtensionImportTarget(
+        library && activeFolder ? activeFolder : null,
+      ),
+    ).catch(() => {});
+  }, [library?.id, library?.path, activeFolder]);
+  useEffect(() => {
+    setReferenceAssetIds((ids) => {
+      const next = ids.filter((id) => assets.some((asset) => asset.id === id));
+      return next.length === ids.length ? ids : next;
+    });
+  }, [assets]);
   const checkUpdate = async () => {
     setUpdateChecking(true);
     lastUpdateCheck.current = Date.now();
@@ -609,8 +917,10 @@ function App() {
         setThemePanel(false);
         setAiSettingsPanel(false);
         setAiPanel(false);
+        setAiFlowImportPanel(false);
         setSortPanel(false);
         setFilterPanel(false);
+        setSupportPanel(false);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -618,11 +928,16 @@ function App() {
   }, []);
   useEffect(() => {
     if (!contextMenu) return;
-    const close = () => setContextMenu(null);
-    window.addEventListener("click", close);
+    const close = (event) => {
+      if (event && contextMenuRef.current?.contains(event.target)) return;
+      setContextMenu(null);
+    };
+    // Capture phase still sees the pointer when a surrounding React panel stops
+    // propagation, which previously left folder menus stranded on screen.
+    document.addEventListener("pointerdown", close, true);
     window.addEventListener("blur", close);
     return () => {
-      window.removeEventListener("click", close);
+      document.removeEventListener("pointerdown", close, true);
       window.removeEventListener("blur", close);
     };
   }, [contextMenu]);
@@ -644,22 +959,37 @@ function App() {
     }
     return ids;
   }, [library, activeFolder]);
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const aiResultIdSet = useMemo(() => aiResultIds ? new Set(aiResultIds) : null, [aiResultIds]);
+  const sortedAssets = useMemo(() => {
+    const compareName = new Intl.Collator("zh-CN").compare;
+    return [...assets].sort((a, b) =>
+      sortOrder === "oldest" ? a.createdAt - b.createdAt
+        : sortOrder === "nameAsc" ? compareName(a.name, b.name)
+          : sortOrder === "nameDesc" ? compareName(b.name, a.name)
+            : sortOrder === "sizeDesc" ? b.size - a.size
+              : sortOrder === "sizeAsc" ? a.size - b.size
+                : b.createdAt - a.createdAt);
+  }, [assets, sortOrder]);
+  const normalizedQuery = query.toLowerCase();
   const shown = useMemo(
     () =>
-      assets
+      sortedAssets
         .filter((a) => {
-          const q = query.toLowerCase();
+          const q = normalizedQuery;
           const match =
             !q ||
             a.name.toLowerCase().includes(q) ||
-            (a.tags || []).some((t) => t.toLowerCase().includes(q));
-          const tagMatch = !currentTag || (a.tags || []).includes(currentTag);
+            (a.tags || []).some((t) => t.toLowerCase().includes(q)) ||
+            (a.documentText || "").toLowerCase().includes(q);
+          const tagMatch = assetMatchesTag(a.tags, currentTag);
           const f =
             filter === "全部素材" ||
             (filter === "收藏夹" && a.favorite) ||
             (filter === "图片" && a.type.startsWith("image")) ||
             (filter === "视频" && a.type.startsWith("video")) ||
             (filter === "音频" && a.type.startsWith("audio")) ||
+            (filter === "剧本" && (a.type.startsWith("text") || a.type === "application/pdf" || a.documentFormat === "DOCX")) ||
             (filter === "未分类" && !a.folderId) ||
             (filter === "最近" && Date.now() - a.createdAt < 7 * 86400000);
           const quickType =
@@ -668,7 +998,7 @@ function App() {
           const quickFormat =
             !quickFormats.length || quickFormats.includes(assetFormat(a));
           return (
-            (!aiResultIds || aiResultIds.includes(a.id)) &&
+            (!aiResultIdSet || aiResultIdSet.has(a.id)) &&
             match &&
             tagMatch &&
             f &&
@@ -676,35 +1006,51 @@ function App() {
             quickFormat &&
             (!activeFolderIds || activeFolderIds.has(a.folderId))
           );
-        })
-        .sort((a, b) =>
-          sortOrder === "oldest"
-            ? a.createdAt - b.createdAt
-            : sortOrder === "nameAsc"
-              ? a.name.localeCompare(b.name, "zh-CN")
-              : sortOrder === "nameDesc"
-                ? b.name.localeCompare(a.name, "zh-CN")
-                : sortOrder === "sizeDesc"
-                  ? b.size - a.size
-                  : sortOrder === "sizeAsc"
-                    ? a.size - b.size
-                    : b.createdAt - a.createdAt,
-        ),
+        }),
     [
-      assets,
-      query,
+      sortedAssets,
+      normalizedQuery,
       currentTag,
       filter,
       activeFolderIds,
       sortOrder,
       quickTypes,
       quickFormats,
-      aiResultIds,
+      aiResultIdSet,
     ],
   );
-  const displayed = shown.slice(0, visibleLimit);
+  const displayed = shown.slice(virtualRange.start, virtualRange.end);
+  useLayoutEffect(() => {
+    const main = mainScrollRef.current;
+    if (!main || activeModule !== "library") return;
+    const header = main.querySelector(":scope > header");
+    const toolbar = main.querySelector(":scope > .toolbar");
+    const measure = () => main.style.setProperty("--reference-sticky-top",
+      `${(header?.getBoundingClientRect().height || 0) + (toolbar?.getBoundingClientRect().height || 0)}px`);
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (header) observer.observe(header);
+    if (toolbar) observer.observe(toolbar);
+    return () => observer.disconnect();
+  }, [activeModule]);
+  const updateVirtualRange = (element = mainScrollRef.current) => {
+    if (!element || !assetGridRef.current) return;
+    cancelAnimationFrame(virtualRaf.current);
+    virtualRaf.current = requestAnimationFrame(() => {
+      const grid = assetGridRef.current, first = grid.querySelector("article"), gap = viewMode === "list" ? 4 : viewMode === "compact" ? 8 : 11;
+      const columns = viewMode === "list" ? 1 : Math.max(1, Math.round(grid.clientWidth / Math.max(145, first?.getBoundingClientRect().width || (viewMode === "compact" ? 155 : 195))));
+      const rowHeight = Math.max(56, (first?.getBoundingClientRect().height || (viewMode === "list" ? 60 : 190)) + gap);
+      const rows = Math.ceil(shown.length / columns), relativeTop = Math.max(0, element.scrollTop - grid.offsetTop), overscan = 5;
+      const requestedStart = Math.max(0, Math.floor(relativeTop / rowHeight) - overscan);
+      const startRow = rows ? Math.min(rows - 1, requestedStart) : 0;
+      const requestedEnd = Math.ceil((relativeTop + element.clientHeight) / rowHeight) + overscan;
+      const endRow = rows ? Math.max(startRow + 1, Math.min(rows, requestedEnd)) : 0;
+      const next = { start: startRow * columns, end: Math.min(shown.length, endRow * columns), before: startRow * rowHeight, after: Math.max(0, (rows - endRow) * rowHeight) };
+      setVirtualRange(current => current.start === next.start && current.end === next.end && current.before === next.before && current.after === next.after ? current : next);
+    });
+  };
   const allShownSelected =
-    shown.length > 0 && shown.every((asset) => selectedIds.includes(asset.id));
+    shown.length > 0 && shown.every((asset) => selectedIdSet.has(asset.id));
   const toggleSelectAll = () => {
     const shownIds = new Set(shown.map((asset) => asset.id));
     setSelectedIds((ids) =>
@@ -718,29 +1064,93 @@ function App() {
     if (selected && !shown.some((a) => a.id === selected.id)) setSelected(null);
   }, [shown, selected]);
   const inspectorOpen = Boolean(selected || aiPanel);
-  useEffect(() => {
-    if (!window.nestDesktop?.setInspectorOpen) return;
-    window.nestDesktop.setInspectorOpen(inspectorOpen, 350);
+  const [inspectorFrame, setInspectorFrame] = useState({ ready: false, overlayWidth: 0 });
+  // Open the native frame first, then mount the fixed inspector. This preserves
+  // the workspace width for normal windows and avoids a blank exposed frame.
+  useLayoutEffect(() => {
+    const setInspectorOpen = window.nestDesktop?.setInspectorOpen;
+    let disposed = false;
+    if (!setInspectorOpen) {
+      setInspectorFrame({ ready: inspectorOpen, overlayWidth: inspectorOpen ? 350 : 0 });
+      return () => { disposed = true; };
+    }
+    if (!inspectorOpen) {
+      setInspectorFrame({ ready: false, overlayWidth: 0 });
+      void setInspectorOpen(false, 350, { immediate: true });
+      return () => { disposed = true; };
+    }
+    setInspectorFrame({ ready: false, overlayWidth: 0 });
+    void setInspectorOpen(true, 350, { immediate: true }).then(() => {
+      if (disposed) return;
+      // The native frame has already grown to the right. Keep this full width
+      // reserved in the layout so the wider grid never runs underneath it.
+      setInspectorFrame({ ready: true, overlayWidth: 350 });
+    }).catch(() => {
+      if (!disposed) setInspectorFrame({ ready: true, overlayWidth: 350 });
+    });
+    return () => { disposed = true; };
   }, [inspectorOpen]);
   const toggleAiPanel = async () => {
     if (aiPanel) {
       setAiPanel(false);
-      if (!selected)
-        await window.nestDesktop?.setInspectorOpen(false, 350, {
-          immediate: true,
-        });
       return;
     }
-    if (!selected)
-      await window.nestDesktop?.setInspectorOpen(true, 350, {
-        immediate: true,
-      });
     setAiPanel(true);
   };
-  useEffect(
-    () => setVisibleLimit(160),
-    [query, currentTag, filter, activeFolder, sortOrder],
-  );
+  const closeDirectorPrank = () => {
+    directorPrankVideoRef.current?.pause();
+    setDirectorPrankPlaying(false);
+    directorPrankEscCount.current = 0;
+    void window.nestDesktop?.setFullscreen(false);
+  };
+  const playDirectorPrank = () => {
+    setSelected(null);
+    setAiPanel(false);
+    directorPrankEscCount.current = 0;
+    setDirectorPrankPlaying(true);
+    void window.nestDesktop?.setFullscreen(true);
+  };
+  useEffect(() => {
+    if (!directorPrankPlaying) return;
+    const video = directorPrankVideoRef.current;
+    if (video) {
+      video.currentTime = 0;
+      void video.play().catch(() => setMessage("恶搞短片没有开始播放"));
+    }
+    const closeOnEscape = (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      directorPrankEscCount.current += 1;
+      if (directorPrankEscCount.current >= 2) {
+        closeDirectorPrank();
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [directorPrankPlaying]);
+  useEffect(() => {
+    setVirtualRange({ start: 0, end: 200, before: 0, after: 0 });
+    requestAnimationFrame(() => updateVirtualRange());
+  }, [query, currentTag, filter, activeFolder, sortOrder, viewMode, shown.length]);
+  useEffect(() => {
+    const main = mainScrollRef.current;
+    if (!main || typeof ResizeObserver === "undefined") return;
+    let settleTimer;
+    const refresh = () => {
+      clearTimeout(settleTimer);
+      updateVirtualRange(main);
+      settleTimer = setTimeout(() => updateVirtualRange(main), 140);
+    };
+    const observer = new ResizeObserver(refresh);
+    observer.observe(main);
+    window.addEventListener("resize", refresh);
+    return () => {
+      clearTimeout(settleTimer);
+      observer.disconnect();
+      window.removeEventListener("resize", refresh);
+    };
+  }, [viewMode, shown.length]);
   useEffect(() => {
     audioPreviewManager.stop();
   }, [
@@ -781,6 +1191,18 @@ function App() {
   const currentFolder = activeFolder
     ? (library?.folders || []).find((folder) => folder.id === activeFolder)
     : null;
+  const folderBreadcrumbs = useMemo(() => {
+    const byId = new Map((library?.folders || []).map(folder => [folder.id, folder]));
+    const trail = [];
+    const visited = new Set();
+    let current = activeFolder ? byId.get(activeFolder) : null;
+    while (current && !visited.has(current.id)) {
+      visited.add(current.id);
+      trail.unshift(current);
+      current = byId.get(current.parentId);
+    }
+    return trail;
+  }, [library, activeFolder]);
   const contentFolders = useMemo(
     () =>
       filter === "全部素材" && !query && !currentTag
@@ -807,10 +1229,20 @@ function App() {
   }, [library, assets]);
   const folderPreviewById = useMemo(() => new Map(), []);
   const openFolder = (folder) => {
+    setActiveModule("library");
     setFilter("全部素材");
     setQuery("");
     setCurrentTag(null);
     setActiveFolder(folder.id);
+    setSelected(null);
+    setSelectedIds([]);
+  };
+  const openLibraryRoot = () => {
+    setActiveModule("library");
+    setFilter("全部素材");
+    setQuery("");
+    setCurrentTag(null);
+    setActiveFolder(null);
     setSelected(null);
     setSelectedIds([]);
   };
@@ -831,6 +1263,207 @@ function App() {
         current ? lib.assets.find((a) => a.id === current.id) || null : null,
       );
   };
+  const createReferenceBoard = async (input = {}) => {
+    if (!desktop || !canEdit) return { error: "请在桌面版打开资源库后创建参考板" };
+    try {
+      const result = await window.nestDesktop.createReferenceBoard(input);
+      if (result?.error) setMessage(result.error);
+      else if (result?.library) applyLibrary(result.library);
+      return result;
+    } catch (error) {
+      const result = { error: `新建参考板失败：${error.message}` };
+      setMessage(result.error);
+      return result;
+    }
+  };
+  const updateReferenceBoard = async (id, changes) => {
+    if (!desktop || !canEdit) return { error: "当前用户没有编辑参考板的权限" };
+    try {
+      const result = await window.nestDesktop.updateReferenceBoard(id, changes);
+      if (result?.error) setMessage(result.error);
+      else if (result?.library) applyLibrary(result.library);
+      return result;
+    } catch (error) {
+      const result = { error: `保存参考板失败：${error.message}` };
+      setMessage(result.error);
+      return result;
+    }
+  };
+  const deleteReferenceBoard = async (id) => {
+    if (!desktop || !canEdit) return { error: "当前用户没有编辑参考板的权限" };
+    try {
+      const result = await window.nestDesktop.deleteReferenceBoard(id);
+      if (result?.error) setMessage(result.error);
+      else if (result?.library) applyLibrary(result.library);
+      return result;
+    } catch (error) {
+      const result = { error: `删除参考板失败：${error.message}` };
+      setMessage(result.error);
+      return result;
+    }
+  };
+  const openReferenceBoard = (id = null) => {
+    setActiveReferenceBoardId(id || library?.referenceBoards?.[0]?.id || null);
+    setActiveModule("reference-board");
+    setAiPanel(false);
+  };
+  const requestTetrisAccess = () => {
+    setTetrisPassword("");
+    setTetrisPasswordError("");
+    setTetrisPasswordOpen(true);
+  };
+  const unlockTetris = () => {
+    if (tetrisPassword !== TETRIS_ACCESS_CODE) {
+      setTetrisPasswordError("密码不正确，请重新输入。");
+      return;
+    }
+    setSelected(null);
+    setAiPanel(false);
+    setTetrisPasswordOpen(false);
+    setTetrisPasswordError("");
+    setActiveModule("tetris");
+  };
+  const createBoardFromReferences = async () => {
+    const result = await createReferenceBoard({ name: "已选素材参考板", assetIds: referenceAssetIds });
+    if (!result?.error) {
+      setReferenceAssetIds([]);
+      openReferenceBoard(result?.board?.id || null);
+    }
+  };
+  const beginAIFlowExtensionUpload = async (asset) => {
+    if (!desktop || !asset || !canEdit) return;
+    const ids = selectedIds.includes(asset.id) ? selectedIds : [asset.id];
+    const selectedAssets = assetsRef.current.filter((item) => ids.includes(item.id));
+    const totalBytes = selectedAssets.reduce((total, item) => total + (Number(item.size) || 0), 0);
+    const units = ["B", "KB", "MB", "GB"];
+    const unit = totalBytes ? Math.min(units.length - 1, Math.floor(Math.log(totalBytes) / Math.log(1024))) : 0;
+    const sizeLabel = totalBytes ? `${(totalBytes / 1024 ** unit).toFixed(unit ? 1 : 0)} ${units[unit]}` : "大小将在上传前核对";
+    if (!await askConfirm(
+      `上传 ${selectedAssets.length} 个素材到 AI Flow？`,
+      `总大小：${sizeLabel}\n\n确认后，请到已登录的 AI Flow 网页进入目标“我的素材”文件夹，再点击扩展加入的“上传小旺仔素材”。文件在该网页按钮被点击前不会上传；准备将在 10 分钟后失效。`,
+    )) return;
+    try {
+      const result = await window.nestDesktop.aiFlow.beginExtensionUpload(ids);
+      if (result?.error) {
+        setMessage(result.error);
+      } else {
+        setMessage(`已准备 ${result.count} 个素材。请在 AI Flow 目标文件夹点击“上传小旺仔素材”（10 分钟内有效）。`);
+      }
+    } catch (error) {
+      setMessage(`准备上传到 AI Flow 失败：${error.message}`);
+    }
+    setTimeout(() => setMessage(""), 8000);
+  };
+  const beginAIFlowReferenceUpload = async () => {
+    if (!desktop || !canEdit || !referenceAssets.length || referenceUploadPreparing) return;
+    const ids = referenceAssets.map((asset) => asset.id);
+    const totalBytes = referenceAssets.reduce((total, item) => total + (Number(item.size) || 0), 0);
+    const units = ["B", "KB", "MB", "GB"];
+    const unit = totalBytes ? Math.min(units.length - 1, Math.floor(Math.log(totalBytes) / Math.log(1024))) : 0;
+    const sizeLabel = totalBytes ? `${(totalBytes / 1024 ** unit).toFixed(unit ? 1 : 0)} ${units[unit]}` : "大小将在上传前核对";
+    if (!await askConfirm(
+      `上传 ${referenceAssets.length} 个引用素材到 AI Flow？`,
+      `总大小：${sizeLabel}\n\n确认后会由已登录的 Edge 扩展上传，并自动加入当前 AI Flow 页面顶部的“图片 / 视频 / 音频”引用栏；必要时会切换 AI Flow 到“多模态”引用模式。不会上传未在本栏选中的素材，也不会刷新整页或改动你的提示词。`,
+    )) return;
+    setReferenceUploadPreparing(true);
+    try {
+      const result = await window.nestDesktop.aiFlow.beginExtensionUpload(ids, { mode: "prompt-reference" });
+      if (result?.error) {
+        setMessage(result.error);
+      } else {
+        setMessage(`正在上传 ${result.count} 个引用素材；Edge 会自动加入当前 AI Flow 顶部引用栏。`);
+      }
+    } catch (error) {
+      setMessage(`准备 AI Flow 引用上传失败：${error.message}`);
+    } finally {
+      setReferenceUploadPreparing(false);
+      setTimeout(() => setMessage(""), 9000);
+    }
+  };
+  const beginAIFlowFolderExtensionUpload = async (folder) => {
+    if (!desktop || !folder || !canEdit) return;
+    const folderIds = new Set([folder.id]);
+    for (let changed = true; changed;) {
+      changed = false;
+      for (const candidate of library?.folders || []) {
+        if (candidate.parentId && folderIds.has(candidate.parentId) && !folderIds.has(candidate.id)) {
+          folderIds.add(candidate.id);
+          changed = true;
+        }
+      }
+    }
+    const folderAssets = assetsRef.current.filter(item => folderIds.has(item.folderId));
+    const totalBytes = folderAssets.reduce((total, item) => total + (Number(item.size) || 0), 0);
+    const units = ["B", "KB", "MB", "GB"];
+    const unit = totalBytes ? Math.min(units.length - 1, Math.floor(Math.log(totalBytes) / Math.log(1024))) : 0;
+    const sizeLabel = totalBytes ? `${(totalBytes / 1024 ** unit).toFixed(unit ? 1 : 0)} ${units[unit]}` : "大小将在上传前核对";
+    if (!await askConfirm(
+      `上传“${folder.name}”文件夹到 AI Flow？`,
+      `将准备本文件夹及下级文件夹中的 ${folderAssets.length} 个素材（${sizeLabel}）。已对应 AI Flow 的目录会自动上传到对应位置；未对应目录请在 AI Flow 网页选好目标“我的素材”文件夹后点击“上传小旺仔素材”。网页按钮点击前不会上传。`,
+    )) return;
+    try {
+      const result = await window.nestDesktop.aiFlow.beginFolderExtensionUpload(folder.id);
+      if (result?.error) setMessage(result.error);
+      else setMessage(result.requiresTargetSelection ? `已准备 ${result.count} 个素材；请在 AI Flow 网页选定目标文件夹后点击“上传小旺仔素材”。` : `已准备 ${result.count} 个素材，将自动上传到 AI Flow 对应文件夹；请在网页点击“上传小旺仔素材”。`);
+    } catch (error) {
+      setMessage(`准备上传文件夹失败：${error.message}`);
+    }
+    setTimeout(() => setMessage(""), 9000);
+  };
+  const aiFlowLiveRootForFolder = (folder) => {
+    const foldersById = new Map((library?.folders || []).map(item => [String(item.id), item]));
+    let current = folder;
+    const visited = new Set();
+    while (current && !visited.has(String(current.id))) {
+      visited.add(String(current.id));
+      if (current.aiFlowRootSync) return current;
+      current = foldersById.get(String(current.parentId || ''));
+    }
+    return null;
+  };
+  const aiFlowLiveSyncEnabledForFolder = (folder) => {
+    const root = aiFlowLiveRootForFolder(folder);
+    return Boolean(root?.aiFlowRootSync && root.aiFlowRootSync.liveSyncDisabledByUser !== true);
+  };
+  // Every folder within an enabled paired root is visibly connected to AI Flow.
+  const aiFlowFolderConnected = (folder) => aiFlowLiveSyncEnabledForFolder(folder);
+  const toggleAIFlowLiveSync = async (folder) => {
+    if (!desktop || !folder || !canEdit) return;
+    const root = aiFlowLiveRootForFolder(folder);
+    if (!root) {
+      setMessage("只有已执行“同步目录和素材”的本地根目录可以开启实时同步");
+      setTimeout(() => setMessage(""), 5000);
+      return;
+    }
+    const enabled = !aiFlowLiveSyncEnabledForFolder(folder);
+    if (enabled && !await askConfirm(
+      `开启“${root.name}”的 AI Flow 实时同步？`,
+      "开启后，AI Flow 网页保持打开且已登录时，本地新增素材约每 3 秒检查上传，网页新增素材每约 10 秒回拉到本地；不会删除或移动任一端已有素材。",
+    )) return;
+    try {
+      const result = await window.nestDesktop.aiFlow.setLiveSync(root.id, enabled);
+      if (result?.error) setMessage(result.error);
+      else setMessage(enabled ? `已开启实时同步，已排队 ${result.queued || 0} 个本地素材。` : "已关闭实时同步；不会再自动上传或下载。");
+      if (result?.library) applyLibrary(result.library);
+    } catch (error) {
+      setMessage(`设置实时同步失败：${error.message}`);
+    }
+    setTimeout(() => setMessage(""), 8000);
+  };
+  const pendingAIFlowUploadsByAssetId = useMemo(
+    () => new Map((library?.aiFlowLiveSync?.pendingUploads || []).map(item => [String(item.assetId || ""), item]).filter(([assetId]) => Boolean(assetId))),
+    [library?.aiFlowLiveSync?.pendingUploads],
+  );
+  const activeAIFlowSync = currentFolder ? (() => {
+    const root = aiFlowLiveRootForFolder(currentFolder);
+    if (!root) return null;
+    const pending = (library?.aiFlowLiveSync?.pendingUploads || []).filter(item => String(item.rootFolderId || "") === String(root.id)).length;
+    return {
+      enabled: aiFlowLiveSyncEnabledForFolder(currentFolder),
+      pending,
+      syncedAt: Number(root.aiFlowRootSync?.syncedAt) || 0,
+    };
+  })() : null;
   const chooseLibrary = async (action) => {
     if (libraryChoosing) return;
     setLibraryChoosing(true);
@@ -862,6 +1495,29 @@ function App() {
         applyLibrary(await window.nestDesktop.repair());
     } else await askConfirm("资源库状态正常", text);
   };
+  const deleteCurrentLibrary = async () => {
+    if (!desktop || !library) return;
+    const name = library.name || "当前素材库";
+    const assetCount = library.assets?.length || 0;
+    const confirmed = await askConfirm(
+      `删除素材库“${name}”？`,
+      `这会将整个本地素材库目录移入 Windows 回收站（含 ${assetCount} 个素材、索引和备份）。AI Flow 服务器素材不会被删除。`,
+    );
+    if (!confirmed) return;
+    const result = await window.nestDesktop.deleteLibrary(name);
+    if (result?.error) {
+      setMessage(result.error);
+      setTimeout(() => setMessage(""), 5000);
+      return;
+    }
+    setAiSettingsPanel(false);
+    setSelected(null);
+    setSelectedIds([]);
+    setActiveFolder(null);
+    setAssets([]);
+    assetsRef.current = [];
+    setLibrary(null);
+  };
   const prepareExtension = async (browser) => {
     setExtensionBusy(true);
     setExtensionResult(null);
@@ -873,9 +1529,27 @@ function App() {
       setExtensionBusy(false);
     }
   };
+  const uninstallExtension = async (browser) => {
+    setExtensionBusy(true);
+    setExtensionResult(null);
+    try {
+      setExtensionResult(await window.nestDesktop.openExtensionManager(browser));
+    } catch (error) {
+      setExtensionResult({ ok: false, error: error.message });
+    } finally {
+      setExtensionBusy(false);
+    }
+  };
   const showImportResult = (lib) => {
     applyLibrary(lib);
-    if (lib?.importCanceled) return;
+    if (lib?.importCanceled) {
+      const r = lib?.lastImport || {};
+      setMessage(
+        `已取消导入，已导入 ${Number(r.imported) || 0} 个，跳过重复 ${Number(r.duplicates) || 0} 个`,
+      );
+      setTimeout(() => setMessage(""), 5000);
+      return;
+    }
     if (lib?.lastImport) {
       const r = lib.lastImport;
       setMessage(
@@ -889,6 +1563,7 @@ function App() {
   const nativeImport = async () => {
     if (importing) return;
     setImporting(true);
+    setImportProgress({ phase: "choosing-files" });
     try {
       showImportResult(await window.nestDesktop.importAssets(activeFolder));
     } catch (error) {
@@ -896,6 +1571,8 @@ function App() {
       setTimeout(() => setMessage(""), 5000);
     } finally {
       setImporting(false);
+      setImportProgress(null);
+      setImportCancelRequested(false);
     }
   };
   const nativeImportFolder = async () => {
@@ -913,26 +1590,52 @@ function App() {
     } finally {
       setImporting(false);
       setImportProgress(null);
+      setImportCancelRequested(false);
     }
   };
-  const droppedImport = async (files) => {
+  const importAIFlowItems = async (source, scanId, ids) => {
+    if (importing || !ids?.length) return;
+    setImporting(true);
+    setImportProgress({ phase: source === "server" ? "downloading-aiflow" : "scanning", processed: 0, total: ids.length });
+    try {
+      const result = await (source === "server"
+        ? window.nestDesktop.aiFlow.importServerVideos(scanId, ids, activeFolder)
+        : window.nestDesktop.aiFlow.importLocalAssets(scanId, ids, activeFolder));
+      showImportResult(result);
+      if (!result?.error && !result?.importCanceled) setAiFlowImportPanel(false);
+      return result;
+    } catch (error) {
+      const message = `导入 AI Flow ${source === "server" ? "视频" : "素材"}失败：${error.message}`;
+      setMessage(message);
+      setTimeout(() => setMessage(""), 5000);
+      return { error: message };
+    } finally {
+      setImporting(false);
+      setImportProgress(null);
+      setImportCancelRequested(false);
+    }
+  };
+  const droppedImport = async (files, targetFolderId = activeFolder) => {
     if (importing) return;
     setImporting(true);
+    setImportProgress({ phase: "scanning", scanned: 0, found: 0 });
     try {
       showImportResult(
-        await window.nestDesktop.importDropped([...files], activeFolder),
+        await window.nestDesktop.importDropped([...files], targetFolderId),
       );
     } catch (error) {
       setMessage(`导入失败：${error.message}`);
       setTimeout(() => setMessage(""), 5000);
     } finally {
       setImporting(false);
+      setImportProgress(null);
+      setImportCancelRequested(false);
       setDrag(false);
     }
   };
-  const droppedWebImage = async (transfer) => {
+  const droppedWebImage = async (transfer, targetFolderId = activeFolder) => {
     const files = [...transfer.files];
-    if (files.length) return droppedImport(files);
+    if (files.length) return droppedImport(files, targetFolderId);
     const html = transfer.getData("text/html");
     let url = html
       ? new DOMParser().parseFromString(html, "text/html").querySelector("img")
@@ -947,13 +1650,16 @@ function App() {
     if (!url) url = transfer.getData("text/plain").trim();
     if (/^https?:\/\//i.test(url)) {
       setImporting(true);
+      setImportProgress({ phase: "downloading-web" });
       try {
-        showImportResult(await window.nestDesktop.importUrl(url, activeFolder));
+        showImportResult(await window.nestDesktop.importUrl(url, targetFolderId));
       } catch (error) {
         setMessage(`导入失败：${error.message}`);
         setTimeout(() => setMessage(""), 5000);
       } finally {
         setImporting(false);
+        setImportProgress(null);
+        setImportCancelRequested(false);
         setDrag(false);
       }
       return;
@@ -963,6 +1669,17 @@ function App() {
       "没有识别到图片文件或图片网址，可使用 Nest 网页采集扩展右键保存",
     );
     setTimeout(() => setMessage(""), 4500);
+  };
+  const cancelImport = async () => {
+    if (!importing || importCancelRequested || !window.nestDesktop?.cancelImport)
+      return;
+    setImportCancelRequested(true);
+    const result = await window.nestDesktop.cancelImport();
+    if (result?.ok) {
+      setImportProgress((progress) => ({ ...progress, cancelRequested: true }));
+      return;
+    }
+    setImportCancelRequested(false);
   };
   const addFolderAt = async (parentId = activeFolder) => {
     const options = await askFolder(allOrderedFolders, parentId);
@@ -987,7 +1704,7 @@ function App() {
       setTimeout(() => setMessage(""), 5000);
     }
   };
-  const addFolder = () => addFolderAt(activeFolder);
+  const addFolder = () => addFolderAt(null);
   const addLibraryTag = async () => {
     const name = await askText("新建标签", "", "输入标签名称");
     if (!name?.trim()) return;
@@ -1006,13 +1723,69 @@ function App() {
       if (currentTag === name) setCurrentTag(null);
     }
   };
-  const renameFolder = async (folder) => {
-    const name = await askText("重命名文件夹", folder.name, "输入新名称");
-    if (name?.trim())
-      applyLibrary(
-        await window.nestDesktop.updateFolder(folder.id, { name: name.trim() }),
-      );
+  const renameFolder = (folder) => {
+    if (!canEdit || !folder) return;
+    setContextMenu(null);
+    setRenamingFolder({ id: folder.id, name: folder.name });
   };
+  const cancelFolderRename = () => {
+    folderRenameSaving.current = false;
+    setRenamingFolder(null);
+  };
+  const commitFolderRename = async () => {
+    const draft = renamingFolder;
+    if (!draft || folderRenameSaving.current) return;
+    const name = draft.name.trim();
+    if (!name) {
+      setMessage("文件夹名称不能为空");
+      requestAnimationFrame(() => folderRenameInputRef.current?.focus());
+      return;
+    }
+    const current = library?.folders?.find(folder => folder.id === draft.id);
+    if (!current || name === current.name) return cancelFolderRename();
+    folderRenameSaving.current = true;
+    try {
+      const result = await window.nestDesktop.updateFolder(draft.id, { name });
+      if (result?.error) {
+        setMessage(result.error);
+        requestAnimationFrame(() => folderRenameInputRef.current?.focus());
+        return;
+      }
+      applyLibrary(result);
+      setRenamingFolder(null);
+      setMessage(`文件夹已重命名为“${name}”`);
+      setTimeout(() => setMessage(""), 2500);
+    } catch (error) {
+      setMessage(`重命名失败：${error.message}`);
+    } finally {
+      folderRenameSaving.current = false;
+    }
+  };
+  useEffect(() => {
+    if (!renamingFolder) return;
+    const frame = requestAnimationFrame(() => {
+      folderRenameInputRef.current?.focus();
+      folderRenameInputRef.current?.select();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [renamingFolder?.id]);
+  useEffect(() => {
+    const onRenameShortcut = (event) => {
+      if (
+        event.key !== "F2" ||
+        !desktop ||
+        !canEdit ||
+        !activeFolder ||
+        event.target.closest?.('input,textarea,select,[contenteditable="true"]')
+      ) return;
+      const folder = library?.folders?.find(item => item.id === activeFolder);
+      if (!folder) return;
+      event.preventDefault();
+      renameFolder(folder);
+    };
+    window.addEventListener("keydown", onRenameShortcut);
+    return () => window.removeEventListener("keydown", onRenameShortcut);
+  }, [activeFolder, canEdit, desktop, library, renamingFolder?.id]);
   const deleteFolder = async (folder) => {
     const count = folderAssetCounts.get(folder.id) || 0;
     if (
@@ -1053,6 +1826,17 @@ function App() {
     const tag = await askText("批量添加标签", "", "输入标签名称");
     if (tag?.trim()) batchUpdate({ addTag: tag.trim() });
   };
+  const batchRating = async () => {
+    const value = await askText("批量评分", "", "输入 0–5；0 表示清除评分");
+    if (value === null) return;
+    const rating = Number(value);
+    if (!Number.isInteger(rating) || rating < 0 || rating > 5) return setMessage("评分必须是 0 到 5 的整数");
+    batchUpdate({ rating });
+  };
+  const batchNote = async () => {
+    const note = await askText("批量备注", "", "输入要应用到所选素材的备注；留空可清除");
+    if (note !== null) batchUpdate({ note: note.trim() });
+  };
   const batchMove = async () => {
     const choices = allOrderedFolders
       .map((f, i) => `${i + 1}. ${"—".repeat(f.depth)}${f.name}`)
@@ -1068,6 +1852,21 @@ function App() {
         batchUpdate({ folderId: folder?.id || null });
       else if (value !== "") setMessage("文件夹编号无效");
     }
+  };
+  const batchRename = async (template) => {
+    flushSaves();
+    const result = await window.nestDesktop.batchRename(selectedIds, template);
+    if (result?.error) {
+      setMessage(result.error);
+      setTimeout(() => setMessage(""), 4000);
+      return false;
+    }
+    applyLibrary(result);
+    setSelectedIds([]);
+    setBatchRenamePanel(false);
+    setMessage("批量重命名完成");
+    setTimeout(() => setMessage(""), 2500);
+    return true;
   };
   const batchDelete = async () => {
     if (
@@ -1113,24 +1912,27 @@ function App() {
     setMessage(result?.error ? result.error : "文件已复制，可粘贴到其他位置");
     setTimeout(() => setMessage(""), 2500);
   };
+  const startExternalAssetDrag = (event, asset) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const ids = selectedIds.includes(asset.id) ? selectedIds : [asset.id];
+    externalDragActive.current = true;
+    clearTimeout(externalDragTimer.current);
+    externalDragTimer.current = setTimeout(() => {
+      externalDragActive.current = false;
+    }, 30000);
+    window.nestDesktop?.startExternalDrag(ids);
+  };
   const startAssetDrag = (event, asset) => {
     if (event.target.closest("button,input")) {
       event.preventDefault();
       return;
     }
-    const ids = selectedIds.includes(asset.id) ? selectedIds : [asset.id],
-      isAudio = asset.type?.startsWith("audio");
-    if (isAudio || event.target.closest(".thumb")) {
-      event.preventDefault();
-      event.stopPropagation();
-      externalDragActive.current = true;
-      clearTimeout(externalDragTimer.current);
-      externalDragTimer.current = setTimeout(() => {
-        externalDragActive.current = false;
-      }, 30000);
-      window.nestDesktop?.startExternalDrag(ids);
+    if (event.altKey) {
+      startExternalAssetDrag(event, asset);
       return;
     }
+    const ids = selectedIds.includes(asset.id) ? selectedIds : [asset.id];
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData(INTERNAL_DRAG, JSON.stringify(ids));
     event.dataTransfer.setData("text/plain", asset.name);
@@ -1153,6 +1955,36 @@ function App() {
     setMessage(folderId ? "素材已移动到文件夹" : "素材已移动到未分类");
     setTimeout(() => setMessage(""), 2500);
     return true;
+  };
+  const isExternalFileDrop = (transfer) =>
+    desktop &&
+    !transfer.types.includes(INTERNAL_DRAG) &&
+    !transfer.types.includes(FOLDER_DRAG) &&
+    transfer.types.includes("Files");
+  const dropExternalOnFolder = (event, folderId) => {
+    if (!isExternalFileDrop(event.dataTransfer) || importing || !canEdit) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    setDropFolderId(undefined);
+    setDrag(false);
+    droppedWebImage(event.dataTransfer, folderId);
+    return true;
+  };
+  const dropAssetsOnTag = async (event, tag) => {
+    const raw = event.dataTransfer.getData(INTERNAL_DRAG);
+    if (!raw) return;
+    event.preventDefault();
+    event.stopPropagation();
+    let ids = [];
+    try { ids = JSON.parse(raw); } catch {}
+    if (!Array.isArray(ids) || !ids.length) return;
+    flushSaves();
+    const result = await window.nestDesktop.batchUpdate(ids, { addTag: tag });
+    applyLibrary(result);
+    setSelectedIds([]);
+    setDropTag(null);
+    setMessage(`已为 ${ids.length} 个素材添加标签“${tag}”`);
+    setTimeout(() => setMessage(""), 2500);
   };
   const toggleFolderExpanded = (id) =>
     setExpandedFolderIds((current) => toggleExpandedFolder(current, id));
@@ -1220,8 +2052,55 @@ function App() {
       setTimeout(() => setMessage(""), 2500);
     }
   };
+  const convertDepthVideo = async (asset) => {
+    if (!desktop || !asset || depthVideoJob) return;
+    setDepthVideoJob({ assetId: asset.id, progress: 0, phase: "starting", cancelRequested: false, message: "正在启动深度视频转换器…" });
+    try {
+      const status = await window.nestDesktop.depthVideo.status();
+      if (status?.error) {
+        setMessage(status.error);
+        setTimeout(() => setMessage(""), 6000);
+        return;
+      }
+      const result = await window.nestDesktop.depthVideo.convert(asset.id);
+      if (result?.cancelled) {
+        setMessage("已取消深度视频转换，未生成素材");
+        setTimeout(() => setMessage(""), 4000);
+      } else if (result?.error) {
+        setMessage(result.error);
+        setTimeout(() => setMessage(""), 6000);
+      } else {
+        if (result?.library) applyLibrary(result.library);
+        setMessage("深度视频已导入到原素材文件夹");
+        setTimeout(() => setMessage(""), 5000);
+      }
+    } catch (error) {
+      setMessage(`深度视频转换失败：${error.message}`);
+      setTimeout(() => setMessage(""), 6000);
+    } finally {
+      setDepthVideoJob(null);
+    }
+  };
+  const cancelDepthVideo = async () => {
+    const job = depthVideoJob;
+    if (!desktop || !job || job.cancelRequested || !["starting", "converting"].includes(job.phase)) return;
+    setDepthVideoJob((current) =>
+      current ? { ...current, cancelRequested: true, phase: "cancelling", message: "正在取消深度视频转换…" } : current,
+    );
+    const result = await window.nestDesktop.depthVideo.cancel(job.assetId);
+    if (result?.error) {
+      setDepthVideoJob((current) =>
+        current?.assetId === job.assetId
+          ? { ...current, cancelRequested: false, phase: "converting", message: result.error }
+          : current,
+      );
+      setMessage(result.error);
+      setTimeout(() => setMessage(""), 4000);
+    }
+  };
   const previewIndex = shown.findIndex((a) => a.id === previewId),
     previewAsset = shown[previewIndex];
+  const shouldShowBugFeedback = desktop && !message && !depthVideoJob && !previewAsset && !dialogState && !aiFlowImportPanel && !extensionPanel && !themePanel && !aiSettingsPanel && !updatePanel && !supportPanel && !teamPanel && !batchRenamePanel;
   const resetPreviewView = () => {
     setZoom(1);
     setRotation(0);
@@ -1264,6 +2143,13 @@ function App() {
       setSelected(asset);
     }
     lastSelectedId.current = asset.id;
+  };
+  const toggleReferenceAsset = (assetId) => {
+    setReferenceAssetIds((ids) =>
+      ids.includes(assetId)
+        ? ids.filter((id) => id !== assetId)
+        : [...ids, assetId],
+    );
   };
   const beginMarquee = (event) => {
     if (
@@ -1467,6 +2353,11 @@ function App() {
         event.target.closest('input,textarea,select,[contenteditable="true"]')
       )
         return;
+      if (previewId && event.key === "Escape") {
+        event.preventDefault();
+        setPreviewId(null);
+        return;
+      }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
         event.preventDefault();
         toggleSelectAll();
@@ -1486,19 +2377,19 @@ function App() {
         !event.metaKey &&
         !event.altKey
       ) {
-        const playingId = audioPreviewManager.getState().id,
-          asset =
-            (selected?.type?.startsWith("audio") && selected) ||
-            assetsRef.current.find(
-              (item) => item.id === playingId && item.type?.startsWith("audio"),
-            );
+        const asset = previewId
+          ? assetsRef.current.find(item => item.id === previewId && item.type?.startsWith("audio"))
+          : null;
         if (asset) {
           event.preventDefault();
           audioPreviewManager.toggle(asset);
         }
       }
-      if (previewId && event.key === "ArrowLeft") movePreview(-1);
-      if (previewId && event.key === "ArrowRight") movePreview(1);
+      const previewAudio = previewId ? assetsRef.current.find(item => item.id === previewId && item.type?.startsWith("audio")) : null;
+      if (previewAudio && event.key === "ArrowLeft") { event.preventDefault(); audioPreviewManager.seekBy(previewAudio, -5); }
+      else if (previewId && event.key === "ArrowLeft") movePreview(-1);
+      if (previewAudio && event.key === "ArrowRight") { event.preventDefault(); audioPreviewManager.seekBy(previewAudio, 5); }
+      else if (previewId && event.key === "ArrowRight") movePreview(1);
       if (previewId && event.key.toLowerCase() === "r")
         setRotation((value) => (value + 90) % 360);
       if (previewId && event.key === "0") resetPreviewView();
@@ -1526,33 +2417,53 @@ function App() {
       background.forEach((element) => element.removeAttribute("inert"));
   }, [desktop, ready, library]);
   const nav = [
-    ["全部素材", LayoutGrid],
-    ["未分类", Archive],
-    ["收藏夹", Heart],
-    ["最近", Sparkles],
-    ["图片", ImageIcon],
-    ["视频", Video],
-    ["音频", Music],
+    ["全部素材", "all"],
+    ["未分类", "unclassified"],
+    ["收藏夹", "favorite"],
+    ["最近", "recent"],
+    ["图片", "image"],
+    ["视频", "video"],
+    ["音频", "audio"],
+    ["剧本", "script"],
   ];
   const importPercent =
     importProgress?.phase === "complete"
       ? 100
+      : importProgress?.phase === "downloading-aiflow" && importProgress.total
+        ? Math.round(((importProgress.processed || 0) + (importProgress.totalBytes ? Math.min(1, (importProgress.received || 0) / importProgress.totalBytes) : 0)) / importProgress.total * 100)
+        : importProgress?.phase === "downloaded-aiflow" && importProgress.total
+          ? Math.round(((importProgress.processed || 0) / importProgress.total) * 100)
       : importProgress?.phase === "importing" && importProgress.total
         ? Math.round((importProgress.processed / importProgress.total) * 100)
         : 0;
+  const importCancelable =
+    importing && ["scanning", "importing"].includes(importProgress?.phase);
   const importStatus =
     importProgress?.phase === "scanning"
-      ? `已扫描 ${importProgress.scanned || 0} 项 · 发现 ${importProgress.found || 0} 个素材`
+      ? importCancelRequested
+        ? "正在取消导入…"
+        : `已扫描 ${importProgress.scanned || 0} 项 · 发现 ${importProgress.found || 0} 个素材`
+      : importProgress?.phase === "downloading-aiflow"
+        ? `正在从 AI Flow 下载 ${importProgress.name || "视频"} · ${importPercent}%`
+        : importProgress?.phase === "downloaded-aiflow"
+          ? `AI Flow 已下载 ${importProgress.processed || 0} / ${importProgress.total || 0}`
       : importProgress?.phase === "importing"
-        ? `正在导入 ${importProgress.processed || 0} / ${importProgress.total || 0} · ${importPercent}%`
+        ? importCancelRequested
+          ? "正在取消导入…"
+          : `正在导入 ${importProgress.processed || 0} / ${importProgress.total || 0} · ${importPercent}%`
         : importProgress?.phase === "complete"
           ? "导入完成 · 100%"
-          : "请选择需要导入的文件夹";
+          : importProgress?.phase === "choosing-files"
+            ? "请选择要导入的素材"
+            : importProgress?.phase === "downloading-web"
+              ? "正在下载网页素材…"
+              : "请选择需要导入的文件夹";
   return (
     <div
-      className={`app theme-${resolvedThemeMode} ${selected || aiPanel ? "detail-open" : ""}`}
+      className={`app theme-${resolvedThemeMode} ${inspectorFrame.ready ? "detail-open" : ""} ${activeModule === "reference-board" ? "reference-board-mode" : ""} ${activeModule === "tetris" ? "tetris-mode" : ""}`}
       style={{
         "--sidebar-width": `${sidebarWidth}px`,
+        "--inspector-overlay-width": `${inspectorFrame.overlayWidth}px`,
         ...themeStyle(renderedTheme, resolvedThemeMode),
       }}
       onDragOver={(e) => {
@@ -1595,6 +2506,7 @@ function App() {
       }}
     >
       <aside>
+        <div className="sidebar-scroll-content">
         <div className="brand">
           <div className="mark">
             <img src={appIcon} alt="" />
@@ -1615,10 +2527,10 @@ function App() {
         >
           <div className="import-actions-head">
             <span>
-              <Import size={16} />
+              <PixelImportIcon size={16} />
             </span>
             <div>
-              <strong>{importing ? "正在导入文件夹…" : "添加到素材库"}</strong>
+              <strong>{importing ? "正在导入素材…" : "添加到素材库"}</strong>
               <small>{importing ? importStatus : "文件或完整目录结构"}</small>
             </div>
             {importing && importProgress?.phase !== "scanning" && (
@@ -1628,22 +2540,33 @@ function App() {
           <div className="import-actions-grid">
             <button
               className="import-action primary"
-              disabled={importing}
+              disabled={importing || !canEdit}
               onClick={desktop ? nativeImport : () => input.current.click()}
             >
-              <Plus size={16} />
+              <PixelImportIcon size={16} />
               <span>导入素材</span>
               <small>选择文件</small>
             </button>
             {desktop && library && (
               <button
                 className="import-action folder"
-                disabled={importing}
+                disabled={importing || !canEdit}
                 onClick={nativeImportFolder}
               >
-                <FolderOpen size={16} />
+                <PixelChestIcon size={20} />
                 <span>导入文件夹</span>
                 <small>保留子目录</small>
+              </button>
+            )}
+            {desktop && library && (
+              <button
+                className="import-action aiflow"
+                disabled={importing || !canEdit}
+                onClick={() => setAiFlowImportPanel(true)}
+              >
+                <PixelPortalIcon size={16} />
+                <span>导入 AI Flow 素材</span>
+                <small>服务器已完成视频或本机“我的素材”</small>
               </button>
             )}
           </div>
@@ -1654,14 +2577,23 @@ function App() {
               <i style={{ width: `${importPercent}%` }} />
             </div>
           )}
+          {importCancelable && (
+            <button
+              className="import-cancel"
+              disabled={importCancelRequested}
+              onClick={cancelImport}
+            >
+              {importCancelRequested ? "正在取消…" : "取消本次导入"}
+            </button>
+          )}
         </section>
         {desktop && library && (
           <button
             className="new-folder-primary"
-            disabled={importing}
+            disabled={importing || !canEdit}
             onClick={addFolder}
           >
-            <Folder size={17} /> 新建文件夹
+            <PixelChestIcon size={17} /> 新建文件夹
           </button>
         )}
         <input
@@ -1669,11 +2601,11 @@ function App() {
           hidden
           multiple
           type="file"
-          accept="image/*,video/*,audio/*"
+          accept="image/*,video/*,audio/*,.pdf,.docx,.txt,.md,.markdown,.fountain"
           onChange={(e) => importFiles(e.target.files)}
         />
-        <nav>
-          {nav.map(([n, I]) => (
+        <nav className="asset-filter-nav">
+          {nav.map(([n, icon]) => (
             <button
               className={`${filter === n && !activeFolder && !currentTag ? "active" : ""} ${n === "未分类" && dropFolderId === null ? "drop-target" : ""}`}
               onDragOver={
@@ -1693,6 +2625,7 @@ function App() {
               }
               onDrop={n === "未分类" ? (e) => dropAssets(e, null) : undefined}
               onClick={() => {
+                setActiveModule("library");
                 setFilter(n);
                 setCurrentTag(null);
                 if (n === "全部素材") setQuery("");
@@ -1702,11 +2635,23 @@ function App() {
               }}
               key={n}
             >
-              <I size={17} />
+              <PixelNavIcon kind={icon} size={17} />
               <span>{n}</span>
               {n === "全部素材" && <b>{assets.length}</b>}
             </button>
           ))}
+        </nav>
+        <div className="nav-title"><span>制作参考</span></div>
+        <nav className="reference-board-nav">
+          <button
+            className={activeModule === "reference-board" ? "active" : ""}
+            onClick={() => openReferenceBoard()}
+            title="打开 PureRef 风格的无限参考画布"
+          >
+            <StickyNote size={16} />
+            <span>无限参考板</span>
+            <b>{(library?.referenceBoards || []).length}</b>
+          </button>
         </nav>
         <div
           className={`nav-title folder-root-drop ${dropFolderId === ROOT_FOLDER_DROP ? "drop-target" : ""}`}
@@ -1726,8 +2671,9 @@ function App() {
         >
           <span>文件夹</span>
           <button
+            disabled={!canEdit}
             aria-label="新建文件夹"
-            title={activeFolder ? "在当前文件夹中新建子文件夹" : "新建文件夹"}
+            title="新建根文件夹"
             onClick={desktop ? addFolder : undefined}
           >
             <Plus size={15} />
@@ -1737,7 +2683,7 @@ function App() {
           {desktop ? (
             orderedFolders.map((f) => (
               <div
-                draggable
+                draggable={canEdit}
                 data-depth={f.depth}
                 className={`folder-row ${activeFolder === f.id ? "active" : ""} ${dropFolderId === f.id ? "drop-target" : ""}`}
                 style={{ "--folder-depth": f.depth }}
@@ -1747,11 +2693,14 @@ function App() {
                 onDragOver={(e) => {
                   if (
                     e.dataTransfer.types.includes(INTERNAL_DRAG) ||
-                    e.dataTransfer.types.includes(FOLDER_DRAG)
+                    e.dataTransfer.types.includes(FOLDER_DRAG) ||
+                    (canEdit && isExternalFileDrop(e.dataTransfer))
                   ) {
                     e.preventDefault();
                     e.stopPropagation();
-                    e.dataTransfer.dropEffect = "move";
+                    e.dataTransfer.dropEffect = isExternalFileDrop(e.dataTransfer)
+                      ? "copy"
+                      : "move";
                     setDropFolderId(f.id);
                   }
                 }}
@@ -1759,11 +2708,13 @@ function App() {
                   if (!e.currentTarget.contains(e.relatedTarget))
                     setDropFolderId(undefined);
                 }}
-                onDrop={(e) =>
-                  e.dataTransfer.types.includes(FOLDER_DRAG)
+                onDrop={(e) => {
+                  if (dropExternalOnFolder(e, f.id)) return;
+                  return e.dataTransfer.types.includes(FOLDER_DRAG)
                     ? dropMovedFolder(e, f.id)
-                    : dropAssets(e, f.id)
-                }
+                    : dropAssets(e, f.id);
+                }}
+                title={`拖入“${f.name}”（保留最外层文件夹，子文件夹素材会平铺导入）`}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -1791,23 +2742,47 @@ function App() {
                 >
                   <ChevronDown size={12} />
                 </button>
-                <button
-                  className="folder-main"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openFolder(f);
-                  }}
-                >
+                {renamingFolder?.id === f.id ? (
+                  <div className="folder-main folder-main-editing" onClick={event => event.stopPropagation()}>
+                    <FolderMark folder={f} preview={folderPreviewById.get(f.id)} />
+                    <input
+                      ref={folderRenameInputRef}
+                      aria-label={`重命名 ${f.name}`}
+                      value={renamingFolder.name}
+                      maxLength={50}
+                      onChange={event => setRenamingFolder(current => current?.id === f.id ? { ...current, name: event.target.value } : current)}
+                      onKeyDown={event => {
+                        if (event.key === "Enter") { event.preventDefault(); commitFolderRename(); }
+                        if (event.key === "Escape") { event.preventDefault(); cancelFolderRename(); }
+                      }}
+                      onBlur={commitFolderRename}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    className="folder-main"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openFolder(f);
+                    }}
+                  >
                   <FolderMark
                     folder={f}
                     preview={folderPreviewById.get(f.id)}
                   />
-                  <span>
-                    {f.name} <small>({folderAssetCounts.get(f.id) || 0})</small>
-                  </span>
-                </button>
+                  {aiFlowFolderConnected(f) && (
+                    <i className="aiflow-live-bolt" title="AI Flow 实时连接中" aria-label="AI Flow 实时连接中">
+                      <Zap size={12} fill="currentColor" />
+                    </i>
+                  )}
+                   <span>
+                     {f.name} <small>({folderAssetCounts.get(f.id) || 0})</small>
+                   </span>
+                  </button>
+                )}
                 <button
                   className="folder-action"
+                  disabled={!canEdit}
                   title="更多操作"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1823,6 +2798,7 @@ function App() {
                 </button>
                 <button
                   className="folder-action danger"
+                  disabled={!canEdit}
                   title="删除文件夹"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1850,6 +2826,7 @@ function App() {
         <div className="nav-title">
           <span>标签</span>
           <button
+            disabled={!canEdit}
             aria-label="新建标签"
             title="新建标签"
             onClick={desktop ? addLibraryTag : undefined}
@@ -1858,17 +2835,19 @@ function App() {
           </button>
         </div>
         <div className="tag-list">
-          {[
-            ...new Set([
-              ...(library?.tags || []),
-              ...assets.flatMap((a) => a.tags || []),
-            ]),
-          ].map((t, i) => (
-            <div className="tag-entry" key={t}>
+          {tagRows.map((tag, i) => (
+            <div className={`tag-entry tag-tree-entry ${dropTag === tag.path ? "drop-target" : ""}`} style={{"--tag-depth":tag.depth}} key={tag.path}
+              onDragOver={event => { if (event.dataTransfer.types.includes(INTERNAL_DRAG) && canEdit) { event.preventDefault(); event.dataTransfer.dropEffect="move"; setDropTag(tag.path); } }}
+              onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget)) setDropTag(null); }}
+              onDrop={event => canEdit && dropAssetsOnTag(event, tag.path)}>
+              <button className="tag-toggle" disabled={!tag.hasChildren} onClick={() => setExpandedTags(current => { const next=new Set(current);next.has(tag.path)?next.delete(tag.path):next.add(tag.path);return next; })} aria-label={tag.hasChildren ? `${expandedTags.has(tag.path)?"收起":"展开"} ${tag.name}` : undefined}>
+                {tag.hasChildren && <ChevronDown size={11}/>}
+              </button>
               <button
-                className={`tag-filter ${currentTag === t ? "active" : ""}`}
+                className={`tag-filter ${currentTag === tag.path ? "active" : ""}`}
                 onClick={() => {
-                  setCurrentTag((current) => (current === t ? null : t));
+                  setActiveModule("library");
+                  setCurrentTag((current) => (current === tag.path ? null : tag.path));
                   setFilter("全部素材");
                   setActiveFolder(null);
                   setSelected(null);
@@ -1876,14 +2855,15 @@ function App() {
                 }}
               >
                 <i className={`dot c${i % 4}`} />
-                {t}
+                {tag.name}
               </button>
-              {desktop && (
+              {desktop && tag.explicit && (
                 <button
                   className="tag-remove"
-                  aria-label={`删除标签 ${t}`}
+                  disabled={!canEdit}
+                  aria-label={`删除标签 ${tag.path}`}
                   title="删除标签"
-                  onClick={() => deleteLibraryTag(t)}
+                  onClick={() => deleteLibraryTag(tag.path)}
                 >
                   <X size={12} />
                 </button>
@@ -1891,6 +2871,21 @@ function App() {
             </div>
           ))}
         </div>
+        </div>
+        {desktop && library && (
+          <SidebarFooter
+            info={diskInfo}
+            recycleBinName={recycleBinName}
+            openSupport={() => setSupportPanel(true)}
+            openRecycle={async () => {
+              const result = await window.nestDesktop.openRecycleBin();
+              if (result?.error) {
+                setMessage(`无法打开${recycleBinName}：${result.error}`);
+                setTimeout(() => setMessage(""), 3500);
+              }
+            }}
+          />
+        )}
       </aside>
       <div
         className="sidebar-resizer"
@@ -1905,29 +2900,28 @@ function App() {
         onDoubleClick={resetSidebarWidth}
       />
       <main
+        ref={mainScrollRef}
         className={`view-${viewMode}`}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          if (
-            el.scrollHeight - el.scrollTop - el.clientHeight < 900 &&
-            visibleLimit < shown.length
-          )
-            setVisibleLimit((x) => x + 160);
-        }}
+        onScroll={(e) => updateVirtualRange(e.currentTarget)}
       >
         <header>
           <div className="breadcrumbs">
-            <span>资源库</span>
-            <b>›</b>
-            {activeFolder && (
+            {activeModule === "reference-board" ? (
+              <><StickyNote size={15}/><strong>无限参考板</strong></>
+            ) : (
               <>
-                <span>{currentFolder?.name}</span>
-                <b>›</b>
+                <button className="breadcrumb-link" onClick={openLibraryRoot}>资源库</button>
+                {folderBreadcrumbs.map(folder => (
+                  <React.Fragment key={folder.id}>
+                    <b>›</b>
+                    <button className="breadcrumb-link" onClick={() => openFolder(folder)}>{folder.name}</button>
+                  </React.Fragment>
+                ))}
+                {!activeFolder && <><b>›</b><strong>{filter}</strong></>}
               </>
             )}
-            <strong>{filter}</strong>
           </div>
-          <div className="search">
+          {activeModule === "library" && <div className="search">
             <Search size={18} />
             <input
               value={query}
@@ -1950,8 +2944,24 @@ function App() {
                 <X size={16} />
               </button>
             )}
-          </div>
-          <div className="top-action-strip">
+          </div>}
+          <div className="top-action-strip"><LanChat selectedIds={selectedIds.length ? selectedIds : (selected ? [selected.id] : [])} />
+            <button
+              className="top-pill director-prank-button"
+              title="不要点这个按钮"
+              onClick={playDirectorPrank}
+            >
+              <Clapperboard size={14} />
+              <span>AI导演</span>
+            </button>
+            <button
+              className={`top-pill tetris-header-button ${activeModule === "tetris" ? "on" : ""}`}
+              title="无穷大"
+              onClick={requestTetrisAccess}
+            >
+              <InfinityIcon size={15} />
+              <span>无穷大</span>
+            </button>
             <button
               className={`top-pill ai-header-button ${aiPanel ? "on" : ""}`}
               title="AI 助手"
@@ -1976,9 +2986,11 @@ function App() {
             </button>
             <button
               className="top-pill"
-              title="安装网页采集扩展"
-              onClick={() => {
+              title="扩展、插件与 MCP"
+              onClick={async () => {
                 setExtensionResult(null);
+                setPlugins(await window.nestDesktop.listPlugins());
+                setMcpConfig(await window.nestDesktop.mcpConfig());
                 setExtensionPanel(true);
               }}
             >
@@ -2012,24 +3024,61 @@ function App() {
               <Archive size={14} />
               <span>资源库状态检查</span>
             </button>
-            <button
-              className="top-pill user-pill"
-              title="当前用户"
-              onClick={() => {
-                setMessage("当前用户：N");
-                setTimeout(() => setMessage(""), 2200);
-              }}
-            >
-              <span>用户 N</span>
-            </button>
           </div>
         </header>
+        {directorPrankPlaying && (
+          <section className="director-prank-overlay" aria-label="全面开战视频播放">
+            <video
+              ref={directorPrankVideoRef}
+              src={directorPrankVideo}
+              playsInline
+              onEnded={closeDirectorPrank}
+            />
+          </section>
+        )}
+        {activeModule === "tetris" && (
+          <TetrisModule
+            close={() => {
+              setSelected(null);
+              setActiveModule("library");
+            }}
+          />
+        )}
+        {activeModule === "reference-board" && (
+          <ReferenceBoard
+            boards={library?.referenceBoards || []}
+            assets={assets}
+            folders={library?.folders || []}
+            preferredFolderId={activeFolder}
+            canEdit={canEdit}
+            activeBoardId={activeReferenceBoardId}
+            setActiveBoardId={setActiveReferenceBoardId}
+            createBoard={createReferenceBoard}
+            updateBoard={updateReferenceBoard}
+            deleteBoard={deleteReferenceBoard}
+            close={() => setActiveModule("library")}
+            openAsset={(asset) => {
+              setSelected(asset);
+              setActiveModule("library");
+            }}
+          />
+        )}
         <section className="toolbar">
           <div>
             <h1>{activeFolder ? currentFolder?.name : filter}</h1>
             <span>
               {contentFolders.length} 个文件夹 · {shown.length} 个素材
             </span>
+            {activeAIFlowSync && (
+              <span
+                className={`aiflow-live-status ${activeAIFlowSync.enabled ? "enabled" : "disabled"}`}
+                title="网页保持打开且已登录时，本地新增素材和引用栏上传都会立即唤醒 Edge；3 秒检查仅作断线兜底。网页素材每约 10 秒回拉。等待上传的素材会显示在卡片上。"
+              >
+                <RotateCw size={12} />
+                AI Flow {activeAIFlowSync.enabled ? "实时同步已开启" : "实时同步已关闭"} · 新增即时上传 · 引用即时唤醒 · 3 秒兜底 · 回拉每 10 秒 · 待上传 {activeAIFlowSync.pending} 项
+                {activeAIFlowSync.syncedAt ? ` · 目录对应于 ${new Date(activeAIFlowSync.syncedAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}` : ""}
+              </span>
+            )}
           </div>
           <div className="view-actions">
             {activeFolder && (
@@ -2039,8 +3088,8 @@ function App() {
                 <FolderOpen size={15} /> 返回上级
               </button>
             )}
-            <button onClick={() => addFolderAt(activeFolder)}>
-              <Plus size={15} /> 新建文件夹
+            <button disabled={!canEdit} onClick={addFolder}>
+              <Plus size={15} /> 新建根文件夹
             </button>
             <button
               className={allShownSelected ? "on" : ""}
@@ -2128,6 +3177,15 @@ function App() {
             </button>
           </div>
         </section>
+        <ReferenceShelf
+          assets={referenceAssets}
+          remove={(id) => setReferenceAssetIds((ids) => ids.filter((item) => item !== id))}
+          clear={() => setReferenceAssetIds([])}
+          open={(asset) => setSelected(asset)}
+          upload={beginAIFlowReferenceUpload}
+          uploading={referenceUploadPreparing}
+          createBoard={createBoardFromReferences}
+        />
         {contentFolders.length > 0 && (
           <section className="content-folders">
             {contentFolders.map((folder) => (
@@ -2173,11 +3231,13 @@ function App() {
         {shown.length ? (
           <section
             className="masonry"
+            ref={assetGridRef}
             onPointerDown={beginMarquee}
             onPointerMove={moveMarquee}
             onPointerUp={endMarquee}
             onPointerCancel={endMarquee}
           >
+            {virtualRange.before > 0 && <div className="virtual-spacer" style={{ height: virtualRange.before }} aria-hidden="true" />}
             {displayed.map((a) => (
               <article
                 key={a.id}
@@ -2190,7 +3250,7 @@ function App() {
                   setDropFolderId(undefined);
                   setDrag(false);
                 }}
-                className={`${selected?.id === a.id ? "selected" : ""} ${selectedIds.includes(a.id) ? "multi-selected" : ""}`}
+                className={`${selected?.id === a.id ? "selected" : ""} ${selectedIdSet.has(a.id) ? "multi-selected" : ""} ${referenceAssetIds.includes(a.id) ? "referenced" : ""}`}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -2205,10 +3265,22 @@ function App() {
               >
                 <div
                   className="thumb"
-                  draggable={desktop}
-                  onDragStart={(e) => startAssetDrag(e, a)}
-                  title="拖到桌面、其他软件或浏览器上传区域"
+                  title="拖动卡片可在软件内移动；按住 Alt 拖动可拖出软件"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleReferenceAsset(a.id);
+                  }}
                 >
+                  <span
+                    className="external-drag-handle"
+                    draggable={desktop}
+                    aria-label="拖出软件"
+                    title="从这里拖到桌面、文件夹、其他软件或浏览器"
+                    onClick={(e) => e.stopPropagation()}
+                    onDragStart={(e) => startExternalAssetDrag(e, a)}
+                  >
+                    <ExternalLink size={13} />
+                  </span>
                   <Media
                     asset={a}
                     onSize={(width, height) => {
@@ -2224,7 +3296,7 @@ function App() {
                       toggleSelected(a.id);
                     }}
                   >
-                    {selectedIds.includes(a.id) ? "✓" : ""}
+                    {selectedIdSet.has(a.id) ? "✓" : ""}
                   </button>
                   <button
                     aria-label={a.favorite ? "取消收藏" : "收藏"}
@@ -2243,17 +3315,24 @@ function App() {
                   <div className="dimensions">
                     {a.width || "—"} × {a.height || "—"}
                   </div>
+                  {referenceAssetIds.includes(a.id) && <span className="reference-added">已引用</span>}
                 </div>
-                <div className="meta" title="拖动名称可移动到内部文件夹">
-                  <strong>{a.name}</strong>
-                  <div>
-                    {a.tags.slice(0, 2).map((t) => (
-                      <span key={t}>{t}</span>
-                    ))}
+                  <div className="meta" title="拖动名称可移动到内部文件夹">
+                    <strong title={a.name}>{a.name}</strong>
+                    <div>
+                      {(() => {
+                        const pendingUpload = pendingAIFlowUploadsByAssetId.get(String(a.id));
+                        if (pendingUpload) return <span className={`aiflow-source-badge ${pendingUpload.lastError ? "failed" : "pending"}`} title={pendingUpload.lastError || "正在等待 AI Flow 网页上传"}>{pendingUpload.lastError ? "上传失败" : "等待上传"}</span>;
+                        return a.importSource?.provider === "AI Flow" && <span className="aiflow-source-badge">来自 AI Flow</span>;
+                      })()}
+                      {a.tags.slice(0, 2).map((t) => (
+                        <span key={t}>{t}</span>
+                      ))}
                   </div>
                 </div>
               </article>
             ))}
+            {virtualRange.after > 0 && <div className="virtual-spacer" style={{ height: virtualRange.after }} aria-hidden="true" />}
           </section>
         ) : (
           !contentFolders.length && (
@@ -2271,7 +3350,7 @@ function App() {
         )}
       </main>
       {marquee && <div className="selection-marquee" style={marquee} />}
-      {!aiPanel && selected && (
+      {inspectorFrame.ready && !aiPanel && selected && (
         <Detail
           asset={assets.find((a) => a.id === selected.id) || selected}
           folders={allOrderedFolders}
@@ -2282,12 +3361,13 @@ function App() {
           open={openAssetAction}
           reveal={revealAsset}
           confirmAction={askConfirm}
+          canEdit={canEdit}
           openMore={(event, asset) =>
             setContextMenu({ x: event.clientX, y: event.clientY, asset })
           }
         />
       )}
-      {aiPanel && desktop && (
+      {inspectorFrame.ready && aiPanel && desktop && (
         <AIAssistant
           library={library}
           folder={currentFolder}
@@ -2311,25 +3391,54 @@ function App() {
         <div className="drop">
           <Import size={38} />
           <strong>
-            {importing ? "正在导入并检查重复素材…" : "释放即可导入"}
+            {importing ? importStatus : "释放即可导入"}
           </strong>
-          <span>支持常用图片、视频、MP3、WAV、FLAC、M4A 等音频</span>
+          {importing ? (
+            <>
+              <div
+                className={`drop-import-progress ${importProgress?.phase === "scanning" ? "indeterminate" : ""}`}
+                aria-label={`导入进度 ${importPercent}%`}
+              >
+                <i style={{ width: `${importPercent}%` }} />
+              </div>
+              {importCancelable && (
+                <button
+                  className="drop-import-cancel"
+                  disabled={importCancelRequested}
+                  onClick={cancelImport}
+                >
+                  {importCancelRequested ? "正在取消…" : "取消导入"}
+                </button>
+              )}
+            </>
+          ) : (
+            <span>支持常用图片、视频、MP3、WAV、FLAC、M4A 等音频</span>
+          )}
         </div>
       )}
       {message && library && <div className="toast">{message}</div>}
       {selectedIds.length > 0 && desktop && (
         <div className="batch-bar">
           <strong>已选择 {selectedIds.length} 项</strong>
-          <button onClick={() => batchUpdate({ favorite: true })}>
+          <button disabled={!canEdit} onClick={() => batchUpdate({ favorite: true })}>
             <Heart size={15} /> 收藏
           </button>
-          <button onClick={batchTag}>
+          <button disabled={!canEdit} onClick={batchTag}>
             <Tag size={15} /> 标签
           </button>
-          <button onClick={batchMove}>
+          <button disabled={!canEdit} onClick={batchMove}>
             <Folder size={15} /> 移动
           </button>
-          <button className="danger" onClick={batchDelete}>
+          <button disabled={!canEdit} onClick={() => setBatchRenamePanel(true)}>
+            <Pencil size={15} /> 重命名
+          </button>
+          <button disabled={!canEdit} onClick={batchRating}>
+            <Star size={15} /> 评分
+          </button>
+          <button disabled={!canEdit} onClick={batchNote}>
+            <StickyNote size={15} /> 备注
+          </button>
+          <button disabled={!canEdit} className="danger" onClick={batchDelete}>
             <Trash2 size={15} /> 删除
           </button>
           <button aria-label="取消选择" onClick={() => setSelectedIds([])}>
@@ -2360,7 +3469,9 @@ function App() {
           aria-labelledby="welcome-title"
         >
           <div className="welcome-card">
-            <div className="mark big">N</div>
+            <div className="mark big">
+              <img src={appIcon} alt="小旺仔素材库图标" />
+            </div>
             <h1 id="welcome-title">建立你的素材资源库</h1>
             <p>
               资源库会在你选择的文件夹中保存原始素材和索引，可整体备份或迁移。
@@ -2382,7 +3493,9 @@ function App() {
       )}
       {contextMenu?.kind === "folder" ? (
         <FolderContextMenu
+          readOnly={!canEdit}
           menu={contextMenu}
+          menuRef={contextMenuRef}
           close={() => setContextMenu(null)}
           actions={{
             open: () => {
@@ -2391,14 +3504,19 @@ function App() {
               setSelected(null);
             },
             add: () => addFolderAt(contextMenu.folder.id),
+            uploadToAIFlow: desktop ? () => beginAIFlowFolderExtensionUpload(contextMenu.folder) : null,
+            toggleLiveSync: desktop && aiFlowLiveRootForFolder(contextMenu.folder) ? () => toggleAIFlowLiveSync(contextMenu.folder) : null,
             rename: () => renameFolder(contextMenu.folder),
             delete: () => deleteFolder(contextMenu.folder),
           }}
+          liveSyncEnabled={aiFlowLiveSyncEnabledForFolder(contextMenu.folder)}
         />
       ) : (
         contextMenu && (
           <AssetContextMenu
+            readOnly={!canEdit}
             menu={contextMenu}
+            menuRef={contextMenuRef}
             folders={allOrderedFolders}
             close={() => setContextMenu(null)}
             actions={{
@@ -2411,6 +3529,8 @@ function App() {
               note: () => contextNote(contextMenu.asset),
               move: (folderId) => contextMove(contextMenu.asset, folderId),
               duplicate: () => duplicateAssetAction(contextMenu.asset.id),
+              convertDepthVideo: /^video\//i.test(String(contextMenu.asset.type || "")) || /\.(mp4|webm|mov|m4v)$/i.test(String(contextMenu.asset.file || "")) ? () => convertDepthVideo(contextMenu.asset) : null,
+              depthVideoBusy: Boolean(depthVideoJob),
               rename: () => contextRename(contextMenu.asset),
               export: () => exportAssetAction(contextMenu.asset.id),
               reveal: () => revealAsset(contextMenu.asset.id),
@@ -2433,17 +3553,52 @@ function App() {
                 }
                 setTimeout(() => setMessage(""), 2500);
               },
+              uploadToAIFlow: desktop ? () => beginAIFlowExtensionUpload(contextMenu.asset) : null,
               delete: () => contextDelete(contextMenu.asset),
             }}
           />
         )
       )}
       {dialogState && <AppDialog state={dialogState} resolve={resolveDialog} />}
+      {tetrisPasswordOpen && (
+        <TetrisAccessDialog
+          password={tetrisPassword}
+          error={tetrisPasswordError}
+          changePassword={(value) => {
+            setTetrisPassword(value);
+            setTetrisPasswordError("");
+          }}
+          close={() => {
+            setTetrisPasswordOpen(false);
+            setTetrisPasswordError("");
+          }}
+          unlock={unlockTetris}
+        />
+      )}
+      {aiFlowImportPanel && (
+        <AIFlowImportDialog
+          close={() => !importing && setAiFlowImportPanel(false)}
+          importing={importing}
+          importItems={importAIFlowItems}
+          folderName={activeFolder ? library?.folders?.find((folder) => folder.id === activeFolder)?.name || "当前文件夹" : "未选择文件夹"}
+          hasTargetFolder={Boolean(activeFolder)}
+          applyLibrary={applyLibrary}
+        />
+      )}
       {extensionPanel && (
         <ExtensionPanel
           busy={extensionBusy}
           result={extensionResult}
           install={prepareExtension}
+          uninstall={uninstallExtension}
+          plugins={plugins}
+          mcpConfig={mcpConfig}
+          openPluginsFolder={() => window.nestDesktop.openPluginsFolder()}
+          togglePlugin={async (id, enabled) => {
+            const result = await window.nestDesktop.setPluginEnabled(id, enabled);
+            if (result?.error) setMessage(result.error);
+            else setPlugins(result.plugins || []);
+          }}
           close={() => setExtensionPanel(false)}
         />
       )}
@@ -2464,6 +3619,18 @@ function App() {
           close={() => {
             setAiSettingsPanel(false);
           }}
+          library={library}
+          diskInfo={diskInfo}
+          theme={theme}
+          setTheme={setTheme}
+          checkUpdate={checkUpdate}
+          updateInfo={updateInfo}
+          updateChecking={updateChecking}
+          deleteCurrentLibrary={deleteCurrentLibrary}
+          backgroundMusicEnabled={backgroundMusicEnabled}
+          setBackgroundMusicEnabled={setBackgroundMusicEnabled}
+          backgroundMusicVolume={backgroundMusicVolume}
+          setBackgroundMusicVolume={setBackgroundMusicVolume}
         />
       )}
       {updatePanel && updateInfo && (
@@ -2477,38 +3644,95 @@ function App() {
           install={installUpdate}
         />
       )}
-      {desktop && library && (
-        <SidebarFooter
-          info={diskInfo}
-          recycleBinName={recycleBinName}
-          openRecycle={async () => {
-            const result = await window.nestDesktop.openRecycleBin();
+      {supportPanel && <SupportPanel close={closeSupportPanel} />}
+      {depthVideoJob && <DepthVideoProgress job={depthVideoJob} cancel={cancelDepthVideo} />}
+      {teamPanel && <TeamPanel library={library} close={() => setTeamPanel(false)} changed={(team) => setLibrary((current) => current ? {...current, team} : current)} />}
+      {batchRenamePanel && <BatchRenameDialog assets={selectedIds.map(id => assets.find(asset => asset.id === id)).filter(Boolean)} folders={library?.folders || []} close={() => setBatchRenamePanel(false)} apply={batchRename} />}
+      {shouldShowBugFeedback && (
+        <button
+          className="bug-feedback"
+          title="在软件内打开腾讯文档 Bug 反馈表"
+          onClick={async () => {
+            const result = await window.nestDesktop?.openBugFeedback();
             if (result?.error) {
-              setMessage(`无法打开${recycleBinName}：${result.error}`);
-              setTimeout(() => setMessage(""), 3500);
+              setMessage(result.error);
+              setTimeout(() => setMessage(""), 4000);
             }
           }}
-        />
+        >
+          <Bug size={16} />
+          <span>Bug 反馈</span>
+        </button>
       )}
-      <button
-        className="bug-feedback"
-        title="在软件内打开腾讯文档 Bug 反馈表"
-        onClick={async () => {
-          const result = await window.nestDesktop?.openBugFeedback();
-          if (result?.error) {
-            setMessage(result.error);
-            setTimeout(() => setMessage(""), 4000);
-          }
-        }}
-      >
-        <Bug size={16} />
-        <span>Bug 反馈</span>
-      </button>
     </div>
   );
 }
 
-function SidebarFooter({ info, recycleBinName, openRecycle }) {
+const roleName = (role) => ({ owner: "所有者", admin: "管理员", editor: "编辑者", viewer: "查看者" })[role] || "未加入";
+
+const previewBatchName = (template, asset, index, folders) => {
+  const folder = folders.find(item => item.id === asset.folderId);
+  const values = { name: asset.name || "未命名素材", index: String(index + 1).padStart(Math.max(2, String(index + 1).length), "0"), folder: folder?.name || "未分类", tag: asset.tags?.[0] || "无标签" };
+  return (String(template || "").trim() || "{name}_{index}").replace(/\{(name|index|folder|tag)\}/g, (_, key) => values[key]).replace(/[<>:"/\\|?*\u0000-\u001f]/g, " ").replace(/\s+/g, " ").replace(/[. ]+$/g, "").trim().slice(0, 180) || "未命名素材";
+};
+
+function BatchRenameDialog({ assets, folders, close, apply }) {
+  const [template, setTemplate] = useState("{name}_{index}"), [busy, setBusy] = useState(false);
+  const insert = token => setTemplate(current => `${current}${token}`);
+  const submit = async event => { event.preventDefault(); if (busy || !assets.length) return; setBusy(true); if (!(await apply(template))) setBusy(false); };
+  return <div className="modal-backdrop batch-rename-backdrop" onMouseDown={event => event.target === event.currentTarget && close()}>
+    <form className="app-dialog batch-rename-dialog" onSubmit={submit} onKeyDown={event => event.key === "Escape" && close()}>
+      <div className="dialog-head"><div><h2>批量重命名</h2><small>将重命名素材标题和本地原文件，共 {assets.length} 项</small></div><button type="button" aria-label="关闭" onClick={close}><X size={18}/></button></div>
+      <label className="batch-template-field"><span>命名模板</span><input autoFocus value={template} maxLength={180} onChange={event => setTemplate(event.target.value)} /></label>
+      <div className="batch-tokens">{[["{name}","原名称"],["{index}","序号"],["{folder}","文件夹"],["{tag}","首个标签"]].map(([token,label])=><button type="button" key={token} onClick={()=>insert(token)}><code>{token}</code><span>{label}</span></button>)}</div>
+      <section className="batch-rename-preview"><header><b>实时预览</b><small>最多显示前 8 项</small></header>{assets.slice(0,8).map((asset,index)=><div key={asset.id}><span title={asset.name}>{asset.name}</span><i>→</i><b title={previewBatchName(template,asset,index,folders)}>{previewBatchName(template,asset,index,folders)}</b></div>)}</section>
+      <div className="dialog-actions"><button type="button" onClick={close}>取消</button><button className="primary" disabled={busy || !template.trim()} type="submit">{busy ? "正在重命名…" : `应用到 ${assets.length} 项`}</button></div>
+    </form>
+  </div>;
+}
+
+function TeamPanel({ library, close, changed }) {
+  const [info, setInfo] = useState(null), [name, setName] = useState(""), [role, setRole] = useState("viewer"), [status, setStatus] = useState("");
+  const load = () => window.nestDesktop?.teamInfo().then(setInfo);
+  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const onKeyDown = (event) => event.key === "Escape" && close();
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [close]);
+  const run = async (action) => {
+    setStatus("");
+    const result = await action;
+    if (result?.error) return setStatus(result.error);
+    if (result?.team) changed(result.team);
+    await load();
+  };
+  const canManage = ["owner", "admin"].includes(info?.role);
+  return <div className="modal-backdrop team-backdrop" onMouseDown={(event) => event.target === event.currentTarget && close()}>
+    <div className="team-dialog" role="dialog" aria-modal="true" aria-label="成员与权限">
+      <div className="team-head"><div><strong>成员与权限</strong><small>共享资源库的本地协作身份与操作范围</small></div><button onClick={close} aria-label="关闭"><X size={18}/></button></div>
+      <div className="team-notice">权限用于多人协作时防止误操作；资源库仍是本地文件，不能替代服务器级安全控制。</div>
+      <section className="team-current"><span style={{background: info?.profile?.color || "#4f9cf9"}}>{(info?.profile?.name || "我").slice(0,1)}</span><div><b>{info?.profile?.name || "我"}</b><small>当前设备身份 · {roleName(info?.role)}</small></div></section>
+      <section className="team-members">
+        <header><b>资源库成员</b><small>{info?.members?.length || 0} 人</small></header>
+        {(info?.members || []).map(member => <div className="team-member" key={member.id}>
+          <i style={{background: member.color}}>{member.name.slice(0,1)}</i><span><b>{member.name}</b><small>{member.id === info.ownerId ? "资源库所有者" : "协作成员"}</small></span>
+          <select value={member.id === info.ownerId ? "owner" : member.role} disabled={!canManage || member.id === info.ownerId} onChange={(event) => run(window.nestDesktop.updateMember(member.id,{role:event.target.value}))}>
+            {member.id === info.ownerId && <option value="owner">所有者</option>}<option value="admin">管理员</option><option value="editor">编辑者</option><option value="viewer">查看者</option>
+          </select>
+          <button className="team-remove" disabled={!canManage || member.id === info.ownerId || member.id === info.profile?.id} onClick={() => run(window.nestDesktop.removeMember(member.id))}><Trash2 size={15}/></button>
+        </div>)}
+      </section>
+      {canManage && <form className="team-add" onSubmit={(event) => {event.preventDefault();if(!name.trim())return;run(window.nestDesktop.addMember({name,role})).then(()=>setName(""));}}>
+        <input value={name} onChange={event=>setName(event.target.value)} placeholder="输入新成员名称" maxLength={40}/><select value={role} onChange={event=>setRole(event.target.value)}><option value="viewer">查看者</option><option value="editor">编辑者</option><option value="admin">管理员</option></select><button type="submit"><Plus size={15}/>添加</button>
+      </form>}
+      <div className="team-matrix"><b>权限说明</b><span><em>查看者</em>浏览、搜索与预览</span><span><em>编辑者</em>导入、整理、标签和删除素材</span><span><em>管理员</em>以上全部，并可管理成员</span></div>
+      {status && <p className="team-error">{status}</p>}
+    </div>
+  </div>;
+}
+
+function SidebarFooter({ info, recycleBinName, openRecycle, openSupport }) {
   const usedPercent = info?.total
       ? Math.min(
           100,
@@ -2544,6 +3768,15 @@ function SidebarFooter({ info, recycleBinName, openRecycle }) {
           </i>
         </span>
       </div>
+      <button
+        type="button"
+        className="sidebar-version"
+        title="打开社区支持"
+        onClick={openSupport}
+      >
+        <Heart size={11} />
+        <span className="version-number">v{APP_VERSION}</span>
+      </button>
     </div>
   );
 }
@@ -2564,13 +3797,18 @@ function AIAssistant({
     [result, setResult] = useState(null),
     [error, setError] = useState(""),
     [prompt, setPrompt] = useState(""),
+    [messages, setMessages] = useState([]),
     [plan, setPlan] = useState(null),
     [audit, setAudit] = useState([]);
+  const chatEndRef = useRef(null);
   const context = { folderId: folder?.id || null, selectedIds, query, filter };
   const refreshAudit = () => window.nestDesktop.ai.audit().then(setAudit);
   useEffect(() => {
     refreshAudit();
   }, []);
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [messages, busy]);
   const planFrom = (operation, data) => {
     const items = data?.items || [];
     if (operation === "tags")
@@ -2615,7 +3853,18 @@ function AIAssistant({
       };
     return null;
   };
-  const run = async (operation) => {
+  const resultText = (value) => {
+    if (!value) return "没有收到可显示的回复。";
+    if (value.message || value.summary) return value.message || value.summary;
+    return JSON.stringify(value, null, 2);
+  };
+  const run = async (operation, chatPrompt = null) => {
+    const submittedPrompt = chatPrompt?.trim() || "";
+    if (chatPrompt !== null && !submittedPrompt) return;
+    if (chatPrompt !== null) {
+      setMessages((items) => [...items, { role: "user", content: submittedPrompt }]);
+      setPrompt("");
+    }
     setBusy(true);
     setError("");
     setResult(null);
@@ -2623,7 +3872,7 @@ function AIAssistant({
     try {
       const started = await window.nestDesktop.ai.startTask(operation, {
         context,
-        prompt,
+        prompt: chatPrompt !== null ? submittedPrompt : prompt,
         assetId: selectedIds[0],
       });
       if (started?.error) throw new Error(started.error);
@@ -2632,8 +3881,16 @@ function AIAssistant({
         const task = await window.nestDesktop.ai.getTask(started.id);
         setProgress(task);
         if (task?.status === "completed") {
-          setResult(task.result.result);
-          setPlan(planFrom(operation, task.result.result));
+          const completedResult = task.result.result;
+          if (chatPrompt !== null) {
+            setMessages((items) => [
+              ...items,
+              { role: "assistant", content: resultText(completedResult) },
+            ]);
+          } else {
+            setResult(completedResult);
+            setPlan(planFrom(operation, completedResult));
+          }
           if (["search", "similar", "duplicates"].includes(operation))
             showResults(task.result.result.assetIds || []);
           break;
@@ -2643,6 +3900,11 @@ function AIAssistant({
       }
     } catch (reason) {
       setError(reason.message);
+      if (chatPrompt !== null)
+        setMessages((items) => [
+          ...items,
+          { role: "error", content: reason.message },
+        ]);
     } finally {
       setBusy(false);
     }
@@ -2726,7 +3988,7 @@ function AIAssistant({
       <div className="ai-head">
         <div>
           <strong>
-            <Sparkles size={17} /> AI 助手 <em>BETA</em>
+            <Sparkles size={17} /> AI 助手
           </strong>
         </div>
         <button title="AI 与模型设置" onClick={settings}>
@@ -2831,6 +4093,28 @@ function AIAssistant({
           </section>
         )}
         <div className="ai-section-title">对话助手</div>
+        <section className="ai-conversation" aria-label="AI 对话记录">
+          {messages.length ? (
+            messages.map((message, index) => (
+              <article className={`ai-message ${message.role}`} key={`${message.role}-${index}`}>
+                <small>{message.role === "user" ? "我" : message.role === "error" ? "发送失败" : "AI 助手"}</small>
+                <p>{message.content}</p>
+              </article>
+            ))
+          ) : (
+            <div className="ai-conversation-empty">
+              <Sparkles size={18} />
+              <span>选择下面的问题，或直接输入你想了解的素材内容。</span>
+            </div>
+          )}
+          {busy && messages.at(-1)?.role === "user" && (
+            <article className="ai-message assistant pending">
+              <small>AI 助手</small>
+              <p>正在思考…</p>
+            </article>
+          )}
+          <div ref={chatEndRef} />
+        </section>
         <div className="ai-suggestions">
           {suggestions.map((text) => (
             <button key={text} onClick={() => setPrompt(text)}>
@@ -2842,12 +4126,18 @@ function AIAssistant({
           <textarea
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                if (!busy && prompt.trim()) run("chat", prompt);
+              }
+            }}
             placeholder="问问你的素材库…"
           />
           <button
             disabled={busy || !prompt.trim()}
             title="发送"
-            onClick={() => run("chat")}
+            onClick={() => run("chat", prompt)}
           >
             <Sparkles size={18} />
           </button>
@@ -2885,13 +4175,23 @@ function AIAssistant({
   );
 }
 
-function AISettings({ close }) {
-  const [value, setValue] = useState(null),
+function AISettings({ close, library, diskInfo, theme, setTheme, checkUpdate, updateInfo, updateChecking, deleteCurrentLibrary, backgroundMusicEnabled, setBackgroundMusicEnabled, backgroundMusicVolume, setBackgroundMusicVolume }) {
+  const [tab, setTab] = useState("AI 与模型"),
+    [value, setValue] = useState(null),
     [active, setActive] = useState("openai"),
     [key, setKey] = useState(""),
     [status, setStatus] = useState(""),
     [saving, setSaving] = useState(false),
     [usage, setUsage] = useState(null);
+  const SETTING_TABS = [
+    ["通用", "⚙"],
+    ["外观", "◈"],
+    ["快捷键", "⌨"],
+    ["存储", "▣"],
+    ["素材库", "▤"],
+    ["AI 与模型", "✦"],
+    ["更新", "↻"],
+  ];
   useEffect(() => {
     window.nestDesktop.ai.settings().then((settings) => {
       setValue(settings);
@@ -2901,7 +4201,7 @@ function AISettings({ close }) {
   }, []);
   if (!value)
     return (
-      <div className="ai-settings-page">
+      <div className={"ai-settings-page" + (tab !== "AI 与模型" ? " no-side" : "")}>
         <p>正在读取 AI 设置…</p>
       </div>
     );
@@ -2959,7 +4259,7 @@ function AISettings({ close }) {
     ["allowLowRisk", "允许 AI 执行低风险操作", "标签、备注等操作仍可撤销"],
   ];
   return (
-    <div className="ai-settings-page">
+    <div className={"ai-settings-page" + (tab !== "AI 与模型" ? " no-side" : "")}>
       <header className="ai-settings-top">
         <div className="ai-settings-brand">
           <span>
@@ -2972,7 +4272,7 @@ function AISettings({ close }) {
           <button onClick={close}>‹</button>
           <span>设置</span>
           <b>›</b>
-          <strong>AI 与模型</strong>
+          <strong>{tab}</strong>
         </div>
         <div className="ai-settings-search">
           <Search size={16} />
@@ -2987,18 +4287,11 @@ function AISettings({ close }) {
       </header>
       <aside className="ai-settings-nav">
         <h2>设置</h2>
-        {[
-          ["通用", "⚙"],
-          ["外观", "◈"],
-          ["快捷键", "⌨"],
-          ["存储", "▣"],
-          ["AI 与模型", "✦"],
-          ["更新", "↻"],
-        ].map(([name, icon]) => (
+        {SETTING_TABS.map(([name, icon]) => (
           <button
             key={name}
-            className={name === "AI 与模型" ? "active" : ""}
-            disabled={name !== "AI 与模型"}
+            className={tab === name ? "active" : ""}
+            onClick={() => setTab(name)}
           >
             <i>{icon}</i>
             {name}
@@ -3011,7 +4304,9 @@ function AISettings({ close }) {
         </footer>
       </aside>
       <main className="ai-settings-main">
-        <h2>默认 AI 服务与模型</h2>
+        {tab === "AI 与模型" ? (
+          <>
+            <h2>默认 AI 服务与模型</h2>
         <section className="ai-model-card">
           <div className="ai-model-row">
             <label>
@@ -3215,9 +4510,132 @@ function AISettings({ close }) {
           </div>
         </section>
         {status && <p className="ai-page-status">{status}</p>}
+          </>
+        ) : (
+          <>
+            {tab === "通用" && (
+              <section className="settings-generic settings-general">
+                <div className="settings-general-group">
+                  <h2>关于本软件</h2>
+                  <div className="settings-kv">
+                    <div><span>应用版本</span><b>v{APP_VERSION}</b></div>
+                    <div><span>资源库</span><b>{library?.name || "未打开"}</b></div>
+                    <div><span>素材数量</span><b>{library?.assets?.length ?? 0} 个</b></div>
+                    <div><span>库路径</span><b className="mono">{library?.path || "—"}</b></div>
+                    <div><span>界面语言</span><b>简体中文</b></div>
+                  </div>
+                </div>
+                <div className="settings-general-group settings-background-music-card">
+                  <div className="settings-background-music-heading">
+                    <div>
+                      <h2>背景音乐</h2>
+                      <p>优先播放新添加的歌曲；播放结束后自动下一首，默认音量 30%。</p>
+                    </div>
+                    <span>{backgroundMusicEnabled ? "已开启" : "已暂停"}</span>
+                  </div>
+                  <label className="ai-switch-row settings-background-music-toggle">
+                    <span>
+                      <b>自动播放背景音乐</b>
+                      <small>关闭后会立即暂停，并记住你的选择。</small>
+                    </span>
+                    <input type="checkbox" checked={backgroundMusicEnabled} onChange={(event) => setBackgroundMusicEnabled(event.target.checked)} />
+                    <i />
+                  </label>
+                  <label className="settings-background-music-volume">
+                    <span><b>音量</b><output>{Math.round(backgroundMusicVolume * 100)}%</output></span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={Math.round(backgroundMusicVolume * 100)}
+                      aria-label="背景音乐音量"
+                      onChange={(event) => setBackgroundMusicVolume(Number(event.target.value) / 100)}
+                    />
+                  </label>
+                </div>
+              </section>
+            )}
+            {tab === "外观" && (
+              <section className="settings-generic">
+                <h2>主题模式</h2>
+                <div className="settings-chip-row">
+                  {[["dark", "深色"], ["light", "浅色"], ["system", "跟随系统"], ["oled", "OLED 黑色"]].map(([id, name]) => (
+                    <button key={id} className={theme.mode === id ? "on" : ""} onClick={() => { const next = { ...theme, mode: id, colors: colorsForMode(id, theme.colors) }; setTheme(next); localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(next)); localStorage.removeItem("nest-theme-color"); }}>
+                      {name}
+                    </button>
+                  ))}
+                </div>
+                <h2>主题预设</h2>
+                <div className="settings-chip-row">
+                  {THEME_PRESETS.map((preset) => (
+                    <button key={preset.id} className={theme.preset === preset.id ? "on" : ""} style={{ background: preset.colors.accent, color: "#fff" }} onClick={() => { const next = { ...theme, preset: preset.id, colors: { ...preset.colors } }; setTheme(next); localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(next)); localStorage.removeItem("nest-theme-color"); }}>
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+            {tab === "快捷键" && (
+              <section className="settings-generic">
+                <h2>快捷键</h2>
+                <div className="settings-kv">
+                  {[["Ctrl / ⌘ + A", "全选当前视图素材"], ["Ctrl / ⌘ + C", "复制选中文件"], ["空格", "试听 / 暂停音频"], ["Esc", "关闭面板与浮层"], ["← / →", "预览切换上一个 / 下一个"], ["R", "预览旋转 90°"], ["0", "预览复位缩放"], ["双击", "快速预览素材"]].map(([k, d]) => (
+                    <div key={k}><span>{d}</span><b className="mono">{k}</b></div>
+                  ))}
+                </div>
+              </section>
+            )}
+            {tab === "存储" && (
+              <section className="settings-generic">
+                <h2>存储位置</h2>
+                <div className="settings-kv">
+                  <div><span>库路径</span><b className="mono">{library?.path || "—"}</b></div>
+                  <div><span>磁盘空间</span><b>{diskInfo ? `剩余 ${fmtCapacity(diskInfo.free)} / 共 ${fmtCapacity(diskInfo.total)}` : "读取中…"}</b></div>
+                  <div><span>素材文件</span><b>库目录 assets/ 文件夹</b></div>
+                  <div><span>每日备份</span><b>库目录 .nest-backups/ 文件夹</b></div>
+                </div>
+              </section>
+            )}
+            {tab === "素材库" && (
+              <section className="settings-generic library-management-settings">
+                <h2>素材库管理</h2>
+                <p className="settings-hint">管理当前打开的本地素材库。删除操作只影响本地目录，不会删除 AI Flow 服务器素材。</p>
+                <div className="settings-kv">
+                  <div><span>当前素材库</span><b>{library?.name || "未打开"}</b></div>
+                  <div><span>素材数量</span><b>{library?.assets?.length ?? 0} 个</b></div>
+                  <div><span>库路径</span><b className="mono">{library?.path || "—"}</b></div>
+                </div>
+                <div className="settings-actions danger-actions">
+                  <button className="danger" disabled={!library} onClick={deleteCurrentLibrary}>
+                    <Trash2 size={15} /> 删除当前素材库
+                  </button>
+                </div>
+                <p className="settings-hint">删除前会请求确认。成功后目录会移入 Windows 回收站，可在回收站恢复。</p>
+              </section>
+            )}
+            {tab === "更新" && (
+              <section className="settings-generic">
+                <h2>软件更新</h2>
+                <div className="settings-kv">
+                  <div><span>当前版本</span><b>v{APP_VERSION}</b></div>
+                  <div><span>最新版本</span><b>{updateInfo?.latest ? `v${updateInfo.latest}` : "—"}</b></div>
+                </div>
+                <div className="settings-actions">
+                  <button className="primary" disabled={updateChecking} onClick={checkUpdate}>
+                    {updateChecking ? "检查中…" : "检查更新"}
+                  </button>
+                </div>
+                {updateInfo?.available && <p className="settings-hint">发现新版本 v{updateInfo.latest}，可在顶部「检查更新」中下载安装。</p>}
+                <ReleaseNotes />
+              </section>
+            )}
+          </>
+        )}
       </main>
-      <aside className="ai-settings-side">
-        <h2>小旺仔助手设置</h2>
+      {tab === "AI 与模型" && (
+        <aside className="ai-settings-side">
+          <h2>小旺仔助手设置</h2>
         <section className="ai-assistant-profile">
           <div className="ai-profile-head">
             <span>
@@ -3225,7 +4643,7 @@ function AISettings({ close }) {
             </span>
             <div>
               <b>
-                {value.assistantName || "小旺仔助手"} <em>BETA</em>
+                {value.assistantName || "小旺仔助手"}
               </b>
               <small>你的素材小管家，帮你找、看、理、懂素材</small>
             </div>
@@ -3267,7 +4685,8 @@ function AISettings({ close }) {
             ))}
           </div>
         </section>
-      </aside>
+        </aside>
+      )}
     </div>
   );
 }
@@ -3427,6 +4846,28 @@ function AssetPalette({ asset }) {
     </div>
   );
 }
+function DocumentReader({ asset }) {
+  const textRef = useRef(null);
+  const scenes = asset.documentStructure?.scenes || [];
+  const lines = (asset.documentText || "").split("\n");
+  const goToScene = (scene) => {
+    const reader = textRef.current;
+    const target = reader?.querySelector(`[data-line="${scene.line}"]`);
+    if (reader && target) reader.scrollTo({ top: Math.max(0, target.offsetTop - reader.offsetTop - 8), behavior: "smooth" });
+  };
+  if (asset.type === "text/markdown" || /^(MD|MARKDOWN)$/i.test(asset.documentFormat || "")) return <MarkdownReader key={asset.id} text={asset.documentText || ""} />;
+  return <section className="document-reader">
+    <header><FileText size={16}/><b>剧本文本</b><span>{(asset.documentText || "").length.toLocaleString()} 字符</span></header>
+    {scenes.length > 0 && <nav className="fountain-scenes" aria-label="场景导航">
+      <strong>{scenes.length} 个场景</strong>
+      {scenes.map((scene, index) => <button key={`${scene.line}-${index}`} onClick={() => goToScene(scene)} title={`${scene.characters.join("、") || "无角色"} · ${scene.dialogueCount} 段对白`}>
+        <span>{index + 1}</span>{scene.title}
+      </button>)}
+    </nav>}
+    {asset.documentText ? <pre ref={textRef}>{lines.map((line, index) => <span key={index} data-line={index + 1} className={scenes.some(scene => scene.line === index + 1) ? "fountain-scene-line" : ""}>{line || " "}{index < lines.length - 1 ? "\n" : ""}</span>)}</pre> : <div className="document-empty">未提取到可搜索文本，可点击“打开”使用系统阅读器查看原文件。</div>}
+  </section>;
+}
+
 function Detail({
   asset,
   folders = [],
@@ -3436,9 +4877,11 @@ function Detail({
   open,
   reveal,
   confirmAction,
+  canEdit,
   openMore,
 }) {
   const [tag, setTag] = useState("");
+  const isDocument = asset.type?.startsWith("text") || asset.type === "application/pdf" || asset.documentFormat === "DOCX";
   const add = () => {
     if (tag.trim()) {
       patch(asset.id, {
@@ -3487,10 +4930,8 @@ function Detail({
             </button>
           ))}
         </div>
-        <label>
-          <Palette size={15} /> 主色板
-        </label>
-        <AssetPalette asset={asset} />
+        {isDocument && <DocumentReader asset={asset}/>} 
+        {!isDocument && <><label><Palette size={15} /> 主色板</label><AssetPalette asset={asset} /></>}
         <div className="facts">
           <div>
             <span>格式</span>
@@ -3632,7 +5073,7 @@ function AppDialog({ state, resolve }) {
   };
   return (
     <div
-      className="modal-backdrop"
+      className="modal-backdrop app-dialog-backdrop"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) resolve(cancelValue);
       }}
@@ -3740,7 +5181,458 @@ function AppDialog({ state, resolve }) {
   );
 }
 
-function ExtensionPanel({ busy, result, install, close }) {
+function AIFlowImportDialog({ close, importing, importItems, folderName, hasTargetFolder, applyLibrary }) {
+  const [source, setSource] = useState("server");
+  const [settings, setSettings] = useState(null);
+  const [token, setToken] = useState("");
+  const [scan, setScan] = useState(null);
+  const [selected, setSelected] = useState(() => new Set());
+  const [projects, setProjects] = useState([]);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState("");
+  const scanRequestRef = useRef(0);
+
+  useEffect(() => {
+    let alive = true;
+    window.nestDesktop.aiFlow
+      .settings()
+      .then((result) => {
+        if (!alive) return;
+        if (result?.error) setStatus(result.error);
+        else setSettings(result);
+      })
+      .catch((error) => alive && setStatus(`读取 AI Flow 设置失败：${error.message}`))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const updateSetting = (key, value) =>
+    setSettings((current) => ({ ...current, [key]: value }));
+  const clearScan = ({ clearProjects = false } = {}) => {
+    scanRequestRef.current += 1;
+    setScan(null);
+    setSelected(new Set());
+    if (clearProjects) {
+      setProjects([]);
+      setSelectedProjectId("");
+      setSelectedEpisodeId("");
+    }
+  };
+  const resetScan = (nextSource = source) => {
+    setSource(nextSource);
+    clearScan({ clearProjects: true });
+    setStatus("");
+  };
+  const persist = async (overrides = {}) => {
+    if (!settings) return null;
+    const pending = { ...settings, ...overrides };
+    setSaving(true);
+    try {
+      const input = {
+        baseUrl: pending.baseUrl,
+        localRoot: pending.localRoot,
+        authMode: pending.authMode,
+        ...(pending.authMode === "token" && token.trim() ? { token } : {}),
+      };
+      const result = await window.nestDesktop.aiFlow.saveSettings(input);
+      if (result?.error) {
+        setStatus(result.error);
+        return null;
+      }
+      setSettings(result.settings);
+      setToken("");
+      return result.settings;
+    } catch (error) {
+      setStatus(`保存 AI Flow 设置失败：${error.message}`);
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  };
+  const selectAuthMode = async (authMode) => {
+    if (!settings || settings.authMode === authMode || loading || importing) return;
+    const saved = await persist({ authMode });
+    if (!saved) return;
+    clearScan({ clearProjects: true });
+    setStatus(authMode === "session" ? "请登录 AI Flow 账号后读取本人已完成视频" : "已切换为访问令牌方式");
+  };
+  const signIn = async () => {
+    const saved = await persist({ authMode: "session" });
+    if (!saved) return;
+    setLoading(true);
+    setStatus("正在打开 AI Flow 登录窗口…");
+    try {
+      const result = await window.nestDesktop.aiFlow.signIn();
+      if (result?.error) {
+        setStatus(result.error);
+        return;
+      }
+      if (result?.settings) setSettings(result.settings);
+      if (result?.cancelled) {
+        setStatus("已取消 AI Flow 登录");
+        return;
+      }
+      clearScan({ clearProjects: true });
+      const account = result?.account;
+      setStatus(account ? `已登录 ${account.displayName || account.username || "AI Flow 账号"}` : "AI Flow 登录成功");
+    } catch (error) {
+      setStatus(`登录 AI Flow 失败：${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const signOut = async () => {
+    if (!settings) return;
+    setLoading(true);
+    try {
+      const result = await window.nestDesktop.aiFlow.signOut();
+      if (result?.error) {
+        setStatus(result.error);
+        return;
+      }
+      if (result?.settings) setSettings(result.settings);
+      if (result?.library) applyLibrary(result.library);
+      clearScan({ clearProjects: true });
+      const detachedCount = Number(result?.detached?.roots || 0) + Number(result?.detached?.folders || 0);
+      setStatus(detachedCount ? `已退出 AI Flow 账号，并解除 ${detachedCount} 个文件夹连接` : "已退出 AI Flow 账号");
+    } catch (error) {
+      setStatus(`退出 AI Flow 失败：${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const refresh = async (requestedEpisodeId = selectedEpisodeId) => {
+    const episodeId = typeof requestedEpisodeId === "string" || typeof requestedEpisodeId === "number"
+      ? String(requestedEpisodeId).trim()
+      : String(selectedEpisodeId || "").trim();
+    const requestId = ++scanRequestRef.current;
+    const saved = await persist();
+    if (!saved) return;
+    if (requestId !== scanRequestRef.current) return;
+    if (source === "server" && saved.authMode === "session" && !saved.sessionAuthenticated) {
+      setStatus("请先登录 AI Flow 账号");
+      return;
+    }
+    setLoading(true);
+    setStatus("");
+    try {
+      const result = source === "server"
+        ? episodeId
+          ? await window.nestDesktop.aiFlow.listServerVideos({ episodeId })
+          : await window.nestDesktop.aiFlow.listServerVideos()
+        : await window.nestDesktop.aiFlow.listLocalAssets();
+      if (requestId !== scanRequestRef.current) return;
+      if (result?.error) {
+        setStatus(result.error);
+        return;
+      }
+      setScan(result);
+      if (source === "server" && Array.isArray(result.projects))
+        setProjects(result.projects);
+      setSelected(new Set());
+      const label = source === "server" ? "视频" : "素材";
+      setStatus(result.videos?.length ? `已发现 ${result.videos.length} 个可导入${label}` : `没有发现可导入的${label}`);
+    } catch (error) {
+      if (requestId === scanRequestRef.current)
+        setStatus(`读取 AI Flow ${source === "server" ? "视频" : "素材"}失败：${error.message}`);
+    } finally {
+      if (requestId === scanRequestRef.current) setLoading(false);
+    }
+  };
+  const selectProject = (projectId) => {
+    setSelectedProjectId(projectId);
+    setSelectedEpisodeId("");
+    clearScan();
+    setStatus(
+      projectId
+        ? "请选择具体集数后自动读取；选择“全部集数”后可手动读取当前项目视频。"
+        : "已切换为全部项目，请点击“读取已完成任务”。",
+    );
+  };
+  const selectEpisode = (episodeId) => {
+    setSelectedEpisodeId(episodeId);
+    clearScan();
+    if (!episodeId) {
+      setStatus(
+        selectedProjectId
+          ? "已选择当前项目的全部集数，请点击“读取已完成任务”。"
+          : "已选择全部项目、全部集数，请点击“读取已完成任务”。",
+      );
+      return;
+    }
+    setStatus("正在读取所选集数的已完成视频…");
+    void refresh(episodeId);
+  };
+  const testConnection = async () => {
+    const saved = await persist();
+    if (!saved) return;
+    if (saved.authMode === "session" && !saved.sessionAuthenticated) {
+      setStatus("请先登录 AI Flow 账号");
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await window.nestDesktop.aiFlow.testConnection();
+      setStatus(result?.error || "AI Flow 连接正常");
+    } catch (error) {
+      setStatus(`连接 AI Flow 失败：${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const clearToken = async () => {
+    if (!settings) return;
+    setSaving(true);
+    try {
+      const result = await window.nestDesktop.aiFlow.saveSettings({
+        baseUrl: settings.baseUrl,
+        localRoot: settings.localRoot,
+        authMode: settings.authMode,
+        clearToken: true,
+      });
+      if (result?.error) setStatus(result.error);
+      else {
+        setSettings(result.settings);
+        setToken("");
+        setStatus("已移除本机保存的 AI Flow 令牌");
+      }
+    } catch (error) {
+      setStatus(`移除令牌失败：${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const toggle = (id) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  const toggleAll = () => {
+    const ids = videos.map((item) => item.id);
+    const allVisibleSelected = ids.length > 0 && ids.every((id) => selected.has(id));
+    setSelected((current) => {
+      const next = new Set(current);
+      if (allVisibleSelected) ids.forEach((id) => next.delete(id));
+      else ids.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+  const submit = async () => {
+    if (!scan || !selected.size || importing) return;
+    const result = await importItems(source, scan.scanId, [...selected]);
+    if (result?.error) setStatus(result.error);
+  };
+  const formatBytes = (value) => {
+    const bytes = Number(value) || 0;
+    if (!bytes) return "大小未知";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    const unit = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+    return `${(bytes / 1024 ** unit).toFixed(unit ? 1 : 0)} ${units[unit]}`;
+  };
+  const formatDuration = (value) => {
+    const seconds = Number(value) || 0;
+    if (!seconds) return "时长未知";
+    const minute = Math.floor(seconds / 60);
+    return `${minute ? `${minute}:` : ""}${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+  };
+  const settingsReady = Boolean(settings);
+  const selectedProject = useMemo(
+    () => projects.find((project) => String(project.id) === String(selectedProjectId)),
+    [projects, selectedProjectId],
+  );
+  const episodes = selectedProject?.episodes || [];
+  const videos = useMemo(() => {
+    const numberOrLast = (value) => {
+      const numeric = Number(value);
+      if (Number.isFinite(numeric)) return numeric;
+      const parsedDate = Date.parse(String(value || "").replace(" ", "T"));
+      return Number.isFinite(parsedDate) ? parsedDate : Number.MAX_SAFE_INTEGER;
+    };
+    return (scan?.videos || [])
+      .filter((video) =>
+        source !== "server" || !selectedProjectId
+          ? true
+          : String(video.projectId || "") === String(selectedProjectId),
+      )
+      .filter((video) =>
+        source !== "server" || !selectedEpisodeId
+          ? true
+          : String(video.episodeId || "") === String(selectedEpisodeId),
+      )
+      .slice()
+      .sort((left, right) => {
+        for (const key of ["storyOrder", "shotNumber", "versionNumber"]) {
+          const delta = numberOrLast(left[key]) - numberOrLast(right[key]);
+          if (delta) return delta;
+        }
+        return Number(right.completedAt || 0) - Number(left.completedAt || 0)
+          || String(left.name || "").localeCompare(String(right.name || ""), "zh-CN");
+      });
+  }, [scan, source, selectedProjectId, selectedEpisodeId]);
+  const allVisibleSelected = videos.length > 0 && videos.every((video) => selected.has(video.id));
+  const projectNameFor = (video) =>
+    video.projectName ||
+    projects.find((project) => String(project.id) === String(video.projectId || ""))?.name ||
+    "未归属项目";
+  const episodeNameFor = (video) => {
+    if (video.episodeName) return video.episodeName;
+    const project = projects.find((item) => String(item.id) === String(video.projectId || ""));
+    return project?.episodes?.find((episode) => String(episode.id) === String(video.episodeId || ""))?.name || "未归属集数";
+  };
+  const sequenceLabelFor = (video) => {
+    const parts = [];
+    if (video.storyOrder !== undefined && video.storyOrder !== null && video.storyOrder !== "")
+      parts.push(`顺序 ${video.storyOrder}`);
+    if (video.shotNumber !== undefined && video.shotNumber !== null && video.shotNumber !== "")
+      parts.push(`镜头 ${video.shotNumber}`);
+    if (video.versionNumber !== undefined && video.versionNumber !== null && video.versionNumber !== "")
+      parts.push(`版本 ${video.versionNumber}`);
+    return parts.join(" · ");
+  };
+  const accountLabel = settings?.account?.displayName || settings?.account?.username || "";
+  return (
+    <div
+      className="modal-backdrop aiflow-import-backdrop"
+      onMouseDown={(event) => event.target === event.currentTarget && !importing && close()}
+    >
+      <section className="app-dialog aiflow-import-dialog" role="dialog" aria-modal="true" aria-label="导入 AI Flow 素材">
+        <div className="dialog-head">
+          <div>
+            <h2>导入 AI Flow 素材</h2>
+            <small>{hasTargetFolder ? `只读取你勾选的 AI Flow 素材；导入后复制到「${folderName}」，不会移动、删除或反向写入 AI Flow 原文件。` : `当前为「${folderName}」。AI Flow 导入会沿用原有逻辑；浏览器扩展不会误导入根目录，请先在左侧选择文件夹。`}</small>
+          </div>
+          <button type="button" aria-label="关闭" disabled={importing} onClick={close}><X size={18} /></button>
+        </div>
+        <div className="aiflow-source-tabs" role="tablist" aria-label="AI Flow 来源">
+          <button type="button" className={source === "server" ? "active" : ""} onClick={() => resetScan("server")}>
+            <Video size={15} /> AI Flow 服务
+          </button>
+          <button type="button" className={source === "local" ? "active" : ""} onClick={() => resetScan("local")}>
+            <HardDrive size={15} /> 本机素材
+          </button>
+        </div>
+        {settingsReady ? (
+          <div className="aiflow-settings-grid">
+            {source === "server" && <>
+              <label>
+                <span>AI Flow 服务地址</span>
+                <input value={settings.baseUrl || ""} onChange={(event) => updateSetting("baseUrl", event.target.value)} placeholder="https://your-ai-flow.example.com" disabled={loading || importing} />
+              </label>
+              <section className="aiflow-auth-panel" aria-label="AI Flow 账号授权">
+                <div className="aiflow-auth-panel-head">
+                  <span><ShieldCheck size={16} /> <b>账号登录</b><small>推荐 · 仅访问当前账号有权限的视频</small></span>
+                  {settings.authMode === "session" && (settings.sessionAuthenticated ? <i className="connected">已登录 {accountLabel || "AI Flow"}</i> : <i>未登录</i>)}
+                </div>
+                <div className="aiflow-auth-mode" role="tablist" aria-label="AI Flow 认证方式">
+                  <button type="button" role="tab" aria-selected={settings.authMode === "session"} className={settings.authMode === "session" ? "active" : ""} disabled={loading || saving || importing} onClick={() => selectAuthMode("session")}>
+                    <LogIn size={14} /> 账号登录
+                  </button>
+                  <button type="button" role="tab" aria-selected={settings.authMode === "token"} className={settings.authMode === "token" ? "active" : ""} disabled={loading || saving || importing} onClick={() => selectAuthMode("token")}>
+                    高级：访问令牌
+                  </button>
+                </div>
+                {settings.authMode === "session" ? (
+                  <div className="aiflow-login-state">
+                    <p>{settings.sessionAuthenticated ? `当前已授权：${accountLabel || "AI Flow 账号"}（登录状态已保存在本机）` : "点击登录后，在独立的 AI Flow 窗口完成登录；登录状态会保存在本机，素材库不会保存你的密码。"}</p>
+                    <div>
+                      <button type="button" className="primary" disabled={loading || saving || importing} onClick={signIn}><LogIn size={15} /> {settings.sessionAuthenticated ? "重新登录" : "登录 AI Flow"}</button>
+                      {settings.sessionAuthenticated && <button type="button" disabled={loading || saving || importing} onClick={signOut}><LogOut size={15} /> 退出登录</button>}
+                    </div>
+                  </div>
+                ) : (
+                  <label className="aiflow-token-field">
+                    <span>访问令牌 {settings.hasToken ? <em>已安全保存</em> : <em>未设置</em>}</span>
+                    <input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder={settings.hasToken ? "留空则继续使用已保存令牌" : "输入 AI Flow Bearer Token"} autoComplete="off" disabled={loading || importing} />
+                    {settings.hasToken && <button type="button" disabled={saving || loading || importing} onClick={clearToken}>移除令牌</button>}
+                  </label>
+                )}
+              </section>
+            </>}
+            {source === "local" && (
+              <label>
+                <span>AI Flow 本地素材目录</span>
+                <input value={settings.localRoot || ""} onChange={(event) => updateSetting("localRoot", event.target.value)} placeholder="D:\\AI_Flow\\Assets save-dev\\ep01" disabled={loading || importing} />
+              </label>
+            )}
+            <div className="aiflow-settings-actions">
+              {source === "server" && <button type="button" disabled={loading || saving || importing} onClick={testConnection}>测试连接</button>}
+              <button type="button" className="primary" disabled={loading || saving || importing} onClick={() => refresh()}>
+                <RotateCw size={15} /> {loading ? "处理中…" : source === "server" ? "读取已完成任务" : "扫描本机素材"}
+              </button>
+            </div>
+          </div>
+        ) : <div className="aiflow-empty">正在读取 AI Flow 设置…</div>}
+        {source === "server" && (
+          <div className="aiflow-settings-grid" style={{ marginTop: 10, gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" }}>
+            <label>
+              <span>项目</span>
+              <select
+                value={selectedProjectId}
+                onChange={(event) => selectProject(event.target.value)}
+                disabled={loading || saving || importing || !projects.length}
+                style={{ width: "100%", height: 35, padding: "0 10px", border: "1px solid var(--ui-border)", borderRadius: 7, background: "var(--bg-card)", color: "var(--text-primary)" }}
+              >
+                <option value="">全部项目</option>
+                {projects.map((project) => <option key={project.id} value={project.id}>{project.name || `项目 ${project.id}`}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>集数</span>
+              <select
+                value={selectedEpisodeId}
+                onChange={(event) => selectEpisode(event.target.value)}
+                disabled={loading || saving || importing || !projects.length || (selectedProjectId && !episodes.length)}
+                style={{ width: "100%", height: 35, padding: "0 10px", border: "1px solid var(--ui-border)", borderRadius: 7, background: "var(--bg-card)", color: "var(--text-primary)" }}
+              >
+                <option value="">全部集数</option>
+                {episodes.map((episode) => <option key={episode.id} value={episode.id}>{episode.name || `第 ${episode.episodeNumber || episode.sortOrder || episode.id} 集`}</option>)}
+              </select>
+            </label>
+            <small style={{ gridColumn: "1 / -1", color: "var(--text-secondary)", fontSize: 9 }}>
+              {projects.length ? "选择具体集数后会自动读取该集全部已完成视频；列表按剧情顺序、镜头、版本排序。" : "先读取一次已完成任务，即可按项目和集数筛选。"}
+            </small>
+          </div>
+        )}
+        <div className="aiflow-video-toolbar">
+          <div>
+            <b>{source === "server" ? "已完成视频" : "本机 AI Flow 素材"}</b>
+            <small>{scan?.truncated ? `仅显示前 ${videos.length} 项，请缩小本机输出目录后重试` : scan ? `${videos.length} 项` : "点击上方按钮读取"}</small>
+          </div>
+          <button type="button" disabled={!videos.length || loading || importing} onClick={toggleAll}>{allVisibleSelected ? "清空选择" : "全选"}</button>
+        </div>
+        <div className="aiflow-video-list" aria-busy={loading || importing}>
+          {!loading && !videos.length && <div className="aiflow-empty">{status || (source === "server" ? (settings?.authMode === "session" ? "登录 AI Flow 账号后读取你有权限访问的已完成任务。" : "配置访问令牌后读取 AI Flow 已完成任务。") : "填写 AI Flow 的“我的素材”目录（例如 ep01），扫描本机图片、音频、视频和文档。")}</div>}
+          {videos.map((video) => (
+            <label className={`aiflow-video-row ${selected.has(video.id) ? "selected" : ""}`} key={video.id}>
+              <input type="checkbox" checked={selected.has(video.id)} onChange={() => toggle(video.id)} disabled={importing} />
+              {source === "server" || video.kind === "video" ? <Video size={18} /> : video.kind === "image" ? <ImageIcon size={18} /> : video.kind === "audio" ? <Music size={18} /> : <FileText size={18} />}
+              <span>
+                <b title={video.name}>{video.name}</b>
+                <small title={source === "server" ? `${projectNameFor(video)} · ${episodeNameFor(video)} · ${video.prompt || ""}` : video.relativePath}>{source === "server" ? `${projectNameFor(video)} · ${episodeNameFor(video)}${video.model ? ` · ${video.model}` : ""}` : video.relativePath}</small>
+              </span>
+              <i>{source === "server" ? [sequenceLabelFor(video), formatDuration(video.duration), video.completedAt ? new Date(video.completedAt).toLocaleString() : ""].filter(Boolean).join(" · ") : `${formatBytes(video.size)} · ${video.modifiedAt ? new Date(video.modifiedAt).toLocaleString() : ""}`}</i>
+            </label>
+          ))}
+        </div>
+        {status && <p className={`aiflow-status ${/失败|错误|无效|不存在|权限/.test(status) ? "error" : ""}`}>{status}</p>}
+        <div className="dialog-actions">
+          <button type="button" disabled={importing} onClick={close}>取消</button>
+          <button className="primary" type="button" disabled={!scan || !selected.size || loading || importing} onClick={submit}>
+            <Import size={15} /> {importing ? "正在导入…" : `导入 ${selected.size} 个${source === "server" ? "视频" : "素材"}`}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ExtensionPanel({ busy, result, install, uninstall, plugins, mcpConfig, openPluginsFolder, togglePlugin, close }) {
   return (
     <div
       className="modal-backdrop"
@@ -3750,12 +5642,13 @@ function ExtensionPanel({ busy, result, install, close }) {
     >
       <div className="app-dialog extension-dialog">
         <div className="dialog-head">
-          <h2>安装 Nest 网页采集器</h2>
+          <h2>扩展、插件与 MCP</h2>
           <button aria-label="关闭" onClick={close} disabled={busy}>
             <X size={18} />
           </button>
         </div>
-        <p>选择浏览器后，Nest 会自动准备扩展、打开扩展管理页并复制扩展目录。</p>
+        <p>网页采集器用于浏览器导入；本地插件默认关闭并按清单授权；MCP 默认只读。</p>
+        <h3 className="extension-section-title">网页采集器</h3>
         <div className="browser-choices">
           <button disabled={busy} onClick={() => install("chrome")}>
             <b className="browser-logo chrome-logo">●</b>
@@ -3769,18 +5662,28 @@ function ExtensionPanel({ busy, result, install, close }) {
             <b className="browser-logo edge-logo">e</b>
             <span>
               <strong>Microsoft Edge</strong>
-              <small>安装到 Edge 浏览器</small>
+              <small>准备后自动打开 edge://extensions</small>
             </span>
             <ChevronDown size={18} />
           </button>
         </div>
+        <button className="extension-uninstall" disabled={busy} onClick={() => uninstall("edge")}>
+          <Trash2 size={15} /> 卸载 Edge 扩展
+        </button>
+        <small className="extension-uninstall-hint">将打开 Edge 扩展页；请在“小旺仔网页采集器”卡片点击“移除”确认。浏览器不允许软件静默卸载扩展。</small>
         {busy && <div className="extension-status">正在准备扩展…</div>}
-        {result?.ok && (
+        {result?.ok && result.mode === "uninstall" && (
+          <div className="extension-result success">
+            <strong>已打开 Edge 扩展卸载页</strong>
+            <span>在“小旺仔网页采集器”卡片点击“移除”，再确认即可完成卸载。</span>
+          </div>
+        )}
+        {result?.ok && result.mode !== "uninstall" && (
           <div className="extension-result success">
             <strong>扩展已准备好</strong>
-            <span>1. 在浏览器中打开“开发者模式”</span>
+            <span>本地扩展目录和 Edge 扩展页均已自动打开；1. 在浏览器中打开“开发者模式”</span>
             <span>
-              2. 点击“加载已解压的扩展程序”，目录已复制并在资源管理器中打开
+              2. 点击“加载已解压的扩展程序”，再选择下方已复制到剪贴板的目录
             </span>
             <code>{result.path}</code>
           </div>
@@ -3792,6 +5695,20 @@ function ExtensionPanel({ busy, result, install, close }) {
             {result.path && <code>{result.path}</code>}
           </div>
         )}
+        <h3 className="extension-section-title">本地插件</h3>
+        <div className="plugin-list">
+          {plugins?.map(plugin => <div className={plugin.valid ? "plugin-row" : "plugin-row invalid"} key={plugin.id || plugin.directory}>
+            <Puzzle size={17}/><span><strong>{plugin.name || plugin.directory}</strong><small>{plugin.valid ? `${plugin.version} · ${(plugin.permissions || []).join(" / ") || "无权限"}` : plugin.error}</small></span>
+            <button disabled={!plugin.valid} onClick={() => togglePlugin(plugin.id, !plugin.enabled)}>{plugin.enabled ? "停用" : "启用"}</button>
+          </div>)}
+          {!plugins?.length && <div className="extension-status">尚未安装本地插件。插件必须包含 manifest.json，且默认禁用。</div>}
+          <button className="secondary-wide" onClick={openPluginsFolder}>打开插件目录</button>
+        </div>
+        <h3 className="extension-section-title">MCP 接入</h3>
+        <div className="extension-result">
+          <strong>本地 stdio MCP（默认只读）</strong>
+          {mcpConfig?.error ? <span>{mcpConfig.error}</span> : <><span>可搜索素材并读取真实文件夹。</span><code>{JSON.stringify(mcpConfig)}</code><button className="secondary-wide" onClick={() => navigator.clipboard.writeText(JSON.stringify(mcpConfig, null, 2))}>复制 MCP 配置</button></>}
+        </div>
         <div className="dialog-actions">
           <button onClick={close} disabled={busy}>
             {result?.ok ? "完成" : "取消"}
@@ -4334,7 +6251,7 @@ function UpdatePanel({
               </div>
             )}
             {error && <p className="update-error">{error}</p>}
-            {!progress && info.notes && <pre>{info.notes}</pre>}
+            {!progress && <ReleaseNotes remoteNotes={info.notes} />}
             <div className="dialog-actions">
               <button onClick={close} disabled={downloading}>
                 稍后提醒
@@ -4357,6 +6274,7 @@ function UpdatePanel({
         ) : (
           <>
             <p>当前安装的版本已经是 GitHub 上发布的最新版本。</p>
+            <ReleaseNotes />
             <div className="dialog-actions">
               <button className="primary" onClick={close}>
                 知道了
@@ -4369,7 +6287,112 @@ function UpdatePanel({
   );
 }
 
-function AssetContextMenu({ menu, folders, actions, close }) {
+function ReleaseNotes({ remoteNotes = "" }) {
+  return (
+    <section className="release-notes" aria-label={`版本 ${APP_VERSION} 更新内容`}>
+      <header>
+        <div>
+          <span>v{APP_VERSION} 正式版</span>
+          <h3>本次更新</h3>
+        </div>
+        <small>新增、优化与修复</small>
+      </header>
+      <div className="release-note-grid">
+        {CURRENT_RELEASE_NOTES.map((note) => (
+          <article key={note.title}>
+            <em>{note.type}</em>
+            <h4>{note.title}</h4>
+            <ul>
+              {note.items.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </article>
+        ))}
+      </div>
+      {remoteNotes && (
+        <details className="release-remote-notes">
+          <summary>GitHub 发布说明</summary>
+          <pre>{remoteNotes}</pre>
+        </details>
+      )}
+    </section>
+  );
+}
+
+function DepthVideoProgress({ job, cancel }) {
+  const progress = Math.max(0, Math.min(100, Math.round(Number(job.progress) || 0)));
+  const cancelling = job.phase === 'cancelling' || job.cancelRequested;
+  const importing = job.phase === 'importing';
+  const canCancel = !cancelling && !importing && ['starting', 'converting'].includes(job.phase);
+  return (
+    <section className="depth-video-progress" role="status" aria-live="polite" aria-label={`深度视频转换进度 ${progress}%`}>
+      <div className="depth-video-progress-head">
+        <span><Sparkles size={18} /></span>
+        <div>
+          <strong>{cancelling ? '正在取消深度视频转换' : importing ? '正在导入深度视频' : '正在转换深度视频'}</strong>
+          <small>{job.message || '正在准备转换器…'}</small>
+        </div>
+      </div>
+      <div className={`depth-video-progress-track ${job.phase === 'starting' || cancelling ? 'indeterminate' : ''}`}>
+        <i style={{ width: `${progress}%` }} />
+      </div>
+      <div className="depth-video-progress-foot">
+        <b>{importing ? '100%' : `${progress}%`}</b>
+        {canCancel ? (
+          <button type="button" onClick={cancel}>
+            <X size={14} /> 取消转换
+          </button>
+        ) : (
+          <span>{cancelling ? '正在终止转换器…' : importing ? '即将完成' : '请稍候…'}</span>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SupportPanel({ close }) {
+  return (
+    <div
+      className="support-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) close();
+      }}
+    >
+      <section
+        className="support-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="support-dialog-title"
+      >
+        <button className="support-close" type="button" aria-label="关闭" onClick={close}>
+          <X size={18} />
+        </button>
+        <div className="support-emblem" aria-hidden="true">
+          <img src={communitySupportAvatar} alt="" />
+        </div>
+        <span className="support-version">社区支持</span>
+        <h2 id="support-dialog-title">愿这个小项目，陪你走得更远</h2>
+        <p className="support-intro">
+          如果它曾替你省下一点时间，陪你把一个想法变成现实，
+          欢迎留下建议和反馈。每一次使用、每一条声音，都会帮助小旺仔素材库继续变得更好。
+        </p>
+        <section className="support-card">
+          <div className="support-payment-qr">
+            <img src={communitySupportPaymentQr} alt="支付宝收款码" />
+          </div>
+          <div className="support-card-copy">
+            <strong>支付宝扫码支持</strong>
+            <p>
+              感谢你的支持。也欢迎继续通过软件内的 Bug 反馈与功能建议，直接告诉我们你最需要什么。
+            </p>
+            <span><Heart size={13} /> 每一条反馈都会被认真阅读</span>
+          </div>
+        </section>
+      </section>
+    </div>
+  );
+}
+
+function AssetContextMenu({ menu, menuRef, folders, actions, close, readOnly }) {
   const [moving, setMoving] = useState(false);
   const run = (fn) => {
     close();
@@ -4378,11 +6401,11 @@ function AssetContextMenu({ menu, folders, actions, close }) {
   const rows = [
     [FolderOpen, "打开", actions.open],
     [Eye, "快速预览", actions.preview],
-    [Tag, "添加标签", actions.tag],
-    [StickyNote, "添加注释", actions.note],
+    ...(!readOnly ? [[Tag, "添加标签", actions.tag], [StickyNote, "添加注释", actions.note]] : []),
   ];
   return (
     <div
+      ref={menuRef}
       className="asset-menu"
       style={{
         left: Math.min(menu.x, window.innerWidth - 250),
@@ -4398,11 +6421,11 @@ function AssetContextMenu({ menu, folders, actions, close }) {
         </button>
       ))}
       <div className="menu-separator" />
-      <button onClick={() => setMoving((x) => !x)}>
+      {!readOnly && <button onClick={() => setMoving((x) => !x)}>
         <Folder size={16} />
         <span>移动到文件夹</span>
         <b>›</b>
-      </button>
+      </button>}
       {moving && (
         <div className="move-submenu">
           <button onClick={() => run(() => actions.move(null))}>
@@ -4421,14 +6444,22 @@ function AssetContextMenu({ menu, folders, actions, close }) {
           ))}
         </div>
       )}
-      <button onClick={() => run(actions.duplicate)}>
+      {!readOnly && <button onClick={() => run(actions.duplicate)}>
         <Copy size={16} />
         <span>复制素材</span>
-      </button>
-      <button onClick={() => run(actions.rename)}>
+      </button>}
+      {!readOnly && actions.convertDepthVideo && <button onClick={() => run(actions.convertDepthVideo)} disabled={actions.depthVideoBusy} title="生成灰度深度视频并保留原视频和音频">
+        <Sparkles size={16} />
+        <span>{actions.depthVideoBusy ? "正在转换深度视频…" : "转换深度视频"}</span>
+      </button>}
+      {!readOnly && <button onClick={() => run(actions.rename)}>
         <Pencil size={16} />
         <span>重命名</span>
-      </button>
+      </button>}
+      {!readOnly && actions.uploadToAIFlow && <button onClick={() => run(actions.uploadToAIFlow)}>
+        <Import size={16} />
+        <span>上传到 AI Flow</span>
+      </button>}
       <div className="menu-separator" />
       <button onClick={() => run(actions.copyAsset)}>
         <ClipboardCopy size={16} />
@@ -4451,25 +6482,26 @@ function AssetContextMenu({ menu, folders, actions, close }) {
         <span>在资源管理器中显示</span>
       </button>
       <div className="menu-separator" />
-      <button className="menu-danger" onClick={() => run(actions.delete)}>
+      {!readOnly && <button className="menu-danger" onClick={() => run(actions.delete)}>
         <Trash2 size={16} />
         <span>删除</span>
-      </button>
+      </button>}
     </div>
   );
 }
 
-function FolderContextMenu({ menu, actions, close }) {
+function FolderContextMenu({ menu, menuRef, actions, close, readOnly, liveSyncEnabled = false }) {
   const run = (fn) => {
     close();
     fn();
   };
   return (
     <div
+      ref={menuRef}
       className="asset-menu folder-menu"
       style={{
         left: Math.min(menu.x, window.innerWidth - 230),
-        top: Math.min(menu.y, window.innerHeight - 190),
+        top: Math.min(menu.y, window.innerHeight - 320),
       }}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
@@ -4478,19 +6510,27 @@ function FolderContextMenu({ menu, actions, close }) {
         <FolderOpen size={16} />
         <span>打开文件夹</span>
       </button>
-      <button onClick={() => run(actions.add)}>
+      {!readOnly && <button onClick={() => run(actions.add)}>
         <Plus size={16} />
         <span>新建子文件夹</span>
-      </button>
+      </button>}
+      {!readOnly && actions.uploadToAIFlow && <button onClick={() => run(actions.uploadToAIFlow)}>
+        <Import size={16} />
+        <span>上传文件夹到 AI Flow</span>
+      </button>}
+      {!readOnly && actions.toggleLiveSync && <button onClick={() => run(actions.toggleLiveSync)}>
+        <RotateCw size={16} />
+        <span>{liveSyncEnabled ? "关闭 AI Flow 实时同步" : "开启 AI Flow 实时同步"}</span>
+      </button>}
       <div className="menu-separator" />
-      <button onClick={() => run(actions.rename)}>
+      {!readOnly && <button onClick={() => run(actions.rename)}>
         <Pencil size={16} />
         <span>重命名</span>
-      </button>
-      <button className="menu-danger" onClick={() => run(actions.delete)}>
+      </button>}
+      {!readOnly && <button className="menu-danger" onClick={() => run(actions.delete)}>
         <Trash2 size={16} />
         <span>删除文件夹</span>
-      </button>
+      </button>}
     </div>
   );
 }
@@ -4509,17 +6549,22 @@ function Preview({
   next,
 }) {
   const image = asset.type?.startsWith("image");
+  const overlayRef = useRef(null);
+  useEffect(() => {
+    const el = overlayRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      if (!image) return;
+      e.preventDefault();
+      setZoom((z) =>
+        Math.min(4, Math.max(0.25, z + (e.deltaY < 0 ? 0.25 : -0.25))),
+      );
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [image]);
   return (
-    <div
-      className="preview-overlay"
-      onWheel={(e) => {
-        if (!image) return;
-        e.preventDefault();
-        setZoom((z) =>
-          Math.min(4, Math.max(0.25, z + (e.deltaY < 0 ? 0.25 : -0.25))),
-        );
-      }}
-    >
+    <div className="preview-overlay" ref={overlayRef}>
       <div className="preview-top">
         <strong>{asset.name}</strong>
         {image && (
@@ -4558,8 +6603,14 @@ function Preview({
             </button>
           </>
         )}
-        <button title="关闭 (Esc)" onClick={close}>
-          <X size={20} />
+        <button
+          className="preview-close"
+          title="关闭预览 (Esc)"
+          aria-label="关闭预览"
+          onClick={close}
+        >
+          <X size={18} />
+          <span>关闭预览</span>
         </button>
       </div>
       <button
@@ -4569,7 +6620,12 @@ function Preview({
       >
         ‹
       </button>
-      <div className={`preview-stage ${checker ? "checker" : ""}`}>
+      <div
+        className={`preview-stage ${checker ? "checker" : ""}`}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) close();
+        }}
+      >
         <Media
           asset={asset}
           preview
@@ -4610,15 +6666,30 @@ function AudioWaveform({ src, large = false }) {
     let context;
     const draw = async () => {
       try {
-        const response = await fetch(src, { signal: controller.signal });
-        const bytes = await response.arrayBuffer();
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (!AudioCtx) return;
-        context = new AudioCtx();
-        const buffer = await context.decodeAudioData(bytes.slice(0));
-        if (controller.signal.aborted) return;
-        const samples = buffer.getChannelData(0),
-          canvas = canvasRef.current;
+        const columns = large ? 180 : 88;
+        const cacheKey = JSON.stringify([src, columns]);
+        let peaks = waveformCache.get(cacheKey);
+        if (!peaks) {
+          const response = await fetch(src, { signal: controller.signal });
+          if (!response.ok) throw new Error(`Audio fetch: ${response.status}`);
+          const bytes = await response.arrayBuffer();
+          if (controller.signal.aborted) return;
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+          context = new AudioCtx();
+          const buffer = await context.decodeAudioData(bytes);
+          if (controller.signal.aborted) return;
+          const samples = buffer.getChannelData(0);
+          const step = Math.max(1, Math.floor(samples.length / columns));
+          peaks = new Float32Array(columns);
+          for (let i = 0; i < columns; i++) {
+            const end = Math.min(samples.length, (i + 1) * step);
+            for (let j = i * step; j < end; j += Math.max(1, Math.floor(step / 80)))
+              peaks[i] = Math.max(peaks[i], Math.abs(samples[j]));
+          }
+          waveformCache.set(cacheKey, peaks);
+        }
+        const canvas = canvasRef.current;
         if (!canvas) return;
         const width = large ? 720 : 300,
           height = large ? 150 : 92,
@@ -4628,17 +6699,10 @@ function AudioWaveform({ src, large = false }) {
         const ctx = canvas.getContext("2d");
         ctx.scale(dpr, dpr);
         ctx.clearRect(0, 0, width, height);
-        const columns = large ? 180 : 88,
-          step = Math.max(1, Math.floor(samples.length / columns)),
-          barWidth = width / columns;
+        const barWidth = width / columns;
         ctx.fillStyle = large ? "#77a9f5" : "#9299a2";
         for (let i = 0; i < columns; i++) {
-          let peak = 0;
-          const start = i * step,
-            end = Math.min(samples.length, start + step);
-          for (let j = start; j < end; j += Math.max(1, Math.floor(step / 80)))
-            peak = Math.max(peak, Math.abs(samples[j]));
-          const h = Math.max(2, peak * (height - 8));
+          const h = Math.max(2, peaks[i] * (height - 8));
           ctx.fillRect(
             i * barWidth,
             (height - h) / 2,
@@ -4663,16 +6727,16 @@ function AudioWaveform({ src, large = false }) {
     <canvas ref={canvasRef} className="audio-waveform" aria-hidden="true" />
   );
 }
-function useAudioPreviewState() {
+function useAudioPreviewState(assetId) {
   const [state, setState] = useState(audioPreviewManager.getState());
   useEffect(
-    () => audioPreviewManager.subscribe((next) => setState({ ...next })),
-    [],
+    () => subscribeAssetAudio(audioPreviewManager, assetId, (next) => setState({ ...next })),
+    [assetId],
   );
   return state;
 }
 function AudioMedia({ asset, preview = false, style }) {
-  const state = useAudioPreviewState(),
+  const state = useAudioPreviewState(asset.id),
     active = state.id === asset.id,
     playing = active && state.playing,
     current = active ? state.currentTime : 0,
@@ -4688,8 +6752,9 @@ function AudioMedia({ asset, preview = false, style }) {
   const bpm = asset.name.match(
     /(?:^|[\s_\-])BPM[\s_\-:]*(\d{2,3})(?:\D|$)/i,
   )?.[1];
+  const scrubbingPointer = useRef(null);
   useEffect(() => {
-    if (preview) audioPreviewManager.prepareFull(asset);
+    if (preview) audioPreviewManager.openFull(asset);
     return () => {
       if (preview && audioPreviewManager.getState().id === asset.id)
         audioPreviewManager.stop();
@@ -4699,20 +6764,32 @@ function AudioMedia({ asset, preview = false, style }) {
     const rect = e.currentTarget.getBoundingClientRect(),
       ratio = (e.clientX - rect.left) / rect.width;
     if (preview) audioPreviewManager.seek(asset, ratio);
-    else audioPreviewManager.playAt(asset, ratio);
   };
   return (
     <div
       className={`audio-media ${preview ? "preview" : ""} ${playing ? "is-playing" : ""}`}
       style={style}
-      onMouseEnter={
-        !preview ? () => audioPreviewManager.hover(asset) : undefined
-      }
-      onMouseLeave={
-        !preview ? () => audioPreviewManager.leave(asset.id) : undefined
-      }
+      onPointerEnter={() => { if (!preview) audioPreviewManager.hover(asset); }}
+      onPointerLeave={() => { if (!preview) audioPreviewManager.leave(asset.id); }}
     >
-      <div className="audio-wave-card" onClick={seek}>
+      <div
+        className="audio-wave-card"
+        onPointerDown={preview ? (event) => {
+          event.preventDefault();
+          scrubbingPointer.current = event.pointerId;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          seek(event);
+        } : undefined}
+        onPointerMove={preview ? (event) => {
+          if (scrubbingPointer.current === event.pointerId) seek(event);
+        } : undefined}
+        onPointerUp={preview ? (event) => {
+          if (scrubbingPointer.current !== event.pointerId) return;
+          scrubbingPointer.current = null;
+          seek(event);
+          event.currentTarget.releasePointerCapture?.(event.pointerId);
+        } : undefined}
+      >
         <span className="audio-badge">
           {format}
           {bpm ? ` / BPM: ${bpm}` : ""}
@@ -4779,7 +6856,7 @@ function AudioMedia({ asset, preview = false, style }) {
         playing && (
           <div className="audio-hover-status">
             <Pause size={11} />
-            <span>悬停试听</span>
+            <span>正在播放</span>
             <Volume2 size={11} />
           </div>
         )
@@ -4790,6 +6867,8 @@ function AudioMedia({ asset, preview = false, style }) {
 function Media({ asset, preview = false, onSize, style }) {
   if (asset.type?.startsWith("audio"))
     return <AudioMedia asset={asset} preview={preview} style={style} />;
+  if (asset.type?.startsWith("text") || asset.type === "application/pdf" || asset.documentFormat === "DOCX")
+    return <DocumentMedia asset={asset} preview={preview} style={style} />;
   return asset.type?.startsWith("video") ? (
     <video
       src={asset.url}
@@ -4815,12 +6894,141 @@ function Media({ asset, preview = false, onSize, style }) {
       alt={asset.name || ""}
       draggable={false}
       loading={preview ? "eager" : "lazy"}
+      decoding="async"
       style={style}
       onLoad={(e) =>
         onSize?.(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)
       }
     />
   );
+}
+
+function ReferenceShelf({ assets, remove, clear, open, upload, uploading, createBoard }) {
+  if (!assets.length) return null;
+  return (
+    <section className="reference-shelf" aria-label="已选引用素材">
+      <header>
+        <span><Link2 size={15} /> 已选引用素材 <b>{assets.length}</b></span>
+        <small>点击下方素材缩略图即可添加；不会移动或复制原文件</small>
+        <div className="reference-shelf-actions">
+          <button type="button" className="reference-shelf-board" onClick={createBoard} disabled={uploading} title="将这一栏素材以引用方式放入新的无限参考板">
+            <StickyNote size={13} /> 放入参考板
+          </button>
+          <button type="button" className="reference-shelf-upload" onClick={upload} disabled={uploading} title="上传已选素材并自动加入当前 AI Flow 顶部引用栏">
+            <Import size={13} /> {uploading ? "准备上传…" : "上传到 AI Flow"}
+          </button>
+          <button type="button" onClick={clear} disabled={uploading}>清空</button>
+        </div>
+      </header>
+      <div className="reference-shelf-list">
+        {assets.map((asset) => (
+          <div className="reference-shelf-card" key={asset.id}>
+            <button type="button" className="reference-shelf-open" title="查看素材详情" onClick={() => open(asset)}>
+              <div className="reference-shelf-thumb"><Media asset={asset} /></div>
+              <span>{asset.name}</span>
+            </button>
+            <button type="button" className="reference-shelf-remove" aria-label={`移除引用素材 ${asset.name}`} title="移除引用" onClick={() => remove(asset.id)}>
+              <X size={13} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TetrisModule({ close }) {
+  const frameRef = useRef(null);
+  const focusGame = () => frameRef.current?.contentWindow?.focus();
+
+  useEffect(() => {
+    const timer = window.setTimeout(focusGame, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  return (
+    <section className="tetris-module" aria-label="俄罗斯方块">
+      <div className="tetris-module-bar">
+        <span>
+          <Puzzle size={16} />
+          <b>俄罗斯方块</b>
+          <small>空格开始或暂停 · 方向键移动 · 上键旋转</small>
+        </span>
+        <div className="tetris-module-actions">
+          <button type="button" onClick={focusGame} title="将键盘操作交给游戏">
+            <Play size={13} />
+            <span>聚焦游戏</span>
+          </button>
+          <button type="button" onClick={close} title="返回素材库">
+            <X size={14} />
+            <span>返回素材库</span>
+          </button>
+        </div>
+      </div>
+      <iframe
+        ref={frameRef}
+        src="./tetris/index.html"
+        title="俄罗斯方块"
+        onLoad={focusGame}
+      />
+    </section>
+  );
+}
+
+function TetrisAccessDialog({ password, error, changePassword, close, unlock }) {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  return (
+    <div
+      className="modal-backdrop tetris-access-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) close();
+      }}
+    >
+      <form
+        className="app-dialog tetris-access-dialog"
+        aria-labelledby="tetris-access-title"
+        onSubmit={(event) => {
+          event.preventDefault();
+          unlock();
+        }}
+      >
+        <div className="tetris-access-icon"><InfinityIcon size={24} /></div>
+        <h2 id="tetris-access-title">无穷大</h2>
+        <p>密码请找小旺仔要。</p>
+        <label htmlFor="tetris-access-password">访问密码</label>
+        <input
+          ref={inputRef}
+          id="tetris-access-password"
+          type="password"
+          inputMode="numeric"
+          autoComplete="off"
+          value={password}
+          onChange={(event) => changePassword(event.target.value)}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? "tetris-access-error" : undefined}
+        />
+        {error && <small id="tetris-access-error" role="alert">{error}</small>}
+        <div className="dialog-actions">
+          <button type="button" onClick={close}>取消</button>
+          <button type="submit" className="primary">确认</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function DocumentMedia({ asset, preview, style }) {
+  const excerpt = (asset.documentText || "").replace(/\s+/g, " ").trim();
+  return <div className={`document-media ${preview ? "preview" : ""}`} style={style}>
+    <FileText size={preview ? 48 : 28}/><b>{assetFormat(asset) || "DOC"}</b>
+    <span>{excerpt ? excerpt.slice(0, preview ? 240 : 72) : "文档素材"}</span>
+  </div>;
 }
 
 createRoot(document.getElementById("root")).render(<App />);

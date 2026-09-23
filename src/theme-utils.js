@@ -28,6 +28,6 @@ export function contrastRatio(a,b){const x=luminance(a),y=luminance(b);return (M
 export function readableText(background){return contrastRatio(background,'#FFFFFF')>=contrastRatio(background,'#09111C')?'#FFFFFF':'#09111C'}
 export function themeStyle(theme,resolvedMode='dark'){
   const c=theme.colors;
-  return {'--accent':c.accent,'--accent-text':readableText(c.accent),'--bg-main':c.main,'--bg-sidebar':c.sidebar,'--bg-card':c.card,'--bg-overlay':c.overlay,'--text-primary':c.text,'--text-secondary':c.muted,'--ui-border':c.border,'--hover-bg':c.hover,'--selected-bg':c.selected,colorScheme:resolvedMode};
+  return {'--accent':c.accent,'--accent-text':readableText(c.accent),'--bg-main':c.main,'--bg-sidebar':c.sidebar,'--titlebar-bg':c.sidebar,'--bg-card':c.card,'--bg-overlay':c.overlay,'--text-primary':c.text,'--text-secondary':c.muted,'--ui-border':c.border,'--hover-bg':c.hover,'--selected-bg':c.selected,colorScheme:resolvedMode};
 }
 export function loadTheme(){try{const saved=JSON.parse(localStorage.getItem(THEME_STORAGE_KEY));if(saved?.colors)return {...DEFAULT_THEME,...saved,colors:{...DEFAULT_THEME.colors,...saved.colors}}}catch{}const accent=localStorage.getItem('nest-theme-color');return accent?{...DEFAULT_THEME,preset:'custom',colors:{...DEFAULT_THEME.colors,accent:normalizeHex(accent)}}:DEFAULT_THEME}

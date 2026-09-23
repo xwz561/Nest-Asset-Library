@@ -1,1 +1,41 @@
-{"manifest_version":3,"name":"Nest 网页采集器","version":"1.6.0","description":"右键将任意网页图片保存到当前 Nest 资源库","permissions":["contextMenus","notifications"],"host_permissions":["<all_urls>","http://127.0.0.1:32145/*"],"background":{"service_worker":"service-worker.js"},"icons":{"16":"icon.png","48":"icon.png","128":"icon.png"}}
+{
+  "manifest_version": 3,
+  "name": "小旺仔网页采集器",
+  "version": "1.14.28",
+  "description": "采集网页图片、双向同步 AI Flow 素材与目录",
+  "permissions": [
+    "contextMenus",
+    "notifications",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "http://127.0.0.1:32145/*"
+  ],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "action": {
+    "default_title": "小旺仔同步控制台",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://10.128.20.135:8080/*"
+      ],
+      "js": [
+        "prompt-review-core.js",
+        "prompt-review-ui.js",
+        "aiflow-page.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}

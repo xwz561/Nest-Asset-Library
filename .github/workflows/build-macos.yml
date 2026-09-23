@@ -1,44 +1,53 @@
-name: Build macOS
+name: Build macOS installers
 
 on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing release tag to receive the macOS packages
-        required: false
-        default: v1.8.7
-  push:
-    tags:
-      - 'v*'
+        description: Release tag that receives the macOS installers
+        required: true
+        default: v3.0.29
 
 permissions:
   contents: write
 
 jobs:
-  build-macos:
+  package:
+    name: macOS x64 and Apple silicon
     runs-on: macos-14
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm test
-      - run: npm run package:mac -- --publish never
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify source
+        run: |
+          npm test
+          npm run build
+
+      - name: Package DMG and ZIP for both architectures
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      - uses: actions/upload-artifact@v4
+          NEST_PACKAGE_OUTPUT: release-${{ inputs.release_tag }}-macos
+        run: npm run package:mac
+
+      - name: Upload macOS installers
+        uses: actions/upload-artifact@v4
         with:
-          name: Nest-Asset-Library-macOS
-          path: |
-            release-*/Nest-Asset-Library-*-macOS-*.dmg
-            release-*/Nest-Asset-Library-*-macOS-*.zip
-      - name: Upload packages to tagged release
-        if: startsWith(github.ref, 'refs/tags/') || inputs.release_tag != ''
+          name: 小旺仔素材库-${{ inputs.release_tag }}-macOS
+          path: release-${{ inputs.release_tag }}-macos/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload installers to release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.release_tag || github.ref_name }}
-          files: |
-            release-*/Nest-Asset-Library-*-macOS-*.dmg
-            release-*/Nest-Asset-Library-*-macOS-*.zip
+          tag_name: ${{ inputs.release_tag }}
+          files: release-${{ inputs.release_tag }}-macos/*

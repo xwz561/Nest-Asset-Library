@@ -1,21 +1,71 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('nestDesktop', {
   platform: process.platform,
-  currentLibrary: () => ipcRenderer.invoke('library:current'), createLibrary: () => ipcRenderer.invoke('library:create'), openLibrary: () => ipcRenderer.invoke('library:open'),
+  chat: {
+    ...Object.fromEntries(['status','host','stop','join','poll','read','leave','send','files','assets','download'].map(name => [name, input => ipcRenderer.invoke('chat:' + name, input)])),
+    drop: (files, input = {}) => ipcRenderer.invoke('chat:drop', { to: input?.to, files: Array.from(files || []).map(file => webUtils.getPathForFile(file)).filter(Boolean) }),
+  },
+  currentLibrary: () => ipcRenderer.invoke('library:current'), createLibrary: () => ipcRenderer.invoke('library:create'), openLibrary: () => ipcRenderer.invoke('library:open'), deleteLibrary: confirmationName => ipcRenderer.invoke('library:delete-library', confirmationName),
   health: () => ipcRenderer.invoke('library:health'), repair: () => ipcRenderer.invoke('library:repair'),
   storageInfo: () => ipcRenderer.invoke('library:storage-info'), openRecycleBin: () => ipcRenderer.invoke('app:open-recycle-bin'),
+  listPlugins: () => ipcRenderer.invoke('plugins:list'), setPluginEnabled: (id, enabled) => ipcRenderer.invoke('plugins:set-enabled', id, enabled), openPluginsFolder: () => ipcRenderer.invoke('plugins:open-folder'), mcpConfig: () => ipcRenderer.invoke('mcp:config'),
+  teamInfo: () => ipcRenderer.invoke('team:info'), updateProfile: patch => ipcRenderer.invoke('team:update-profile', patch), addMember: member => ipcRenderer.invoke('team:add-member', member), updateMember: (id, changes) => ipcRenderer.invoke('team:update-member', id, changes), removeMember: id => ipcRenderer.invoke('team:remove-member', id),
   prepareExtension: browser => ipcRenderer.invoke('extension:prepare', browser),
+  openExtensionManager: browser => ipcRenderer.invoke('extension:open-manager', browser),
+  setExtensionImportTarget: folderId => ipcRenderer.invoke('library:set-extension-import-target', folderId),
   openBugFeedback: () => ipcRenderer.invoke('app:open-bug-feedback'),
+  windowControl: action => ipcRenderer.invoke('app:window-control', String(action || '')),
+  setFullscreen: enabled => ipcRenderer.invoke('app:set-fullscreen', Boolean(enabled)),
   setInspectorOpen: (open, width, options) => ipcRenderer.invoke('app:set-inspector-open', open, width, options),
+  setTitleBarColors: colors => {
+    const background = /^#[0-9a-f]{6}$/i.test(String(colors?.background || '')) ? String(colors.background) : '';
+    const symbols = /^#[0-9a-f]{6}$/i.test(String(colors?.symbols || '')) ? String(colors.symbols) : '';
+    return ipcRenderer.invoke('app:set-title-bar-colors', { background, symbols });
+  },
   checkUpdate: () => ipcRenderer.invoke('app:check-update'), downloadUpdate: options => ipcRenderer.invoke('app:download-update', options), installUpdate: filePath => ipcRenderer.invoke('app:install-update', filePath),
   onUpdateProgress: callback => { const listener=(_,progress)=>callback(progress);ipcRenderer.on('app:update-progress',listener);return()=>ipcRenderer.removeListener('app:update-progress',listener) },
   openAsset: id => ipcRenderer.invoke('library:open-asset', id), revealAsset: (id, migrate = false) => ipcRenderer.invoke('library:reveal-asset', id, migrate),
   startExternalDrag: ids => ipcRenderer.send('library:start-external-drag', ids),
   onExternalDragError: callback => { const listener = (_, message) => callback(message); ipcRenderer.on('library:external-drag-error', listener); return () => ipcRenderer.removeListener('library:external-drag-error', listener); },
   onImportProgress: callback => { const listener = (_, progress) => callback(progress); ipcRenderer.on('library:import-progress', listener); return () => ipcRenderer.removeListener('library:import-progress', listener); },
+  depthVideo: {
+    status: () => ipcRenderer.invoke('depth-video:status'),
+    convert: assetId => ipcRenderer.invoke('depth-video:convert', assetId),
+    cancel: assetId => ipcRenderer.invoke('depth-video:cancel', assetId),
+    onProgress: callback => { const listener = (_, progress) => callback(progress); ipcRenderer.on('depth-video:progress', listener); return () => ipcRenderer.removeListener('depth-video:progress', listener); },
+  },
   exportAsset: id => ipcRenderer.invoke('library:export-asset', id), duplicateAsset: id => ipcRenderer.invoke('library:duplicate-asset', id), copyAssetPath: id => ipcRenderer.invoke('library:copy-path', id),
   copyAsset: id => ipcRenderer.invoke('library:copy-asset', id), copyAssetFolder: id => ipcRenderer.invoke('library:copy-folder-path', id),
-  addFolder: options => ipcRenderer.invoke('library:add-folder', options), updateFolder: (id, changes) => ipcRenderer.invoke('library:update-folder', id, changes), deleteFolder: id => ipcRenderer.invoke('library:delete-folder', id), importAssets: folderId => ipcRenderer.invoke('library:import', folderId), importFolder: folderId => ipcRenderer.invoke('library:import-folder', folderId), importDropped: (files, folderId) => ipcRenderer.invoke('library:import-dropped', files.map(file=>webUtils.getPathForFile(file)).filter(Boolean), folderId),
+  addFolder: options => ipcRenderer.invoke('library:add-folder', options), updateFolder: (id, changes) => ipcRenderer.invoke('library:update-folder', id, changes), deleteFolder: id => ipcRenderer.invoke('library:delete-folder', id),
+  createReferenceBoard: input => ipcRenderer.invoke('library:create-reference-board', input), updateReferenceBoard: (id, changes) => ipcRenderer.invoke('library:update-reference-board', id, changes), deleteReferenceBoard: id => ipcRenderer.invoke('library:delete-reference-board', id),
+  importAssets: folderId => ipcRenderer.invoke('library:import', folderId), importFolder: folderId => ipcRenderer.invoke('library:import-folder', folderId), importDropped: (files, folderId) => ipcRenderer.invoke('library:import-dropped', files.map(file=>webUtils.getPathForFile(file)).filter(Boolean), folderId), cancelImport: () => ipcRenderer.invoke('library:cancel-import'),
+  aiFlow: {
+    settings: () => ipcRenderer.invoke('aiflow:settings'),
+    saveSettings: settings => ipcRenderer.invoke('aiflow:save-settings', settings),
+    authStatus: () => ipcRenderer.invoke('aiflow:auth-status'),
+    signIn: () => ipcRenderer.invoke('aiflow:sign-in'),
+    signOut: () => ipcRenderer.invoke('aiflow:sign-out'),
+    testConnection: () => ipcRenderer.invoke('aiflow:test-connection'),
+    listServerVideos: options => {
+      const episodeId = typeof options?.episodeId === 'string' || typeof options?.episodeId === 'number'
+        ? String(options.episodeId).trim()
+        : '';
+      return ipcRenderer.invoke('aiflow:list-server-videos', episodeId ? { episodeId } : {});
+    },
+    listLocalAssets: () => ipcRenderer.invoke('aiflow:list-local-videos'),
+    importServerVideos: (scanId, ids, folderId) => ipcRenderer.invoke('aiflow:import-server-videos', scanId, ids, folderId),
+    importLocalAssets: (scanId, ids, folderId) => ipcRenderer.invoke('aiflow:import-local-videos', scanId, ids, folderId),
+    beginAssetLink: assetId => ipcRenderer.invoke('aiflow:begin-asset-link', assetId),
+    cancelAssetLink: assetId => ipcRenderer.invoke('aiflow:cancel-asset-link', assetId),
+    unlinkAssetLink: (assetId, mappingId) => ipcRenderer.invoke('aiflow:unlink-asset-link', assetId, mappingId),
+    beginExtensionUpload: (assetIds, options = {}) => ipcRenderer.invoke(
+      'aiflow:begin-extension-upload',
+      Array.isArray(assetIds) ? assetIds : [],
+      options?.mode === 'prompt-reference' ? { mode: 'prompt-reference' } : {},
+    ),
+    beginFolderExtensionUpload: folderId => ipcRenderer.invoke('aiflow:begin-folder-extension-upload', folderId),
+    setLiveSync: (folderId, enabled) => ipcRenderer.invoke('aiflow:set-live-sync', folderId, Boolean(enabled)),
+  },
   addTag: name => ipcRenderer.invoke('library:add-tag', name),
   deleteTag: name => ipcRenderer.invoke('library:delete-tag', name),
   ai: {
@@ -35,6 +85,6 @@ contextBridge.exposeInMainWorld('nestDesktop', {
     undo: id => ipcRenderer.invoke('ai:undo', id),
   },
   importUrl: (url, folderId) => ipcRenderer.invoke('library:import-url', url, folderId),
-  updateAsset: (id, changes) => ipcRenderer.invoke('library:update-asset', id, changes), batchUpdate: (ids, changes) => ipcRenderer.invoke('library:batch-update', ids, changes), batchDelete: ids => ipcRenderer.invoke('library:batch-delete', ids), deleteAsset: id => ipcRenderer.invoke('library:delete-asset', id),
+  updateAsset: (id, changes) => ipcRenderer.invoke('library:update-asset', id, changes), batchUpdate: (ids, changes) => ipcRenderer.invoke('library:batch-update', ids, changes), batchRename: (ids, template) => ipcRenderer.invoke('library:batch-rename', ids, template), batchDelete: ids => ipcRenderer.invoke('library:batch-delete', ids), deleteAsset: id => ipcRenderer.invoke('library:delete-asset', id),
   onLibraryChanged: callback => { const listener = (_, library) => callback(library); ipcRenderer.on('library:changed', listener); return () => ipcRenderer.removeListener('library:changed', listener); },
 });

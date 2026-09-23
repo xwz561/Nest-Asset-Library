@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>小旺仔同步控制台</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup-shell" aria-labelledby="popup-title">
+      <header class="popup-header">
+        <div class="brand-mark" aria-hidden="true">◆</div>
+        <div class="brand-copy">
+          <h1 id="popup-title">小旺仔同步控制台</h1>
+          <p>AI Flow · Edge 本机桥接</p>
+        </div>
+        <span id="connection-dot" class="connection-dot is-loading" aria-hidden="true"></span>
+      </header>
+
+      <section class="connection-card" aria-label="连接状态">
+        <div class="section-label">连接状态</div>
+        <strong id="connection-label">正在读取状态…</strong>
+        <p id="connection-detail">请确认小旺仔素材库正在运行。</p>
+      </section>
+
+      <section class="context-card" aria-label="当前同步上下文">
+        <div class="context-line">
+          <span>当前项目</span>
+          <strong id="project-name">—</strong>
+        </div>
+        <div class="context-line">
+          <span>当前文件夹</span>
+          <strong id="folder-name">—</strong>
+        </div>
+      </section>
+
+      <section class="queue-card" aria-labelledby="queue-title">
+        <div class="section-heading">
+          <span id="queue-title">传输队列</span>
+          <span id="queue-summary" class="queue-summary">读取中</span>
+        </div>
+        <div class="queue-metrics">
+          <div class="queue-metric is-active">
+            <strong id="queue-active-count">—</strong>
+            <span>上传中</span>
+          </div>
+          <div class="queue-metric">
+            <strong id="queue-upload-count">—</strong>
+            <span>待上传</span>
+          </div>
+          <div class="queue-metric">
+            <strong id="queue-delete-count">—</strong>
+            <span>待删除</span>
+          </div>
+          <div class="queue-metric is-alert">
+            <strong id="queue-failed-count">—</strong>
+            <span>失败待重试</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="queue-items-card" aria-labelledby="queue-items-title">
+        <div class="section-heading">
+          <span id="queue-items-title">待上传明细</span>
+          <span id="queue-items-note" class="queue-summary">小文件优先</span>
+        </div>
+        <div id="queue-items" class="queue-items" role="list"></div>
+        <p id="queue-items-empty" class="queue-items-empty">当前没有待上传素材。</p>
+      </section>
+
+      <section class="error-card" aria-labelledby="error-title">
+        <div class="section-heading">
+          <span id="error-title">最近异常</span>
+          <span id="error-state" class="error-state is-ok">暂无异常</span>
+        </div>
+        <p id="error-message">队列空闲或上一轮同步已完成。</p>
+      </section>
+
+      <p id="updated-at" class="updated-at">最后更新：—</p>
+
+      <section class="actions" aria-label="控制操作">
+        <button type="button" class="control-button" data-action="aiflow-control:reconnect">
+          <span aria-hidden="true">↻</span>重新检测
+        </button>
+        <button type="button" class="control-button" data-action="aiflow-control:retry" disabled>
+          <span aria-hidden="true">↺</span>重新唤醒队列
+        </button>
+        <button type="button" class="control-button" data-action="aiflow-control:refresh">
+          <span aria-hidden="true">⟳</span>刷新 AI Flow
+        </button>
+        <button type="button" class="control-button control-button-secondary" id="copy-diagnostics">
+          <span aria-hidden="true">⧉</span>复制诊断
+        </button>
+      </section>
+
+      <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

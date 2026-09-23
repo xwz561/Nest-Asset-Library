@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { expandImportPaths } = require('../electron/import-paths.cjs');
+const { expandImportPaths, folderPartsForImport } = require('../electron/import-paths.cjs');
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nest-import-'));
@@ -16,12 +16,13 @@ function fixture(t) {
   return root;
 }
 
-test('recursively expands a dropped folder and ignores unsupported files', async t => {
+test('recursively expands a dropped folder including supported script documents', async t => {
   const root = fixture(t);
   const result = await expandImportPaths([root]);
-  assert.deepEqual(result.files.map(file => path.relative(root, file)).sort(), ['cover.JPG', path.join('nested', 'clip.mp4'), path.join('nested', 'sound.mp3')]);
+  assert.deepEqual(result.files.map(file => path.relative(root, file)).sort(), ['cover.JPG', path.join('nested', 'clip.mp4'), path.join('nested', 'sound.mp3'), 'notes.txt']);
   assert.deepEqual(result.directories, [[path.basename(root)], [path.basename(root), 'nested']]);
-  assert.deepEqual(result.entries.map(entry => entry.folders), [[path.basename(root)], [path.basename(root), 'nested'], [path.basename(root), 'nested']]);
+  assert.equal(result.entries.length, 4);
+  assert.equal(result.entries.some(entry => path.basename(entry.file) === 'notes.txt' && entry.folders.length === 1), true);
   assert.deepEqual(result.errors, []);
 });
 
@@ -32,9 +33,19 @@ test('includes empty nested directories so their hierarchy can be recreated', as
   assert.equal(result.directories.some(parts => parts.join('/') === `${path.basename(root)}/empty/child`), true);
 });
 
+test('preserves only the dropped outer folder when requested', () => {
+  assert.deepEqual(
+    folderPartsForImport(['外部素材', '镜头', '特写'], { preserveTopLevelFolders: true }),
+    ['外部素材'],
+  );
+  assert.deepEqual(folderPartsForImport(['外部素材', '镜头'], { preserveFolders: true }), ['外部素材', '镜头']);
+  assert.deepEqual(folderPartsForImport([], { preserveTopLevelFolders: true }), []);
+});
+
 test('keeps explicitly dropped unsupported files so import reports an error', async t => {
   const root = fixture(t);
-  const unsupported = path.join(root, 'notes.txt');
+  const unsupported = path.join(root, 'unsupported.exe');
+  fs.writeFileSync(unsupported, 'unsupported');
   const result = await expandImportPaths([unsupported]);
   assert.deepEqual(result.files, [unsupported]);
 });
@@ -55,6 +66,31 @@ test('reports scanning progress for folder imports', async t => {
   const updates = [];
   await expandImportPaths([root], { onProgress: progress => updates.push(progress) });
   assert.equal(updates.at(-1).phase, 'scanning');
-  assert.equal(updates.at(-1).found, 3);
+  assert.equal(updates.at(-1).found, 4);
   assert.ok(updates.at(-1).scanned >= 5);
+});
+
+test('stops folder scanning cleanly when the import is cancelled', async t => {
+  const root = fixture(t);
+  const controller = new AbortController();
+  controller.abort();
+  const result = await expandImportPaths([root], { signal: controller.signal });
+  assert.equal(result.cancelled, true);
+  assert.deepEqual(result.entries, []);
+  assert.deepEqual(result.directories, []);
+});
+
+
+test('accepts exactly the file limit with trailing empty folders and ignored files', async t => {
+  const root = fixture(t);
+  fs.mkdirSync(path.join(root, 'zz-empty'));
+  fs.writeFileSync(path.join(root, 'zz-ignored.bin'), 'ignored');
+  const result = await expandImportPaths([root], { maxFiles: 4 });
+  assert.equal(result.files.length, 4);
+  assert.ok(result.directories.some(parts => parts.at(-1) === 'zz-empty'));
+});
+
+test('rejects an actual supported file beyond the limit', async t => {
+  const root = fixture(t);
+  await assert.rejects(expandImportPaths([root], { maxFiles: 3 }), /单次最多导入 3 个素材/);
 });
