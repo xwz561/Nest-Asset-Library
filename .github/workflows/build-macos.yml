@@ -33,7 +33,14 @@ jobs:
         run: npm ci
 
       - name: Test source
-        run: npm test
+        shell: bash
+        run: |
+          for test_file in test/*.test.cjs; do
+            if ! node --test "$test_file"; then
+              echo "::error title=macOS source test failed::$test_file"
+              exit 1
+            fi
+          done
 
       - name: Build renderer
         run: npm run build
