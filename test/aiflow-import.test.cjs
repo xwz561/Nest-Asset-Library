@@ -106,7 +106,7 @@ test('skips symbolic links when scanning local AI Flow output', async t => {
   fs.writeFileSync(path.join(outside, 'outside.mp4'), 'outside');
   const link = path.join(root, 'outside-link');
   try {
-    fs.symlinkSync(outside, link, 'junction');
+    fs.symlinkSync(outside, link, process.platform === 'win32' ? 'junction' : 'dir');
   } catch (error) {
     t.skip(`无法创建测试链接：${error.message}`);
     return;
