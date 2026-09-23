@@ -68,7 +68,7 @@
           ]
         }
       ],
-      "artifactName": "${productName}-${version}-macOS-${arch}.${ext}",
+      "artifactName": "NestAssetLibrary-${version}-macOS-${arch}.${ext}",
       "category": "public.app-category.productivity",
       "icon": "build/icon.png"
     }
