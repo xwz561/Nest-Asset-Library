@@ -25,7 +25,31 @@ jobs:
           archive="Nest-Asset-Library-${version}-Source.zip"
           curl --fail --location --retry 3 --output "$archive" "https://github.com/xwz561/Nest-Asset-Library/releases/download/${RELEASE_TAG}/${archive}"
           mkdir source
-          unzip -q "$archive" -d source
+          python3 - "$archive" <<'PY'
+          import pathlib
+          import stat
+          import sys
+          import zipfile
+
+          root = pathlib.Path("source").resolve()
+          with zipfile.ZipFile(sys.argv[1]) as bundle:
+              for entry in bundle.infolist():
+                  name = entry.filename.replace("\\", "/")
+                  parts = pathlib.PurePosixPath(name).parts
+                  if not parts or pathlib.PurePosixPath(name).is_absolute() or any(part in ("", ".", "..") for part in parts):
+                      raise SystemExit(f"Unsafe ZIP path: {entry.filename!r}")
+                  target = root.joinpath(*parts)
+                  if not target.resolve().is_relative_to(root):
+                      raise SystemExit(f"ZIP path escapes extraction directory: {entry.filename!r}")
+                  if entry.is_dir():
+                      target.mkdir(parents=True, exist_ok=True)
+                      continue
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(bundle.read(entry))
+                  mode = (entry.external_attr >> 16) & 0o777
+                  if mode:
+                      target.chmod(mode)
+          PY
 
       - uses: actions/setup-node@v4
         with:
@@ -42,7 +66,7 @@ jobs:
       - name: Exclude the Windows-only global hotkey helper from the macOS bundle
         working-directory: source
         run: |
-          node -e "const fs=require('node:fs');const p=require('./package.json');p.build.extraResources=p.build.extraResources.filter(r=>r.to!=='lan-signal-hook.exe');fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+          node -e "const fs=require('node:fs');const p=require('./package.json');p.build.extraResources=p.build.extraResources.filter(r=>r.to!=='lan-signal-hook.exe');fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')"
 
       - name: Package DMG and ZIP for both architectures
         working-directory: source
