@@ -27,7 +27,6 @@ jobs:
           mkdir source
           python3 - "$archive" <<'PY'
           import pathlib
-          import stat
           import sys
           import zipfile
 
@@ -63,10 +62,10 @@ jobs:
         working-directory: source
         run: npm run build
 
-      - name: Exclude the Windows-only global hotkey helper from the macOS bundle
+      - name: Prepare macOS package configuration
         working-directory: source
         run: |
-          node -e "const fs=require('node:fs');const p=require('./package.json');p.build.extraResources=p.build.extraResources.filter(r=>r.to!=='lan-signal-hook.exe');fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')"
+          node -e "const fs=require('node:fs');const p=require('./package.json');p.build.extraResources=p.build.extraResources.filter(r=>r.to!=='lan-signal-hook.exe');delete p.build.electronDist;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')"
 
       - name: Package DMG and ZIP for both architectures
         working-directory: source
