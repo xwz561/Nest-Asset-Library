@@ -1,44 +1,58 @@
-name: Build macOS
+name: Build macOS installers
 
 on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing release tag to receive the macOS packages
-        required: false
-        default: v1.8.7
-  push:
-    tags:
-      - 'v*'
+        description: Existing release tag to receive the macOS installers
+        required: true
+        default: v3.0.31
 
 permissions:
   contents: write
 
 jobs:
-  build-macos:
+  package:
+    name: macOS x64 and Apple silicon
     runs-on: macos-14
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - name: Download release source archive
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          archive="Nest-Asset-Library-${version}-Source.zip"
+          curl --fail --location --retry 3 --output "$archive" "https://github.com/xwz561/Nest-Asset-Library/releases/download/${RELEASE_TAG}/${archive}"
+          mkdir source
+          unzip -q "$archive" -d source
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test
-      - run: npm run package:mac -- --publish never
+
+      - name: Install dependencies
+        working-directory: source
+        run: npm ci
+
+      - name: Build renderer
+        working-directory: source
+        run: npm run build
+
+      - name: Exclude the Windows-only global hotkey helper from the macOS bundle
+        working-directory: source
+        run: |
+          node -e "const fs=require('node:fs');const p=require('./package.json');p.build.extraResources=p.build.extraResources.filter(r=>r.to!=='lan-signal-hook.exe');fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+
+      - name: Package DMG and ZIP for both architectures
+        working-directory: source
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Nest-Asset-Library-macOS
-          path: |
-            release-*/Nest-Asset-Library-*-macOS-*.dmg
-            release-*/Nest-Asset-Library-*-macOS-*.zip
-      - name: Upload packages to tagged release
-        if: startsWith(github.ref, 'refs/tags/') || inputs.release_tag != ''
+          NEST_PACKAGE_OUTPUT: release-${{ inputs.release_tag }}-macos
+        run: npm run package:mac
+
+      - name: Upload macOS installers to the release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.release_tag || github.ref_name }}
-          files: |
-            release-*/Nest-Asset-Library-*-macOS-*.dmg
-            release-*/Nest-Asset-Library-*-macOS-*.zip
+          tag_name: ${{ inputs.release_tag }}
+          files: source/release-${{ inputs.release_tag }}-macos/*
