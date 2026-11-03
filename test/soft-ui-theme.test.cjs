@@ -28,7 +28,9 @@ test('新界面对所有主题生效：始终挂 soft-ui 类、图标栏和问�
   assert.doesNotMatch(main, /softUi|SOFT_UI_PRESET/, '不再按主题预设决定是否用新界面');
   assert.match(main, /ui-refresh theme-\$\{resolvedThemeMode\} soft-ui /);
   assert.match(main, /<aside>\s*<nav className="soft-rail"/);
-  assert.match(main, /<header>\s*<div className="soft-greeting">/);
+  // 顶栏不要问候语和头像，第一行就是路径
+  assert.match(main, /<header>\s*<div className="breadcrumbs">/);
+  assert.doesNotMatch(main + read('src/soft-ui.css'), /soft-greeting|soft-avatar/);
   assert.match(main, /aria-label="空文件夹">\s*<SoftEmptyIllustration \/>/);
   assert.match(main, /const softRailWidth = 76;/);
   assert.match(main, /classList\.add\("soft-ui-body"\)/);

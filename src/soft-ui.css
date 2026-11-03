@@ -257,8 +257,8 @@ html[data-platform=darwin] .app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-f
   top: var(--soft-gap) !important;
   z-index: 45;
   display: grid !important;
-  /* 两行：第一行 名字 · 搜索 · 极简切换；第二行 路径 · 工具按钮。头像跨两行 */
-  grid-template-columns: 48px auto minmax(0, 1fr) auto auto;
+  /* 两行：第一行 路径（当标题用）· 搜索 · 极简切换；第二行 工具按钮靠右 */
+  grid-template-columns: minmax(0, 1fr) auto auto;
   grid-template-rows: 40px 40px;
   align-items: center;
   column-gap: 12px;
@@ -274,45 +274,21 @@ html[data-platform=darwin] .app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-f
   backdrop-filter: none !important;
 }
 html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { padding-right: 150px !important; }
-.app.soft-ui.ready-ui.ui-refresh .soft-greeting { display: contents; }
-.app.soft-ui.ready-ui.ui-refresh .soft-avatar {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: linear-gradient(140deg, var(--soft-blue-2), var(--soft-blue));
-  color: var(--soft-on-blue);
-  font-weight: 700;
-  font-size: 17px;
-  box-shadow: var(--soft-btn-shadow-blue);
-}
-.app.soft-ui.ready-ui.ui-refresh .soft-greeting-name {
-  grid-column: 2 / span 2;
-  grid-row: 1;
-  align-self: center;
-  color: var(--soft-text);
-  font-size: 18px;
-  font-weight: 700;
-  white-space: nowrap;
-}
 .app.soft-ui.ready-ui.ui-refresh > main > header .breadcrumbs {
-  grid-column: 2;
-  grid-row: 2;
+  grid-column: 1;
+  grid-row: 1;
   align-self: center;
   min-width: 0;
   margin: 0 !important;
   color: var(--soft-muted) !important;
-  font-size: 12px;
+  font-size: 14px;
 }
 .app.soft-ui.ready-ui.ui-refresh > main > header .breadcrumbs strong,
-.app.soft-ui.ready-ui.ui-refresh > main > header .breadcrumbs .breadcrumb-link { color: var(--soft-muted) !important; font-size: 12px; }
-.app.soft-ui.ready-ui.ui-refresh > main > header .breadcrumbs strong { color: var(--soft-text-3) !important; }
+.app.soft-ui.ready-ui.ui-refresh > main > header .breadcrumbs .breadcrumb-link { color: var(--soft-muted) !important; font-size: 14px; }
+.app.soft-ui.ready-ui.ui-refresh > main > header .breadcrumbs strong { color: var(--soft-text) !important; font-weight: 700; }
 .app.soft-ui.ready-ui.ui-refresh > main > header .breadcrumbs b { color: var(--soft-faint) !important; }
 .app.soft-ui.ready-ui.ui-refresh > main > header .top-action-strip {
-  grid-column: 3 / -1;
+  grid-column: 1 / -1;
   grid-row: 2;
   justify-self: end;
   flex-wrap: nowrap;
@@ -323,7 +299,7 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { p
   margin: 0 !important;
 }
 .app.soft-ui.ready-ui.ui-refresh > main > header .search {
-  grid-column: 4;
+  grid-column: 2;
   grid-row: 1;
   width: min(280px, 28vw) !important;
   height: 40px;
@@ -337,7 +313,7 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { p
 .app.soft-ui.ready-ui.ui-refresh > main > header .search input { color: var(--soft-text) !important; }
 .app.soft-ui.ready-ui.ui-refresh > main > header .search input::placeholder { color: var(--soft-faint) !important; }
 .app.soft-ui.ready-ui.ui-refresh > main > header .search > svg { color: var(--soft-muted) !important; }
-.app.soft-ui.ready-ui.ui-refresh > main > header > .minimal-mode-toggle { grid-column: 5; grid-row: 1; }
+.app.soft-ui.ready-ui.ui-refresh > main > header > .minimal-mode-toggle { grid-column: 3; grid-row: 1; }
 
 /* 顶栏的圆角白色图标按钮（像参考图的铃铛/搜索） */
 .app.soft-ui.ready-ui.ui-refresh > main > header .top-pill,
@@ -577,7 +553,24 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { p
 .app.soft-ui.ready-ui.ui-refresh .rating button,
 .app.soft-ui.ready-ui.ui-refresh .asset-palette button,
 .app.soft-ui.ready-ui.ui-refresh .detail-head button { border-radius: 10px !important; }
-.app.soft-ui.ready-ui.ui-refresh .folder-action.danger:hover { background: var(--soft-danger-tint) !important; color: var(--soft-danger) !important; }
+/* 文件夹行右侧的“更多操作 / 删除文件夹”：平时透明，指到按钮上才出半透明底色（选中行是彩色底，实心色块会很扎眼）；
+   离行边缘留 5px、垂直居中；悬停整行时文件夹名给按钮让位，放不下就省略号，不再压在按钮下面 */
+.app.soft-ui.ready-ui.ui-refresh .compact-folder-tree .folder-action {
+  top: calc(50% - 12px) !important;
+  right: 32px !important;
+  width: 24px !important;
+  min-width: 24px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .compact-folder-tree .folder-action:last-child { right: 5px !important; }
+.app.soft-ui.ready-ui.ui-refresh .compact-folder-tree .folder-action:hover { background: color-mix(in srgb, var(--soft-text) 10%, transparent) !important; color: var(--soft-text) !important; }
+.app.soft-ui.ready-ui.ui-refresh .compact-folder-tree .folder-action.danger:hover { background: color-mix(in srgb, #ff6b5e 22%, transparent) !important; color: var(--soft-danger) !important; }
+.app.soft-ui.ready-ui.ui-refresh .compact-folder-tree .folder-row:hover .folder-main,
+.app.soft-ui.ready-ui.ui-refresh .compact-folder-tree .folder-row:focus-within .folder-main { padding-right: 60px !important; }
 
 /* 次要按钮：弹层里的“清除全部 / 重置”、排序项 */
 .app.soft-ui.ready-ui.ui-refresh .popover-title button,
@@ -611,7 +604,7 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { p
 .app.soft-ui.ready-ui.ui-refresh .usage-row { border-radius: var(--soft-radius-sm) !important; background: var(--soft-tint) !important; box-shadow: none !important; }
 .app.soft-ui.ready-ui.ui-refresh .usage-row:hover { background: var(--soft-blue-tint) !important; }
 .app.soft-ui.ready-ui.ui-refresh .detail-body button.delete,
-.app.soft-ui.ready-ui.ui-refresh button.danger,
+.app.soft-ui.ready-ui.ui-refresh button.danger:not(.folder-action),
 .app.soft-ui.ready-ui.ui-refresh .menu-danger {
   border-radius: var(--soft-radius-sm) !important;
   background: var(--soft-danger-tint) !important;
@@ -619,7 +612,7 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { p
   box-shadow: none !important;
 }
 .app.soft-ui.ready-ui.ui-refresh .detail-body button.delete:hover,
-.app.soft-ui.ready-ui.ui-refresh button.danger:hover:not(:disabled) { background: var(--soft-danger-tint-2) !important; }
+.app.soft-ui.ready-ui.ui-refresh button.danger:not(.folder-action):hover:not(:disabled) { background: var(--soft-danger-tint-2) !important; }
 
 /* 设置页的主题预设：选中用内描边，不用粗边框 */
 .app.soft-ui.ready-ui.ui-refresh .theme-preset-buttons button {
@@ -680,7 +673,7 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { p
 
 /* 布局：Windows 上第一行最后一列留给窗口按钮（3×36 + 2×6 = 120px） */
 .app.soft-ui.ready-ui.ui-refresh > main > header .top-action-strip {
-  grid-column: 3 / -1 !important;
+  grid-column: 1 / -1 !important;
   justify-self: end;
   max-width: 100% !important;
   overflow: visible !important;
@@ -689,11 +682,11 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { p
   gap: 6px !important;
 }
 html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header {
-  grid-template-columns: 48px auto minmax(0, 1fr) auto auto 120px;
+  grid-template-columns: minmax(0, 1fr) auto auto 120px;
   grid-template-rows: 40px auto;
   padding-right: 18px !important;
 }
-html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header .top-action-strip { grid-column: 3 / -1 !important; }
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header .top-action-strip { grid-column: 1 / -1 !important; }
 /* 窗口按钮：固定定位对准第一行（顶栏上边距 16 + 内边距 12 + (40-36)/2 = 30） */
 .app.soft-ui.ready-ui.ui-refresh .window-controls { top: 30px !important; right: calc(var(--soft-gap) + 18px) !important; gap: 6px !important; }
 /* 弹窗打开时（遮罩是淡灰半透明的那几种）：窗口按钮还浮在遮罩上面，白色方块悬在半空、贴着弹窗自己的 ×，
@@ -720,12 +713,10 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header .to
   .app.soft-ui.ready-ui.ui-refresh > main > header .top-action-strip .top-pill { width: 32px !important; min-width: 32px !important; height: 32px !important; border-radius: 10px !important; }
   .app.soft-ui.ready-ui.ui-refresh > main > header .search { width: min(180px, 20vw) !important; }
 }
-/* 窄窗口：名字和路径放不下时显示省略号，不钻到搜索框下面；路径保持一行 */
-.app.soft-ui.ready-ui.ui-refresh .soft-greeting-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* 窄窗口：路径放不下时显示省略号，不钻到搜索框下面；路径保持一行 */
 .app.soft-ui.ready-ui.ui-refresh > main > header .breadcrumbs { flex-wrap: nowrap !important; white-space: nowrap; overflow: hidden; }
 @media (max-width: 1180px) {
   .app.soft-ui.ready-ui.ui-refresh > main > header .search { width: min(180px, 20vw) !important; }
-  .app.soft-ui.ready-ui.ui-refresh .soft-greeting-name { font-size: 16px; }
 }
 /* 侧栏橙色“导入素材”按钮：旧的 mineradio 规则选择器更长，这里同样加上 .eagle-ui 才能盖过它 */
 .app.soft-ui.ready-ui.ui-refresh.eagle-ui .import-actions .import-action.primary,

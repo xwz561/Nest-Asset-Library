@@ -2295,10 +2295,6 @@ function App() {
         }}
       >
         <header>
-          <div className="soft-greeting">
-            <span className="soft-avatar" aria-hidden="true">{String(library?.currentMember?.name || "我").trim().slice(0, 1) || "我"}</span>
-            <strong className="soft-greeting-name">你好，{library?.currentMember?.name || "朋友"}</strong>
-          </div>
           <div className="breadcrumbs">
             {activeModule === "reference-board" ? (
               <><StickyNote size={15}/><strong>无限参考板</strong></>
