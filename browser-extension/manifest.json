@@ -1,0 +1,1 @@
+{"manifest_version":3,"name":"Nest 网页采集器","version":"1.6.0","description":"右键将任意网页图片保存到当前 Nest 资源库","permissions":["contextMenus","notifications"],"host_permissions":["<all_urls>","http://127.0.0.1:32145/*"],"background":{"service_worker":"service-worker.js"},"icons":{"16":"icon.png","48":"icon.png","128":"icon.png"}}

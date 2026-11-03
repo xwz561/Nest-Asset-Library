@@ -1,0 +1,9 @@
+node_modules/
+dist/
+release-*/
+.npm-cache/
+*.log
+.DS_Store
+Thumbs.db
+build/icon.icns
+dist-config-check/

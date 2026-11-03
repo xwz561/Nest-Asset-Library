@@ -1,0 +1,81 @@
+name: Build macOS installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to receive the macOS installers
+        required: true
+        default: v3.0.31
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: macOS x64 and Apple silicon
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - name: Download release source archive
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          archive="Nest-Asset-Library-${version}-Source.zip"
+          curl --fail --location --retry 3 --output "$archive" "https://github.com/xwz561/Nest-Asset-Library/releases/download/${RELEASE_TAG}/${archive}"
+          mkdir source
+          python3 - "$archive" <<'PY'
+          import pathlib
+          import sys
+          import zipfile
+
+          root = pathlib.Path("source").resolve()
+          with zipfile.ZipFile(sys.argv[1]) as bundle:
+              for entry in bundle.infolist():
+                  name = entry.filename.replace("\\", "/")
+                  parts = pathlib.PurePosixPath(name).parts
+                  if not parts or pathlib.PurePosixPath(name).is_absolute() or any(part in ("", ".", "..") for part in parts):
+                      raise SystemExit(f"Unsafe ZIP path: {entry.filename!r}")
+                  target = root.joinpath(*parts)
+                  if not target.resolve().is_relative_to(root):
+                      raise SystemExit(f"ZIP path escapes extraction directory: {entry.filename!r}")
+                  if entry.is_dir():
+                      target.mkdir(parents=True, exist_ok=True)
+                      continue
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(bundle.read(entry))
+                  mode = (entry.external_attr >> 16) & 0o777
+                  if mode:
+                      target.chmod(mode)
+          PY
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        working-directory: source
+        run: npm ci
+
+      - name: Build renderer
+        working-directory: source
+        run: npm run build
+
+      - name: Prepare macOS package configuration
+        working-directory: source
+        run: |
+          node -e "const fs=require('node:fs');const p=require('./package.json');p.build.extraResources=p.build.extraResources.filter(r=>r.to!=='lan-signal-hook.exe');delete p.build.electronDist;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')"
+
+      - name: Package DMG and ZIP for both architectures
+        working-directory: source
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          NEST_PACKAGE_OUTPUT: release-${{ inputs.release_tag }}-macos
+        run: npm run package:mac
+
+      - name: Upload macOS installers to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          files: source/release-${{ inputs.release_tag }}-macos/*
