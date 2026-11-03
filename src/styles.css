@@ -273,7 +273,9 @@ main{padding-bottom:72px}
 .sidebar-scroll-content::-webkit-scrollbar{width:10px}.sidebar-scroll-content::-webkit-scrollbar-track{background:var(--bg-sidebar)}.sidebar-scroll-content::-webkit-scrollbar-thumb{border:2px solid var(--bg-sidebar);border-radius:99px;background:color-mix(in srgb,var(--accent) 48%,var(--ui-border))}.sidebar-scroll-content::-webkit-scrollbar-thumb:hover{background:var(--accent)}
 .sidebar-fixed-footer{position:static;z-index:auto;left:auto;bottom:auto;width:auto;flex:0 0 auto;gap:5px;padding:7px 12px 12px;border-top:1px solid var(--ui-border);background:var(--bg-sidebar);pointer-events:auto}
 html[data-platform=darwin] .app>aside:first-child{padding-top:0}
-html[data-platform=darwin] .sidebar-scroll-content{padding-top:38px}
+/* macOS: the traffic lights sit at the top-left (14,15). The logo now lives in the fixed
+   controls above the scrolling list, so push that area down instead of the list. */
+html[data-platform=darwin] .sidebar-fixed-controls{padding-top:40px}
 @media(max-width:760px){.app>aside:first-child{padding:0}.sidebar-scroll-content{padding:12px 7px}.sidebar-fixed-footer{display:none}}
 @media(max-height:650px) and (min-width:761px){.sidebar-scroll-content{padding-bottom:8px}.sidebar-fixed-footer{padding-bottom:6px}}
 

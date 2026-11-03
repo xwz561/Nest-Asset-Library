@@ -10,7 +10,8 @@ export function SidebarFooter({ info, recycleBinName, openRecycle, openSupport }
         )
       : 0,
     root = String(info?.root || "").replace(/[\\/]+$/, ""),
-    diskLabel = `本地磁盘 (${root || "—"})`;
+    // 主进程按系统给出名字（Windows "本地磁盘 (D:)"，Mac "本地磁盘" 或 "磁盘 (外接盘名)"）；旧版本没有 label 时沿用盘符
+    diskLabel = info?.label || `本地磁盘 (${root || "—"})`;
   return (
     <div className="sidebar-fixed-footer">
       <Button className="sidebar-recycle" onClick={openRecycle}>

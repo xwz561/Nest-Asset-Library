@@ -38,7 +38,7 @@ function registerTeamFolderHandlers({ ipcMain, fs, path, selectFolder, libraryMu
     }
     const joined = await joinTeamLibrary(root);
     if (joined.error && !joined.joined) return { error: joined.error };
-    const library = openKnownLibrary(root);
+    const library = await openKnownLibrary(root);
     return library && !library.error ? { ...library, joinedRole: joined.role, createdLibrary: Boolean(joined.created) } : library;
   }));
 }

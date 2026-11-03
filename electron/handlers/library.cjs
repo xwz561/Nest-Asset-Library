@@ -3,7 +3,7 @@ ipcMain.handle('library:current', () => { if(runtimeState.deletingLibrary)return
 
 ipcMain.handle('library:create', async () => { const root = await selectFolder('选择或新建 Nest 资源库文件夹'); return root ? enqueueLibraryMutation(()=>initializeLibrary(root), null) : null; });
 
-ipcMain.handle('library:open', async () => { const root = await selectFolder('打开小旺仔资源库'); if (!root) return null; return libraryMutationQueue(async()=>{ const joined = await joinTeamLibrary(root); const library = openKnownLibrary(root); return joined.error && library && !library.error ? { ...library, joinNotice: joined.error } : library; }); });
+ipcMain.handle('library:open', async () => { const root = await selectFolder('打开小旺仔资源库'); if (!root) return null; return libraryMutationQueue(async()=>{ const joined = await joinTeamLibrary(root); const library = await openKnownLibrary(root); return joined.error && library && !library.error ? { ...library, joinNotice: joined.error } : library; }); });
 
 ipcMain.handle('library:recent', () => recentLibraryRecords());
 
@@ -11,7 +11,7 @@ ipcMain.handle('library:switch-recent', (_, id) => libraryMutationQueue(async ()
   const record = recentLibraryRecords().find(item => item.id === String(id || ''));
   if (!record) return { error: '这个资源库不在最近列表中' };
   const joined = await joinTeamLibrary(record.path);
-  const library = openKnownLibrary(record.path);
+  const library = await openKnownLibrary(record.path);
   return joined.error && library && !library.error ? { ...library, joinNotice: joined.error } : library;
 }));
 
@@ -102,7 +102,7 @@ ipcMain.handle('library:delete-library', async (_, confirmationName) => libraryM
 
 ipcMain.handle('library:health', () => {const data=readLibrary();if(!data)return null;const missing=data.assets.filter(a=>!a.file||!fs.existsSync(storedAssetPath(a.file))).map(a=>({id:a.id,name:a.name,file:a.file||''}));return{missing,total:data.assets.length,backupDir:path.join(runtimeState.libraryPath,'.nest-backups')}});
 
-ipcMain.handle('library:storage-info',()=>{if(!runtimeState.libraryPath)return null;try{const root=path.parse(runtimeState.libraryPath).root||runtimeState.libraryPath,stat=fs.statfsSync(root),total=Number(stat.blocks)*Number(stat.bsize),free=Number(stat.bavail)*Number(stat.bsize);return{root,total,free,used:Math.max(0,total-free)}}catch(error){return{error:error.message}}});
+ipcMain.handle('library:storage-info',()=>{if(!runtimeState.libraryPath)return null;try{return require('../disk-info.cjs').libraryStorageInfo(runtimeState.libraryPath,{fs})}catch(error){return{error:error.message}}});
 
 ipcMain.handle('library:repair', () => enqueueLibraryMutation(()=>{const data=readLibrary();if(!data)return null;backupLibrary();data.folders=Array.isArray(data.folders)?data.folders:[];data.assets=(Array.isArray(data.assets)?data.assets:[]).filter(a=>a?.id&&a?.file&&(a.trashedAt||fs.existsSync(storedAssetPath(a.file)))).map(a=>({...a,tags:Array.isArray(a.tags)?a.tags:[]}));syncPhysicalFolders(runtimeState.libraryPath,data);writeJson(indexFile(runtimeState.libraryPath),data);return publicLibrary(data)}));
 

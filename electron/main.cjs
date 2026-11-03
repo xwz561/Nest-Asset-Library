@@ -197,6 +197,7 @@ const aiSettingsFile = () => path.join(app.getPath('userData'), 'ai-settings.jso
 const aiSecretsFile = () => path.join(app.getPath('userData'), 'ai-secrets.bin');
 const aiUsageFile = () => path.join(app.getPath('userData'), 'ai-usage.json');
 const indexFile = root => path.join(root, '.nest-library.json');
+const { waitForLibraryIndex } = require('./library-index-wait.cjs');
 const assetsDir = root => path.join(root, 'assets');
 const storedAssetPath = file => physicalAssetPath(libraryPath, file);
 const thumbnailCache = createThumbnailCache({ app, ffmpegPath: require('ffmpeg-static'), resolveAssetPath: storedAssetPath });
@@ -230,8 +231,9 @@ const recentLibraryRecords = () => {
     } catch { return []; }
   });
 };
-const openKnownLibrary = root => {
-  if (!root || !fs.existsSync(indexFile(root))) return { error: '这个资源库已移动或不可用' };
+// Async: waits briefly for the index on network shares (see library-index-wait.cjs).
+const openKnownLibrary = async root => {
+  if (!root || !(await waitForLibraryIndex(indexFile(root)))) return { error: root ? `这个资源库已移动或不可用：${root}` : '这个资源库已移动或不可用' };
   libraryPath = root;
   extensionImportTarget = null;
   pendingAIFlowAssetLink = null;

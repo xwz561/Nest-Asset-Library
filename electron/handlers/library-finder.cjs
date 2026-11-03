@@ -98,7 +98,7 @@ function registerLibraryFinderHandlers({ ipcMain, fs, path, runtimeState, select
     const root = String(target || '');
     if (!foundPaths.has(lower(root)) || !fs.existsSync(path.join(root, '.nest-library.json'))) return { error: '这个素材库不在本次查找结果里，或已移动' };
     const joined = await joinTeamLibrary(root);
-    const library = openKnownLibrary(path.resolve(root));
+    const library = await openKnownLibrary(path.resolve(root));
     return joined.error && library && !library.error ? { ...library, joinNotice: joined.error } : library;
   }));
 }
