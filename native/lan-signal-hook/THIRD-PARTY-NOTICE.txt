@@ -1,0 +1,3 @@
+This Windows input hook helper is derived from lolPing by Danrui Meng.
+Repository: https://github.com/darrenprx/lolPing
+The source code is MIT licensed; see LOL-PING-LICENSE.txt. Riot Games assets are not included.

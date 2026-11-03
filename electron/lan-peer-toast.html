@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>新消息</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'">
+  <link rel="stylesheet" href="lan-peer-toast.css">
+</head>
+<body>
+  <article id="toast" role="button" tabindex="0" aria-label="打开私聊">
+    <div id="avatar" aria-hidden="true"></div>
+    <div class="copy"><strong id="name"></strong><p id="preview"></p></div>
+    <button id="dismiss" type="button" aria-label="关闭提示">×</button>
+  </article>
+  <script src="lan-peer-toast.js"></script>
+</body>
+</html>

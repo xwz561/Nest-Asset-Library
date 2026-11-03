@@ -1,0 +1,74 @@
+:root {
+  color-scheme: light dark;
+  font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  background: #171b22;
+  color: #e8edf5;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+
+html, body { width: 100%; height: 100%; margin: 0; }
+
+body { background: #171b22; }
+
+.editor-shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 100%;
+  height: 100%;
+  padding: 14px 18px 10px;
+  gap: 12px;
+}
+
+.editor-toolbar, .document-heading { display: flex; align-items: center; }
+.editor-toolbar { justify-content: space-between; min-height: 48px; gap: 16px; }
+.document-heading { min-width: 0; gap: 12px; }
+.document-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid #345073;
+  border-radius: 10px;
+  background: #203450;
+  color: #8fc2ff;
+  font: 700 11px/1 "Segoe UI", sans-serif;
+  letter-spacing: .04em;
+}
+.document-meta { min-width: 0; }
+.document-meta h1 { margin: 0; overflow: hidden; color: #f2f5fb; font-size: 15px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.document-meta p { margin: 4px 0 0; color: #9daabd; font-size: 11px; }
+#save-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 13px;
+  border: 1px solid #4a8dea;
+  border-radius: 7px;
+  background: #2865bf;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+#save-button:disabled { border-color: #343d4b; background: #252b34; color: #738094; cursor: default; }
+#save-button:focus-visible, #document-text:focus-visible { outline: 2px solid #80b7ff; outline-offset: 2px; }
+#document-text {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  resize: none;
+  padding: 18px 20px;
+  border: 1px solid #343c49;
+  border-radius: 9px;
+  background: #20252e;
+  color: #e8edf5;
+  font: 14px/1.7 Consolas, "Microsoft YaHei UI", monospace;
+  tab-size: 4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#document-text:disabled { color: #aeb8c6; }
+.editor-footer { display: flex; justify-content: space-between; color: #8995a7; font-size: 11px; }

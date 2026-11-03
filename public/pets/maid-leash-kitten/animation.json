@@ -1,0 +1,11 @@
+{
+  "frames": 24,
+  "fps": 20,
+  "cycle_seconds": 1.2,
+  "canvas": [
+    512,
+    512
+  ],
+  "alpha": true,
+  "loop": "infinite for GIF/APNG; enable loop in WebM players"
+}

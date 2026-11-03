@@ -1,0 +1,160 @@
+{
+  "name": "nest-asset-library",
+  "private": true,
+  "version": "3.0.56",
+  "description": "小旺仔本地素材资源库",
+  "author": {
+    "name": "xwz"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "node scripts/prepare-calendar-assets.cjs && vite build",
+    "test": "node --test test/*.test.cjs",
+    "package": "npm run package:win",
+    "package:win": "node scripts/build-lan-signal-hook.cjs && node scripts/package-windows-setup.cjs",
+    "package:mac": "node scripts/package-macos-app.cjs"
+  },
+  "build": {
+    "productName": "小旺仔素材库",
+    "artifactName": "${productName}-${version}-Setup.${ext}",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "shared/**/*",
+      "browser-extension/**/*",
+      "build/**/*",
+      "!build/installer-artwork/**/*",
+      "!build/friend-tools{,/**/*}",
+      "!build/configure-lan-firewall.ps1",
+      "!build/desktop-shortcut-icon.nsh",
+      "!build/desktop-shortcut-icon.ico",
+      "!build/icon.ico",
+      "!build/installerHeader.bmp",
+      "!build/installerSidebar.bmp",
+      "package.json",
+      "!folder-installer-*{,/**/*}",
+      "!folder-portable-*{,/**/*}",
+      "!director-*-output{,/**/*}",
+      "!internal-drag-qa-output{,/**/*}",
+      "!qa-*{,/**/*}",
+      "!portable-test-output{,/**/*}"
+    ],
+    "extraResources": [
+      {
+        "from": "browser-extension",
+        "to": "browser-extension"
+      }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "小旺仔素材库",
+      "include": "build/desktop-shortcut-icon.nsh",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "language": "2052",
+      "installerLanguages": [
+        "zh_CN"
+      ],
+      "installerHeader": "build/installerHeader.bmp"
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "extraResources": [
+        {
+          "from": "build/desktop-shortcut-icon.ico",
+          "to": "desktop-shortcut-icon.ico"
+        },
+        {
+          "from": "build/friend-tools/macOS-CursorPicker-Final.exe",
+          "to": "friend-tools/macOS-CursorPicker-Final.exe"
+        },
+        {
+          "from": "native/lan-signal-hook/build/hook-helper.exe",
+          "to": "lan-signal-hook.exe"
+        },
+        {
+          "from": "native/lan-signal-hook/LOL-PING-LICENSE.txt",
+          "to": "third-party/LOL-PING-LICENSE.txt"
+        },
+        {
+          "from": "native/lan-signal-hook/THIRD-PARTY-NOTICE.txt",
+          "to": "third-party/LOL-PING-NOTICE.txt"
+        },
+        {
+          "from": "build/configure-lan-firewall.ps1",
+          "to": "configure-lan-firewall.ps1"
+        },
+        {
+          "from": "build/friend-tools/hongguo-1.0.13-windows-x86_64-setup.exe",
+          "to": "friend-tools/hongguo-1.0.13-windows-x86_64-setup.exe"
+        },
+        {
+          "from": "build/friend-tools/HONGGUO-THIRD-PARTY-NOTICE.txt",
+          "to": "third-party/HONGGUO-THIRD-PARTY-NOTICE.txt"
+        },
+        {
+          "from": "build/friend-tools/DepthVideoConverterV2.exe",
+          "to": "friend-tools/depth-video-converter/DepthVideoConverterV2.exe"
+        },
+        {
+          "from": "build/friend-tools/depth-anything-v2-small-quantized.onnx",
+          "to": "friend-tools/depth-video-converter/depth-anything-v2-small-quantized.onnx"
+        },
+        {
+          "from": "build/friend-tools/mineradio",
+          "to": "friend-tools/mineradio"
+        }
+      ]
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "NestAssetLibrary-${version}-macOS-${arch}.${ext}",
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png"
+    }
+  },
+  "type": "module",
+  "main": "electron/main.cjs",
+  "dependencies": {
+    "@fluentui/react-components": "9.74.9",
+    "@tagspaces/tagspaces-common": "4.8.9",
+    "@vitejs/plugin-react": "6.0.5",
+    "dotenv": "^17.4.2",
+    "ffmpeg-static": "^5.3.0",
+    "jszip": "^3.10.1",
+    "lucide-react": "1.31.0",
+    "mammoth": "^1.12.2",
+    "openai": "^7.8.0",
+    "pdf-parse": "^2.4.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "underscore": "^1.13.8",
+    "video.js": "8.24.1",
+    "vite": "8.2.1",
+    "wavesurfer.js": "8.0.2",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "electron": "^44.3.0",
+    "electron-builder": "^26.15.3"
+  }
+}

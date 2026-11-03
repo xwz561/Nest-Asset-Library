@@ -1,0 +1,16 @@
+Bundled third-party tool: Hongguo Desktop 1.0.13 (Windows x64)
+Maintained by: 渠道有数
+Original project and release page:
+https://github.com/waligoraamodio288-rgb/hongguo-desktop-releases/releases
+
+The original setup executable is included unchanged with the Nest Asset Library
+Windows installer so users can install Hongguo Desktop from the Friend Tools
+collection. If Hongguo Desktop is already installed and has a Start Menu or
+Desktop shortcut named 红果* or Hongguo*, the tool card opens that shortcut.
+
+Original installer SHA-256:
+e0ce83c3a5373ea861787ab0f5a4be99c52aff7a8aefa50a350ed5b5b75f06be
+
+Hongguo Desktop is independently maintained and is not part of, or affiliated
+with, the Nest Asset Library. See the original release page for its notices,
+third-party licenses, updates, support, and current compatibility information.

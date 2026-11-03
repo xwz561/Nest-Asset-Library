@@ -1,0 +1,51 @@
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent!important;user-select:none}
+body{position:relative}
+#pet-hitbox{position:absolute;z-index:1;inset:0;touch-action:none;cursor:grab}
+#pet-hitbox:active{cursor:grabbing}
+video{position:absolute;display:block;left:-88.31%;top:-20.36%;width:277.06%;height:128.57%;object-fit:fill;cursor:inherit;touch-action:none;transform:scaleX(var(--facing-scale,1)) translateY(0)}
+#pet-sprite{position:absolute;display:none;left:0;top:0;width:100%;height:100%;background-image:var(--pet-sheet);background-size:800% 1100%;background-position:0% 0%;background-repeat:no-repeat;image-rendering:auto;transform:scaleX(var(--facing-scale,1)) translateY(0);transform-origin:center bottom;touch-action:none}
+body.sprite-pet video{display:none}
+body.sprite-pet #pet-sprite{display:block}
+video.wide{left:0;top:0;width:100%;height:100%;object-fit:contain;transform:none}
+video.walking{animation:walk-bob .55s ease-in-out infinite alternate}
+#pet-sprite.walking{animation:walk-bob .55s ease-in-out infinite alternate}
+@keyframes walk-bob{to{transform:scaleX(var(--facing-scale,1)) translateY(-1px)}}
+body.hungry video:not(.wide),body.hungry #pet-sprite{animation:hungry-wobble 2.2s ease-in-out infinite;filter:saturate(.76)}
+body.starving video:not(.wide),body.starving #pet-sprite{animation:weak-droop .8s cubic-bezier(.32,.72,0,1) forwards;filter:saturate(.65) brightness(.88)}
+body.fallen video:not(.wide),body.fallen #pet-sprite{transform:scaleX(var(--facing-scale,1)) translateY(2px) scale(.97);filter:saturate(.65) brightness(.88)}
+body.recovering video:not(.wide),body.recovering #pet-sprite{animation:recover-rise .7s cubic-bezier(.32,.72,0,1) forwards}
+@keyframes hungry-wobble{0%,100%{transform:scaleX(var(--facing-scale,1)) translateY(0) rotate(0)}30%{transform:scaleX(var(--facing-scale,1)) translateY(1px) rotate(-1.5deg)}65%{transform:scaleX(var(--facing-scale,1)) translateY(2px) rotate(1.5deg)}}
+@keyframes weak-droop{0%{transform:scaleX(var(--facing-scale,1)) translateY(0) scale(1)}35%{transform:scaleX(var(--facing-scale,1)) translateY(3px) scale(.99)}100%{transform:scaleX(var(--facing-scale,1)) translateY(2px) scale(.97)}}
+@keyframes recover-rise{0%{transform:scaleX(var(--facing-scale,1)) translateY(2px) scale(.97)}45%{transform:scaleX(var(--facing-scale,1)) translateY(-4px) scale(1.04)}100%{transform:scaleX(var(--facing-scale,1)) translateY(0) scale(1)}}
+#ground-shadow{position:absolute;z-index:0;left:50%;bottom:5px;width:72%;height:12px;border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,.36),rgba(0,0,0,0) 72%);opacity:0;transform:translateX(-50%);transition:opacity .3s}
+body.starving #ground-shadow,body.fallen #ground-shadow{opacity:.8}
+body.recovering #ground-shadow{opacity:.15}
+#hunger-hearts{position:absolute;z-index:2;left:50%;top:2px;display:flex;align-items:center;justify-content:center;gap:1px;width:72px;height:15px;opacity:0;transform:translateX(-50%) translateY(-3px) scale(.9);transition:opacity .16s,transform .16s;filter:drop-shadow(0 1px 2px #07121dcc);pointer-events:none}
+#hunger-hearts.visible{opacity:1;transform:translateX(-50%)}
+.hunger-heart{display:block;width:13px;height:13px;overflow:visible;flex:0 0 auto}
+.heart-base{fill:#252b34;stroke:#f3d9df;stroke-width:1.5;stroke-linejoin:round}
+.heart-fill{fill:#ff5477;stroke:#ff9aaa;stroke-width:.7;stroke-linejoin:round}
+body.hungry #hunger-hearts.visible{animation:heart-worry 1.1s ease-in-out infinite}
+body.starving #hunger-hearts.visible{animation:heart-worry .55s ease-in-out infinite}
+@keyframes heart-worry{0%,100%{transform:translateX(-50%) rotate(0)}25%{transform:translateX(calc(-50% - 1px)) rotate(-2deg)}75%{transform:translateX(calc(-50% + 1px)) rotate(2deg)}}
+body.pet-wide #hunger-hearts{display:none}
+#reaction{position:absolute;z-index:3;right:2px;top:0;max-width:132px;padding:4px 6px;border:1px solid #ffffff60;border-radius:9px;background:#142638e8;color:#fff;font:11px/1.3 "Microsoft YaHei",sans-serif;text-align:center;text-shadow:0 1px 3px #000;overflow-wrap:anywhere;opacity:0;transform:translateY(4px) scale(.8);transition:opacity .16s,transform .16s;pointer-events:none}
+#reaction.visible{opacity:1;transform:translateY(0) scale(1)}
+#reaction.eating{animation:chew .45s ease-in-out infinite alternate}
+#reaction.hungry-reaction{border-color:#ff8297;background:#341822ed;color:#ffd9df;animation:hungry-sigh 1s ease-in-out infinite alternate}
+.food-preview{display:block;width:40px;height:40px;margin:0 auto 3px;border-radius:5px;object-fit:contain}
+@keyframes chew{to{transform:translateY(-3px) scale(1.08)}}
+@keyframes hungry-sigh{to{transform:translateY(2px) scale(.96);opacity:.84}}
+#drop-hint{position:absolute;z-index:4;left:50%;top:2px;max-width:calc(100% - 16px);padding:5px 9px;border:1px solid #9ef5cf;border-radius:999px;background:#102b25ed;color:#d7ffed;font:600 11px/1.2 "Microsoft YaHei",sans-serif;white-space:nowrap;text-shadow:0 1px 2px #07120d;box-shadow:0 2px 9px #0008;opacity:0;transform:translate(-50%,-5px) scale(.94);transition:opacity .16s,transform .16s;pointer-events:none}
+body.file-drop-active #drop-hint{opacity:1;transform:translate(-50%,0) scale(1);animation:drop-ready .8s ease-in-out infinite alternate}
+@keyframes drop-ready{to{box-shadow:0 2px 14px #56f0b688;filter:brightness(1.14)}}
+@media(prefers-reduced-motion:reduce){body.hungry video:not(.wide),body.starving video:not(.wide),body.recovering video:not(.wide),body.hungry #pet-sprite,body.starving #pet-sprite,body.recovering #pet-sprite,body.hungry #hunger-hearts,body.starving #hunger-hearts,#reaction.hungry-reaction,body.file-drop-active #drop-hint{animation:none}}
+/* 银渐层小猫使用独立的 canvas 动作引擎（pet-kitten.js） */
+#kitten{position:absolute;display:none;left:0;top:0;width:100%;height:100%;pointer-events:none}
+body.kitten-pet #kitten{display:block}
+body.kitten-pet video,body.kitten-pet #pet-sprite{display:none!important}
+body.kitten-pet #ground-shadow{display:none}
+/* 女仆牵小猫散步：在 #leash-canvas 上循环播放 maid-leash-kitten 的 24 帧素材，其余角色元素先藏起来 */
+#leash-canvas{position:absolute;z-index:1;left:0;top:0;width:100%;height:100%;display:none;pointer-events:none}
+body.leash-walk #leash-canvas{display:block}
+body.leash-walk video,body.leash-walk #pet-sprite,body.leash-walk #kitten,body.leash-walk #ground-shadow,body.leash-walk #hunger-hearts{display:none!important}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TXT 文档</title>
+    <link rel="stylesheet" href="text-editor.css" />
+    <script src="text-editor.js" defer></script>
+  </head>
+  <body>
+    <main class="editor-shell">
+      <header class="editor-toolbar">
+        <div class="document-heading">
+          <span class="document-icon" aria-hidden="true">TXT</span>
+          <div class="document-meta">
+            <h1 id="document-name">正在打开文档…</h1>
+            <p id="document-status" role="status">正在读取文档</p>
+          </div>
+        </div>
+        <button id="save-button" type="button" disabled title="保存 (Ctrl+S)">
+          <span aria-hidden="true">✓</span> 保存
+        </button>
+      </header>
+      <textarea id="document-text" aria-label="文档内容" spellcheck="false" disabled></textarea>
+      <footer class="editor-footer">
+        <span id="document-count">0 字符</span>
+        <span>Ctrl+S 保存</span>
+      </footer>
+    </main>
+  </body>
+</html>

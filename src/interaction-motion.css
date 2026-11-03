@@ -1,0 +1,212 @@
+/* Small, quiet feedback for the asset grid and folder tree. */
+.app.eagle-ui.ready-ui .masonry article {
+  transition:
+    background-color 210ms var(--motion-ease),
+    border-color 210ms var(--motion-ease),
+    box-shadow 230ms var(--motion-ease);
+}
+
+.app.eagle-ui.ready-ui .masonry .thumb img,
+.app.eagle-ui.ready-ui .masonry .thumb video {
+  transition: transform 420ms var(--apple-ease);
+}
+
+.app.eagle-ui.ready-ui .masonry .fav,
+.app.eagle-ui.ready-ui .masonry .select-dot,
+.app.eagle-ui.ready-ui .masonry .dimensions {
+  transition:
+    opacity 150ms ease,
+    transform 180ms var(--motion-ease);
+}
+
+.app.eagle-ui.ready-ui .masonry .fav:not(.yes),
+.app.eagle-ui.ready-ui .masonry .select-dot,
+.app.eagle-ui.ready-ui .masonry .dimensions {
+  transform: translateY(2px) scale(.97);
+}
+
+.app.eagle-ui.ready-ui .masonry .multi-selected .select-dot {
+  transform: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app.eagle-ui.ready-ui .masonry article:hover:not(.selected):not(.multi-selected) {
+    background-color: color-mix(in srgb, var(--bg-card) 95%, var(--accent) 5%);
+    border-color: color-mix(in srgb, var(--ui-border) 68%, var(--accent));
+    box-shadow: 0 4px 14px #0002;
+  }
+
+  .app.eagle-ui.ready-ui .masonry article:hover .thumb img,
+  .app.eagle-ui.ready-ui .masonry article:hover .thumb video {
+    transform: scale(1.012);
+  }
+
+  .app.eagle-ui.ready-ui .masonry .thumb:hover .fav,
+  .app.eagle-ui.ready-ui .masonry .thumb:hover .select-dot,
+  .app.eagle-ui.ready-ui .masonry .thumb:hover .dimensions,
+  .app.eagle-ui.ready-ui .masonry .fav.yes,
+  .app.eagle-ui.ready-ui .masonry .multi-selected .select-dot {
+    transform: translateY(0) scale(1);
+  }
+}
+
+.app.ready-ui .compact-folder-tree .folder-row {
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.app.ready-ui .compact-folder-tree .folder-toggle svg {
+  transition: transform 180ms var(--apple-ease);
+}
+
+.app.ready-ui .sidebar-fixed-controls {
+  max-height: 100vh;
+  opacity: 1;
+  overflow: hidden;
+  transform: translateY(0);
+  transition:
+    max-height 320ms var(--apple-ease),
+    opacity 200ms ease,
+    transform 320ms var(--apple-ease),
+    padding 320ms var(--apple-ease);
+}
+
+.app.minimal-mode .sidebar-fixed-controls {
+  max-height: 0;
+  padding-block: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
+}
+
+.app.minimal-mode .sidebar-scroll-content > :not(.folder-root-drop):not(.compact-folder-tree),
+.app.minimal-mode .sidebar-fixed-footer {
+  display: none;
+}
+
+.app.minimal-mode .top-action-strip,
+.app.minimal-mode .content-folders,
+.app.minimal-mode .folder-inspector,
+.app.minimal-mode .bug-feedback {
+  display: none !important;
+}
+
+.app.eagle-ui.ready-ui .toolbar {
+  max-height: 220px;
+  overflow: hidden;
+  transition:
+    max-height 340ms var(--apple-ease),
+    min-height 340ms var(--apple-ease),
+    padding 320ms var(--apple-ease),
+    opacity 220ms ease,
+    transform 340ms var(--apple-ease);
+}
+
+/* Toolbar menus must escape the animated toolbar's clipping boundary. */
+.app.eagle-ui.ready-ui .toolbar.popover-open {
+  overflow: visible;
+}
+
+.app.minimal-mode .toolbar {
+  max-height: 0;
+  min-height: 0;
+  padding-block: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-5px);
+}
+
+.app.eagle-ui.ready-ui .toolbar-heading {
+  animation: toolbar-heading-enter 320ms var(--apple-ease) both;
+}
+
+@keyframes toolbar-heading-enter {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.app.eagle-ui.ready-ui .folder-inspector {
+  animation: folder-inspector-enter 190ms var(--apple-ease) both;
+}
+
+.app.eagle-ui.ready-ui .folder-inspector-section dl > div {
+  animation: folder-inspector-row-enter 220ms ease both;
+}
+
+.app.eagle-ui.ready-ui .folder-inspector-section dl > div:nth-child(2) { animation-delay: 35ms; }
+.app.eagle-ui.ready-ui .folder-inspector-section dl > div:nth-child(3) { animation-delay: 70ms; }
+
+.app.eagle-ui.ready-ui .bug-feedback {
+  transition: opacity 150ms ease, transform 170ms var(--apple-ease), border-color 150ms ease;
+}
+
+.app.eagle-ui.ready-ui .bug-feedback:hover {
+  transform: translateY(-1px);
+}
+
+@keyframes folder-inspector-enter {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes folder-inspector-row-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.app.eagle-ui.ready-ui main > header > .minimal-mode-toggle {
+  display: inline-flex;
+  flex: 0 0 30px;
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--ui-border);
+  background: var(--bg-overlay);
+  color: var(--text-secondary);
+}
+
+.app.eagle-ui.ready-ui main > header > .minimal-mode-toggle > svg {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.app.eagle-ui.ready-ui main > header > .minimal-mode-toggle:hover,
+.app.eagle-ui.ready-ui main > header > .minimal-mode-toggle.on {
+  border-color: var(--accent);
+  background: var(--selected-bg);
+  color: var(--text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app.ready-ui .masonry article,
+  .app.ready-ui .masonry .thumb img,
+  .app.ready-ui .masonry .thumb video,
+  .app.ready-ui .masonry .fav,
+  .app.ready-ui .masonry .select-dot,
+  .app.ready-ui .masonry .dimensions,
+  .app.ready-ui .compact-folder-tree .folder-row,
+  .app.ready-ui .compact-folder-tree .folder-toggle svg,
+  .app.ready-ui .sidebar-fixed-controls,
+  .app.eagle-ui.ready-ui .folder-inspector,
+  .app.eagle-ui.ready-ui .folder-inspector-section dl > div,
+  .app.eagle-ui.ready-ui .toolbar,
+  .app.eagle-ui.ready-ui .toolbar-heading,
+  .app.eagle-ui.ready-ui .bug-feedback {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .app.eagle-ui.ready-ui .masonry article:hover .thumb img,
+  .app.eagle-ui.ready-ui .masonry article:hover .thumb video,
+  .app.eagle-ui.ready-ui .masonry .thumb:hover .fav,
+  .app.eagle-ui.ready-ui .masonry .thumb:hover .select-dot,
+  .app.eagle-ui.ready-ui .masonry .thumb:hover .dimensions,
+  .app.eagle-ui.ready-ui .masonry .fav.yes,
+  .app.eagle-ui.ready-ui .masonry .multi-selected .select-dot {
+    transform: none !important;
+  }
+
+  .app.eagle-ui.ready-ui .bug-feedback:hover {
+    transform: none;
+  }
+}

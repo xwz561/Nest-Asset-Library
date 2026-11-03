@@ -1,0 +1,528 @@
+/* Infinite reference board refresh. Reuses the installed Fluent UI controls and
+   the app's theme tokens; interaction and persistence remain in reference-board.jsx. */
+.app .reference-board-module {
+  --rb-border: color-mix(in srgb, var(--ui-border) 78%, transparent);
+  --rb-soft: color-mix(in srgb, var(--bg-card) 84%, var(--bg-main));
+  --rb-shadow: 0 12px 32px color-mix(in srgb, var(--bg-main) 20%, transparent);
+  inset: 58px 0 0;
+  background: var(--bg-main);
+  color: var(--text-primary);
+}
+.app .reference-board-topbar {
+  position: relative;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  min-height: 104px;
+  padding: 10px 16px 9px;
+  border-bottom: 1px solid var(--rb-border);
+  background: color-mix(in srgb, var(--bg-sidebar) 94%, transparent);
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--bg-main) 12%, transparent);
+  backdrop-filter: blur(18px);
+}
+.reference-board-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+.reference-board-brand {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding-right: 12px;
+  border-right: 1px solid var(--rb-border);
+}
+.reference-board-brand>span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--rb-border));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-card));
+  color: var(--accent);
+}
+.reference-board-brand>div { display: grid; gap: 1px; }
+.reference-board-brand small { color: var(--text-secondary); font-size: 9px; line-height: 1.1; }
+.reference-board-brand strong { color: var(--text-primary); font-size: 12px; font-weight: 700; line-height: 1.2; }
+.app .reference-board-heading select,
+.app .reference-board-heading input.reference-board-name {
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--rb-border);
+  border-radius: 8px;
+  outline: 0;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 11px;
+}
+.app .reference-board-heading select { flex: 0 1 190px; max-width: 190px; }
+.app .reference-board-heading input.reference-board-name {
+  flex: 1 1 180px;
+  width: min(290px, 26vw);
+  font-size: 13px;
+  font-weight: 700;
+}
+.app .reference-board-heading select:focus,
+.app .reference-board-heading input.reference-board-name:focus,
+.app .reference-board-create-form input:focus,
+.app .reference-board-asset-dock input:focus,
+.app .reference-board-asset-dock select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.reference-board-stats {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.reference-board-stats b { color: var(--text-primary); font-size: 11px; font-weight: 700; }
+.reference-board-stats i { width: 1px; height: 14px; background: var(--rb-border); }
+.app .reference-board-top-actions {
+  display: flex;
+  min-width: 0;
+  min-height: 34px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  overflow: visible;
+}
+.app .reference-board-action-group {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  min-height: 34px;
+  padding: 3px;
+  border: 1px solid var(--rb-border);
+  border-radius: 10px;
+  background: var(--bg-card);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--bg-main) 8%, transparent);
+}
+.app .reference-board-top-actions .reference-board-toolbar-divider {
+  width: 1px;
+  height: 22px;
+  min-width: 1px;
+  margin: 0 1px;
+  background: var(--rb-border);
+}
+.app .reference-board-top-actions .reference-board-action-group>button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-width: 32px;
+  min-height: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.app .reference-board-top-actions .reference-board-action-group>button:hover:not(:disabled) {
+  border-color: var(--rb-border);
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+.app .reference-board-top-actions .reference-board-action-group>button[aria-pressed="true"],
+.app .reference-board-top-actions .reference-board-action-group>button.active {
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--rb-border));
+  background: color-mix(in srgb, var(--accent) 13%, var(--bg-card));
+  color: var(--accent);
+}
+.app .reference-board-top-actions .reference-board-action-group>button.reference-board-toolbar-danger { color: var(--text-secondary); }
+.app .reference-board-top-actions .reference-board-action-group>button.reference-board-toolbar-danger:hover:not(:disabled) {
+  border-color: color-mix(in srgb, #d64b5d 30%, var(--rb-border));
+  background: color-mix(in srgb, #d64b5d 10%, var(--bg-card));
+  color: #c43b4d;
+}
+.app .reference-board-top-actions .reference-board-action-group>button:disabled { opacity: .4; }
+.reference-board-action-label { display: inline; }
+.app .reference-board-workspace { min-width: 0; min-height: 0; }
+.app .reference-board-canvas {
+  isolation: isolate;
+  background-color: color-mix(in srgb, var(--bg-main) 97%, var(--text-primary));
+  background-image:
+    radial-gradient(color-mix(in srgb, var(--text-secondary) 25%, transparent) .8px, transparent .8px),
+    linear-gradient(90deg, color-mix(in srgb, var(--ui-border) 18%, transparent) 1px, transparent 1px),
+    linear-gradient(color-mix(in srgb, var(--ui-border) 18%, transparent) 1px, transparent 1px);
+  background-size: 20px 20px, 100px 100px, 100px 100px;
+  background-position: center;
+  cursor: grab;
+}
+.app .reference-board-canvas.drop-target { box-shadow: inset 0 0 0 2px var(--accent), inset 0 0 90px color-mix(in srgb, var(--accent) 10%, transparent); }
+.app .reference-board-canvas.drop-target::after {
+  top: 18px;
+  padding: 9px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--rb-border));
+  border-radius: 10px;
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+  box-shadow: var(--rb-shadow);
+  font-size: 11px;
+  font-weight: 650;
+}
+.app .reference-board-node {
+  border: 1px solid var(--rb-border);
+  border-radius: 12px;
+  background: var(--bg-card);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--bg-main) 22%, transparent), 0 1px 2px #00000010;
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.app .reference-board-node:hover { border-color: color-mix(in srgb, var(--accent) 52%, var(--rb-border)); }
+.app .reference-board-node.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent), 0 14px 30px #00000020;
+}
+.app .reference-board-node-media { background: var(--bg-overlay); }
+.app .reference-board-node-media img,
+.app .reference-board-node-media video { object-fit: contain; background: var(--bg-overlay); }
+.app .reference-board-file {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 8%, var(--bg-overlay)), var(--bg-card));
+  color: var(--accent);
+}
+.app .reference-board-file small { color: var(--text-secondary); }
+.app .reference-board-node-foot { background: var(--bg-card); }
+.app .reference-board-node-foot span { color: var(--text-primary); font-size: 11px; }
+.app .reference-board-node-foot small { color: var(--text-secondary); font-size: 9px; }
+.app .reference-board-node-actions { gap: 5px; }
+.app .reference-board-node-actions button {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--ui-border) 68%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-overlay) 94%, transparent);
+  color: var(--text-primary);
+  box-shadow: 0 2px 8px #00000014;
+  backdrop-filter: blur(12px);
+}
+.app .reference-board-node-actions button:hover:not(:disabled) { border-color: var(--accent); background: var(--bg-card); color: var(--accent); }
+.app .reference-board-group {
+  border-color: color-mix(in srgb, var(--group-color) 62%, var(--ui-border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--group-color) 5%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--group-color) 12%, transparent);
+}
+.app .reference-board-group.selected { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--group-color) 42%, transparent), 0 0 0 3px color-mix(in srgb, var(--group-color) 15%, transparent); }
+.app .reference-board-group-head {
+  min-height: 38px;
+  padding: 7px 11px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--group-color) 30%, var(--rb-border));
+  border-radius: 13px 13px 0 0;
+  background: color-mix(in srgb, var(--group-color) 10%, var(--bg-card));
+  color: var(--text-primary);
+  box-shadow: none;
+  text-align: left;
+}
+.app .reference-board-group-head:hover { background: color-mix(in srgb, var(--group-color) 16%, var(--bg-card)); }
+.app .reference-board-group-head span { font-size: 11px; }
+.app .reference-board-group-head small { color: var(--text-secondary); }
+.app .reference-board-connection-layer line { stroke: color-mix(in srgb, var(--accent) 76%, var(--text-primary)); filter: none; }
+.app .reference-board-connection-layer circle { stroke: var(--bg-card); }
+.app .reference-board-canvas-empty {
+  width: min(380px, calc(100% - 48px));
+  gap: 9px;
+  padding: 24px;
+  border: 1px solid var(--rb-border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+  box-shadow: var(--rb-shadow);
+  backdrop-filter: blur(14px);
+}
+.app .reference-board-canvas-empty>svg { width: 34px; height: 34px; padding: 8px; border-radius: 11px; background: color-mix(in srgb, var(--accent) 12%, var(--bg-card)); }
+.app .reference-board-canvas-empty strong { font-size: 14px; }
+.app .reference-board-canvas-empty span { max-width: 300px; color: var(--text-secondary); font-size: 11px; line-height: 1.65; }
+.app .reference-board-zoom,
+.app .reference-board-hint {
+  z-index: 2;
+  bottom: 16px;
+  border: 1px solid var(--rb-border);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--bg-overlay) 92%, transparent);
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--bg-main) 14%, transparent);
+  color: var(--text-secondary);
+  backdrop-filter: blur(14px);
+}
+.app .reference-board-zoom { left: 16px; gap: 8px; padding: 7px 10px; }
+.app .reference-board-zoom span { color: var(--text-primary); font-size: 11px; }
+.app .reference-board-hint { right: 16px; max-width: calc(100% - 120px); padding: 8px 11px; font-size: 10px; }
+.app .reference-board-minimap {
+  right: 16px;
+  bottom: 54px;
+  width: 184px;
+  height: 122px;
+  overflow: hidden;
+  border: 1px solid var(--rb-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-overlay) 92%, transparent);
+  box-shadow: var(--rb-shadow);
+  backdrop-filter: blur(14px);
+}
+.app .reference-board-minimap-viewport { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.app .reference-board-minimap-hide,
+.app .reference-board-minimap-show {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid var(--rb-border);
+  border-radius: 9px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  box-shadow: 0 3px 12px #00000012;
+}
+.app .reference-board-minimap-hide { top: 7px; right: 7px; }
+.app .reference-board-minimap-show { right: 16px; bottom: 54px; }
+.app .reference-board-minimap-hide:hover,
+.app .reference-board-minimap-show:hover { border-color: var(--accent); color: var(--accent); }
+.app .reference-board-canvas.has-material-dock .reference-board-zoom,
+.app .reference-board-canvas.has-material-dock .reference-board-hint,
+.app .reference-board-canvas.has-material-dock .reference-board-minimap,
+.app .reference-board-canvas.has-material-dock .reference-board-minimap-show {
+  bottom: calc(var(--material-dock-clearance, 200px) + 14px);
+}
+.app .reference-board-asset-dock {
+  top: auto;
+  right: 14px;
+  bottom: 14px;
+  left: 14px;
+  width: auto;
+  min-height: 130px;
+  padding: 12px 14px 13px;
+  border: 1px solid var(--rb-border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-sidebar) 96%, transparent);
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--bg-main) 18%, transparent);
+  backdrop-filter: blur(20px);
+}
+.app .reference-board-asset-dock .reference-board-dock-resize-handle {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  display: grid;
+  width: 62px;
+  height: 12px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: ns-resize;
+  transform: translateX(-50%);
+}
+.app .reference-board-asset-dock .reference-board-dock-resize-handle svg { width: 32px; height: 10px; }
+.app .reference-board-dock-head {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 190px) minmax(140px, 1fr) minmax(0, auto) 34px 34px;
+  align-items: center;
+  gap: 8px;
+  margin: 5px 0 9px;
+  padding: 0;
+}
+.app .reference-board-dock-head strong { color: var(--text-primary); font-size: 12px; white-space: nowrap; }
+.app .reference-board-dock-head select,
+.app .reference-board-dock-head input {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--rb-border);
+  border-radius: 8px;
+  outline: 0;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 10px;
+}
+.app .reference-board-dock-head small { overflow: hidden; color: var(--text-secondary); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.app .reference-board-dock-head button,
+.app .reference-board-node-actions button,
+.app .reference-board-minimap-hide,
+.app .reference-board-minimap-show {
+  display: grid;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--rb-border);
+  border-radius: 9px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+}
+.app .reference-board-dock-head button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.app .reference-board-dock-head button:disabled { opacity: .42; }
+.app .reference-board-asset-dock .reference-board-picker-list {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-wrap: nowrap;
+  align-content: stretch;
+  align-items: stretch;
+  gap: 8px;
+  overflow: auto hidden;
+  margin: 0 -2px;
+  padding: 2px 2px 4px;
+}
+.app .reference-board-asset-dock .reference-board-picker-row {
+  flex: 0 0 210px;
+  height: 68px;
+  border: 1px solid var(--rb-border);
+  border-radius: 11px;
+  background: var(--bg-card);
+  transition: border-color .14s ease, background .14s ease, transform .14s ease;
+}
+.app .reference-board-asset-dock .reference-board-picker-row:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--rb-border)); background: var(--hover-bg); transform: translateY(-1px); }
+.app .reference-board-asset-dock .reference-board-picker-row>button,
+.app .reference-board-asset-dock .reference-board-picker-load-more {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 7px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+}
+.app .reference-board-asset-dock .reference-board-picker-row>button:hover { background: transparent; }
+.app .reference-board-asset-dock .reference-board-picker-row>button>span:nth-child(2) { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.app .reference-board-asset-dock .reference-board-picker-row b { color: var(--text-primary); font-size: 10px; }
+.app .reference-board-asset-dock .reference-board-picker-row small { color: var(--text-secondary); font-size: 9px; }
+.app .reference-board-asset-dock .reference-board-picker-row>button>svg { color: var(--accent); }
+.app .reference-board-asset-dock .reference-board-picker-thumb { width: 48px; height: 48px; border-color: var(--rb-border); border-radius: 8px; background: var(--bg-overlay); }
+.app .reference-board-asset-dock .reference-board-picker-thumb .reference-board-file { min-height: 46px; }
+.app .reference-board-asset-dock .reference-board-picker-thumb .reference-board-file span { font-size: 20px; }
+.app .reference-board-asset-dock .reference-board-picker-load-more {
+  flex: 0 0 210px;
+  min-height: 66px;
+  border: 1px dashed var(--rb-border);
+  background: color-mix(in srgb, var(--bg-card) 65%, transparent);
+  color: var(--text-secondary);
+  font-size: 10px;
+  text-align: center;
+}
+.app .reference-board-asset-dock .reference-board-picker-load-more:hover { border-color: var(--accent); background: var(--hover-bg); color: var(--text-primary); }
+.app .reference-board-asset-dock .reference-board-picker-list>p { display: grid; min-width: 220px; place-items: center; margin: 0; color: var(--text-secondary); font-size: 10px; }
+.app .reference-board-marquee { border-color: var(--accent); border-radius: 6px; background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.app .reference-board-empty {
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 34%), var(--bg-main);
+}
+.reference-board-welcome {
+  display: flex;
+  width: min(540px, 100%);
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(24px, 5vw, 46px);
+  border: 1px solid var(--rb-border);
+  border-radius: 24px;
+  background: var(--bg-card);
+  box-shadow: var(--rb-shadow);
+  text-align: center;
+}
+.reference-board-welcome-icon { display: grid; width: 58px; height: 58px; place-items: center; margin-bottom: 18px; border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--rb-border)); border-radius: 18px; background: color-mix(in srgb, var(--accent) 11%, var(--bg-card)); color: var(--accent); }
+.reference-board-eyebrow { color: var(--accent); font-size: 9px; font-weight: 750; letter-spacing: .14em; }
+.app .reference-board-welcome h2 { margin: 9px 0 4px; color: var(--text-primary); font-size: 22px; letter-spacing: -.02em; }
+.app .reference-board-welcome p { max-width: 380px; margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.7; }
+.reference-board-create-form { display: flex; width: 100%; max-width: 400px; gap: 8px; margin-top: 22px; }
+.app .reference-board-create-form input {
+  min-width: 0;
+  flex: 1;
+  height: 38px;
+  padding: 0 11px;
+  border: 1px solid var(--rb-border);
+  border-radius: 9px;
+  outline: 0;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 11px;
+}
+.app .reference-board-primary {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 13px;
+  border: 1px solid var(--accent);
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-text, #fff);
+  font-size: 11px;
+  font-weight: 650;
+}
+.app .reference-board-primary:hover:not(:disabled) { filter: brightness(1.05); }
+.app .reference-board-primary:disabled { opacity: .48; }
+@media (max-width: 1180px) {
+  .reference-board-action-label { display: none; }
+  .app .reference-board-top-actions .reference-board-action-group>button { width: 32px; padding-inline: 0; }
+  .reference-board-stats { gap: 7px; }
+  .app .reference-board-top-actions { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+}
+@media (max-width: 760px) {
+  .app .reference-board-topbar { min-height: 94px; gap: 7px; padding: 8px 10px; }
+  .reference-board-heading { gap: 7px; }
+  .reference-board-brand { gap: 6px; padding-right: 7px; }
+  .reference-board-brand>span { width: 29px; height: 29px; }
+  .reference-board-brand small { font-size: 8px; }
+  .reference-board-brand strong { font-size: 10px; }
+  .app .reference-board-heading select { flex-basis: 120px; max-width: 120px; padding-inline: 6px; }
+  .app .reference-board-heading input.reference-board-name { flex-basis: 100px; width: 100px; padding-inline: 7px; font-size: 11px; }
+  .reference-board-stats { display: none; }
+  .app .reference-board-top-actions { gap: 4px; }
+  .app .reference-board-action-group { min-height: 32px; }
+  .app .reference-board-action-group>button { min-width: 29px; width: 29px; min-height: 27px; height: 27px; }
+  .app .reference-board-asset-dock { right: 8px; bottom: 8px; left: 8px; padding: 10px; border-radius: 13px; }
+  .app .reference-board-dock-head { grid-template-columns: auto 120px minmax(80px, 1fr) 32px 32px; gap: 6px; }
+  .app .reference-board-dock-head small { display: none; }
+  .app .reference-board-asset-dock .reference-board-picker-row { flex-basis: 180px; }
+  .app .reference-board-asset-dock .reference-board-picker-load-more { flex-basis: 180px; }
+  .app .reference-board-minimap { width: 150px; height: 96px; }
+  .app .reference-board-hint { display: none; }
+}
+@media (max-width: 520px) {
+  .reference-board-brand>div { display: none; }
+  .reference-board-brand { padding-right: 5px; }
+  .app .reference-board-heading select { flex-basis: 92px; max-width: 92px; font-size: 9px; }
+  .app .reference-board-heading input.reference-board-name { flex-basis: 88px; width: 88px; }
+  .app .reference-board-top-actions { gap: 3px; }
+  .app .reference-board-action-group { padding: 2px; }
+  .app .reference-board-action-group>button { min-width: 27px; width: 27px; padding: 0; }
+  .app .reference-board-top-actions .reference-board-toolbar-divider { margin-inline: 0; }
+  .app .reference-board-dock-head { grid-template-columns: 1fr 32px 32px; }
+  .app .reference-board-dock-head strong { grid-column: 1; }
+  .app .reference-board-dock-head select { grid-column: 1; grid-row: 2; }
+  .app .reference-board-dock-head input { grid-column: 1; grid-row: 3; }
+  .app .reference-board-dock-head button:first-of-type { grid-column: 2; grid-row: 1; }
+  .app .reference-board-dock-head button:last-of-type { grid-column: 3; grid-row: 1; }
+  .app .reference-board-asset-dock { min-height: 150px; }
+  .app .reference-board-create-form { flex-direction: column; }
+  .app .reference-board-create-form input,
+  .app .reference-board-create-form button { width: 100%; }
+}

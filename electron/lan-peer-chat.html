@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>局域网私聊</title><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'"><link rel="stylesheet" href="lan-peer-chat.css"></head>
+<body>
+<header><div><h1>局域网私聊</h1><small>同一局域网的电脑可直接聊天和传文件</small></div><span id="serviceStatus"></span></header>
+<main><nav aria-label="聊天好友"><div class="nav-title">好友</div><div id="friends"></div></nav>
+<section class="conversation" id="conversation">
+<div class="conversation-heading"><div id="peerAvatar" class="avatar"></div><div><strong id="peerName">选择好友</strong><small id="peerStatus"></small></div></div>
+<div id="messages" class="messages" role="log" aria-label="私聊记录"></div>
+<div id="transfers" class="transfers" aria-live="polite"></div>
+<div class="composer"><div class="composer-input"><textarea id="text" aria-label="私聊消息" maxlength="8000" placeholder="输入消息，Enter 发送，Shift+Enter 换行；也可拖入文件"></textarea><button id="emojiToggle" class="emoji-toggle" type="button" aria-label="选择表情" aria-expanded="false" aria-controls="emojiPicker" title="选择表情">😊</button><div id="emojiPicker" class="emoji-picker" role="grid" aria-label="选择一个表情" hidden></div></div><div class="actions"><button id="files" type="button">发送文件</button><small>单个最多 10 GB</small><button class="primary" id="send" type="button">发送</button></div><p id="notice" role="status"></p></div>
+<div id="dropHint" hidden>松开鼠标发送给当前好友</div>
+</section></main>
+<dialog id="preview"><button id="closePreview" type="button">关闭图片</button><img id="previewImage" alt="好友发送的图片"></dialog>
+<dialog id="avatarPreview"><div class="avatar-preview-heading"><strong id="avatarPreviewName">好友头像</strong><div><button id="saveAvatar" type="button">保存头像</button><button id="closeAvatarPreview" type="button">关闭</button></div></div><img id="avatarPreviewImage" alt="好友头像"></dialog>
+<script src="lan-peer-chat-window.js"></script>
+</body></html>

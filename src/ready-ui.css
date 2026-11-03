@@ -1,0 +1,300 @@
+/* One consistent Fluent UI surface, retaining the existing library behavior. */
+
+.app.ready-ui > aside:first-child{padding:0;background:var(--bg-sidebar)}
+.app.ready-ui .sidebar-scroll-content{padding:14px 12px;scrollbar-width:thin;scrollbar-color:var(--text-secondary) transparent}
+.app.ready-ui > main,.app.ready-ui .detail,.app.ready-ui .folder-inspector{scrollbar-width:thin;scrollbar-color:var(--text-secondary) transparent}
+.app.ready-ui .brand{min-height:68px;margin-bottom:14px;padding:10px 10px 16px;gap:12px}
+.app.eagle-ui.ready-ui .brand .mark{flex:0 0 34px;width:34px;height:34px;border-radius:8px}
+.app.eagle-ui.ready-ui .brand .mark img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
+.app.eagle-ui.ready-ui .brand>button[aria-haspopup="menu"]{flex:0 0 36px;width:36px;height:36px}
+.app.ready-ui .import-actions{margin:0 4px 16px;padding:10px;border:1px solid var(--ui-border);border-radius:8px;background:var(--bg-overlay);box-shadow:none}
+.app.ready-ui .import-actions .import-action{min-height:42px;padding:7px 9px;border:1px solid var(--ui-border);border-radius:5px;background:var(--bg-card);box-shadow:none;gap:8px;font-family:inherit;text-shadow:none}
+.app.ready-ui .import-actions .import-action:hover{background:var(--hover-bg)}
+.app.ready-ui .import-actions .import-action::before,.app.ready-ui .import-actions .import-action::after{display:none}
+.app.ready-ui .import-actions .import-action svg{filter:none;color:#b8c9dc}
+.app.ready-ui .pixel-import-icon{display:none}
+.app.ready-ui .import-actions-head{padding:0 2px 8px}
+.app.ready-ui .import-actions-head strong{font-size:12px}
+.app.ready-ui .import-actions-head small,.app.ready-ui .import-action small{font-family:inherit;color:#afb2ba!important;text-shadow:none}
+.app.ready-ui nav button,.app.ready-ui .folder-main{font-size:12px;font-weight:400}
+.app.ready-ui nav button.active,.app.ready-ui .folder-row.active{background:var(--selected-bg);box-shadow:none;outline:none;border:0}
+.app.ready-ui .compact-folder-tree{padding:0;display:flex;flex-direction:column;align-items:stretch}
+.app.ready-ui .folder-row{position:relative;display:flex;align-items:center;min-height:29px;width:auto;padding:0 3px;border-radius:4px;gap:2px}
+.app.ready-ui .folder-toggle{flex:0 0 18px;width:18px;min-width:18px;padding:0!important}
+.app.ready-ui .folder-main{display:flex;justify-content:flex-start;flex:1;min-width:0;gap:5px;padding:3px!important;border:0;background:transparent!important}
+.app.ready-ui .folder-main>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app.ready-ui .folder-action{flex:0 0 23px;width:23px;min-width:23px;padding:0!important;opacity:0;visibility:visible}
+.app.ready-ui .folder-row:hover .folder-action,.app.ready-ui .folder-row:focus-within .folder-action{opacity:1}
+.app.ready-ui main>header{box-shadow:none;backdrop-filter:none;border-bottom:1px solid var(--ui-border)}
+.app.ready-ui main>header .top-pill{background:transparent;border:0;box-shadow:none;color:#c2c5cd}
+.app.ready-ui main>header .top-pill.on{background:#4c5360;color:#dae9ff}
+.app.ready-ui .toolbar{box-shadow:none;backdrop-filter:none;background:var(--bg-main);padding:15px 18px;min-height:88px}
+.app.ready-ui .toolbar h1{font-size:17px;font-weight:600}
+.app.ready-ui .view-actions button{font-size:11px;background:var(--bg-card);border:1px solid var(--ui-border);border-radius:5px;padding-inline:10px}
+.app.ready-ui .toolbar .aiflow-live-status{font-size:10px;line-height:1.5;max-width:100%;overflow-wrap:anywhere;color:#a4abb7}
+.app.ready-ui .masonry{padding-top:14px;gap:14px}
+.app.ready-ui .masonry article{border:1px solid transparent;background:transparent;box-shadow:none;padding:0;transition:none;contain:layout style}
+.app.ready-ui .masonry article:hover{transform:none;background:var(--bg-card);box-shadow:none;border-color:#5e636d}
+.app.ready-ui .masonry article.selected,.app.ready-ui .masonry article.multi-selected{border-color:#69a8ff;background:#414956;box-shadow:none}
+.app.ready-ui .masonry .thumb{border:1px solid #484b52;border-radius:6px;box-shadow:none;background:var(--bg-overlay)}
+.app.ready-ui .masonry .meta{padding:7px 4px 5px}
+.app.ready-ui .masonry .meta strong{font-size:11px;font-weight:400;line-height:1.45}
+.app.ready-ui .masonry .meta span{background:transparent;border:0;color:#a7b2c4;font-size:9px}
+.app.ready-ui .detail{padding-top:44px!important;box-shadow:none;backdrop-filter:none}
+.app.ready-ui .detail-head{min-height:46px;padding:10px 16px}
+.app.ready-ui .detail-preview{margin:14px 16px 0;border-radius:6px;background:var(--bg-overlay);box-shadow:none}
+.app.ready-ui .detail-body{padding:16px}
+.app.ready-ui .detail-body .name-input{font-size:13px;font-weight:600;line-height:1.5}
+.app.ready-ui .detail-body>label{font-size:11px;margin-top:17px}
+.app.ready-ui .detail input:not([type=range]),.app.ready-ui .detail textarea,.app.ready-ui .detail select{border-radius:5px;background:var(--bg-overlay);border-color:var(--ui-border);box-shadow:none}
+.app.ready-ui .ready-media-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 0}
+.app.ready-ui .ready-media-controls>span{font-size:10px;font-variant-numeric:tabular-nums}
+.app.ready-ui .ready-media-controls input[aria-label="播放进度"]{min-width:60px;flex:1;width:90px}
+.app.ready-ui .ready-media-controls input[aria-label="音量"]{width:65px}
+.ready-audio-preview,.ready-video-preview{width:100%;min-width:0;padding:10px}
+.ready-video-preview .video-js{width:100%;background:#242529;max-height:65vh}
+.preview-stage>.ready-video-preview{width:min(1100px,92%);padding:0}
+.preview-stage>.ready-video-preview .video-js .vjs-control-bar{display:flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto}
+.ready-video-preview .video-js.vjs-controls-always-visible .vjs-control-bar{display:flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important}
+.ready-video-preview .video-js.vjs-controls-enabled.vjs-user-active .vjs-control-bar{display:flex}
+.ready-video-preview .video-js.vjs-paused .vjs-control-bar{display:flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto}
+.ready-video-preview .video-js.vjs-paused .vjs-big-play-button{display:block!important;visibility:visible!important;opacity:1!important}
+.ready-video-preview .video-js .vjs-current-time,.ready-video-preview .video-js .vjs-time-divider,.ready-video-preview .video-js .vjs-duration{display:block}
+.ready-video-preview .video-js .vjs-remaining-time{display:none}
+.ready-video-preview p,.ready-audio-preview p{font-size:11px;color:#e9b9a7;overflow-wrap:anywhere}
+.app.ready-ui .bug-feedback{background:#363b43;border-color:#5c6470;box-shadow:none}
+.app.ready-ui .aiflow-live-bolt{filter:none;box-shadow:none}
+.app.ready-ui button:focus-visible,.app.ready-ui .folder-row:focus-visible{outline:2px solid #86b7ff;outline-offset:-2px}
+.app.ready-ui .folder-row{flex-direction:row}.app.ready-ui .import-action>span{display:flex;min-width:0;flex:1;flex-direction:column;align-items:flex-start;gap:3px}.app.ready-ui .import-action>span strong{width:100%;font-weight:600;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.app.ready-ui .import-action>span small{width:100%;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.app.ready-ui .import-actions-head>svg{display:none}
+.app.ready-ui .import-actions .import-action{display:grid;grid-template-columns:18px minmax(0,1fr);grid-template-rows:auto auto;align-items:center;justify-content:stretch;gap:3px 8px;text-align:left}
+.app.ready-ui .import-action>svg{grid-row:1/3;grid-column:1;align-self:center}
+.app.ready-ui .import-action>span{grid-column:2;grid-row:1;display:block;text-align:left;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app.ready-ui .import-action>small{grid-column:2;grid-row:2;margin:0!important;text-align:left;font-size:9px!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.app.ready-ui .folder-main>span{text-align:left}
+.app.ready-ui .detail{padding-top:0!important}
+.app.ready-ui .detail .detail-head{height:88px;min-height:88px;padding:44px 16px 10px;background:var(--bg-sidebar)!important;top:0;z-index:10}
+.app.ready-ui .rating .fui-Button{min-width:22px;width:22px;flex:0 0 22px;padding:0;font-size:17px;border:0;box-shadow:none}
+.app.ready-ui .detail-actions .fui-Button{min-width:0;box-shadow:none}
+.app.ready-ui .detail-actions .open{background:#475260;color:#e8edf3;border-color:#637080}
+.app.ready-ui .fui-Button{min-width:0}.app.ready-ui .asset-palette{display:flex;gap:6px;max-width:100%;min-width:0}.app.ready-ui .asset-palette button{min-width:0;flex:1 1 0;width:auto;padding:0}.app.ready-ui .top-action-strip .lan-chat-button{box-shadow:none}
+
+/* Keep readable path segments; wrap header rows instead of squeezing each button. */
+.app.ready-ui main>header .breadcrumbs{display:flex;flex:1 1 320px;min-width:min(100%,320px);max-width:100%;flex-wrap:wrap;gap:4px 6px;overflow:visible;padding-block:2px}
+.app.ready-ui main>header .breadcrumbs .breadcrumb-link{display:block;flex:0 0 auto;max-width:min(220px,100%);min-height:24px;padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app.ready-ui main>header .breadcrumbs b{flex:0 0 auto}
+.app.ready-ui main>header .breadcrumbs strong{min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.app.ready-ui main>header .search{flex:0 1 220px;min-width:min(100%,180px);margin-left:auto}
+
+.app.ready-ui main:not(.view-list) .masonry{grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--thumbnail-size,190px)),1fr))}
+.asset-menu>.fui-Button,.ready-ui-menu>.fui-Button{justify-content:flex-start;color:var(--text-primary);text-align:left}
+.ready-ui-menu>.fui-Button{width:100%;min-width:0;gap:8px}
+.ready-ui-menu>.fui-Button>svg{flex:0 0 auto}
+.ready-ui-menu>.fui-Button>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.ready-ui-menu>.fui-Button:hover{background:var(--hover-bg);color:#fff}
+html[data-platform="win32"] .app.ready-ui.detail-open main>header{padding-right:12px}
+/* When the library header reaches the native frame edge, keep it clear of the
+   Windows minimize, maximize, and close overlay. Inspector modes own a
+   separate right-hand column, so their compact header spacing stays intact. */
+html[data-platform="win32"] .app.eagle-ui.ready-ui:not(.detail-open):not(.folder-inspector-open):not(.ai-panel-open) main>header{
+  padding-right:154px;
+}
+html[data-platform="win32"] .app.eagle-ui.ready-ui:not(.detail-open):not(.folder-inspector-open):not(.ai-panel-open) main>header .search{
+  max-width:100%;
+  min-width:0;
+}
+/* Settings share the same semantic theme as the library and Fluent controls. */
+.app.ready-ui .ai-settings-page{background:var(--bg-main);color:var(--text-primary)}
+.app.ready-ui .ai-settings-top,.app.ready-ui .ai-settings-nav,.app.ready-ui .ai-settings-side{background:var(--bg-sidebar);border-color:var(--ui-border)}
+.app.ready-ui .ai-settings-main,.app.ready-ui .appearance-dialog-inline{background:var(--bg-main);color:var(--text-primary)}
+.app.ready-ui .ai-settings-nav>button{display:flex;justify-content:flex-start;text-align:left;width:100%;padding-inline:18px;gap:12px;color:var(--text-secondary)}
+.app.ready-ui .ai-settings-nav>button i{display:grid;place-items:center;flex:0 0 20px;width:20px;font-style:normal;color:var(--text-primary)}
+.app.ready-ui .ai-settings-nav>button.active{background:var(--selected-bg)!important;color:var(--text-primary)}
+.app.ready-ui .ai-settings-brand>span{background:transparent!important;overflow:hidden;flex:0 0 28px;width:28px;height:28px;border-radius:7px}
+.app.ready-ui .ai-settings-brand img{display:block;width:100%;height:100%;object-fit:cover}
+.app.ready-ui .settings-kv,.app.ready-ui .settings-background-music-card,.app.ready-ui .ai-settings-main section,.app.ready-ui .appearance-section{background:var(--bg-card);border-color:var(--ui-border);color:var(--text-primary)}
+.app.ready-ui .settings-kv>div{border-color:var(--ui-border)}
+.app.ready-ui .ai-settings-main h2,.app.ready-ui .ai-settings-main b,.app.ready-ui .ai-settings-nav h2,.app.ready-ui .appearance-head h2,.app.ready-ui .section-title>span{color:var(--text-primary)}
+.app.ready-ui .ai-settings-main p,.app.ready-ui .ai-settings-main small,.app.ready-ui .settings-kv span,.app.ready-ui .ai-settings-nav footer{color:var(--text-secondary)}
+.app.ready-ui .settings-background-music-toggle,.app.ready-ui .ai-settings-search{background:var(--bg-overlay);border-color:var(--ui-border);color:var(--text-primary)}
+.app.ready-ui .appearance-actions{background:var(--bg-main);border-color:var(--ui-border);flex-wrap:wrap;gap:8px}
+.app.ready-ui .appearance-actions>span{flex:1;min-width:160px;color:var(--text-secondary)}
+.app.ready-ui .theme-preset-buttons{display:flex;flex-wrap:wrap;gap:10px}
+.app.ready-ui .theme-preset-buttons>button{gap:8px;border:1px solid var(--ui-border);background:var(--bg-overlay);color:var(--text-primary);padding:9px 12px;justify-content:flex-start}
+.app.ready-ui .theme-preset-buttons>button.selected{border-color:var(--accent);outline:1px solid var(--accent)}
+.theme-swatch{width:24px;height:24px;border:2px solid;border-radius:5px;flex-shrink:0}
+.theme-color-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px 24px}
+.app.ready-ui .theme-color-controls label{display:grid;grid-template-columns:80px 40px minmax(0,1fr);gap:10px;align-items:center;color:var(--text-primary)}
+.app.ready-ui .theme-color-controls input[type=color]{width:40px;height:30px;padding:2px;border:1px solid var(--ui-border);background:var(--bg-overlay);cursor:pointer}
+.theme-color-controls code{font:12px Consolas,monospace}
+@media(max-width:680px){.app.ready-ui .ai-settings-nav>button{justify-content:center;padding:0;gap:0}}
+.app.ready-ui .appearance-dialog-inline .appearance-section{padding:16px;margin-bottom:18px}
+.app.ready-ui .appearance-dialog-inline .section-title{margin-bottom:14px}
+.app.ready-ui .appearance-dialog-inline .theme-color-controls label{margin:0;line-height:1.4}
+.app.ready-ui .masonry article.selected,.app.ready-ui .masonry article.multi-selected{border-color:var(--accent);background:var(--selected-bg)}
+.app.ready-ui .masonry .thumb{border-color:var(--ui-border)}
+.app.ready-ui .masonry .meta span,.app.ready-ui .toolbar .aiflow-live-status{color:var(--text-secondary)}
+.app.ready-ui .detail-actions .open{background:var(--bg-card);color:var(--text-primary);border-color:var(--ui-border)}
+.app.ready-ui .import-actions .import-action small{color:var(--text-secondary)!important}
+.app.ready-ui button:focus-visible,.app.ready-ui .folder-row:focus-visible{outline-color:var(--accent)}
+/* Existing Eagle typography follows the restored palette. */
+.app.eagle-ui.ready-ui,.app.eagle-ui.ready-ui main,.app.eagle-ui.ready-ui .brand span,.app.eagle-ui.ready-ui .brand button,.app.eagle-ui.ready-ui nav button,.app.eagle-ui.ready-ui .folder-main,.app.eagle-ui.ready-ui .breadcrumbs,.app.eagle-ui.ready-ui .breadcrumbs button,.app.eagle-ui.ready-ui .breadcrumbs strong,.app.eagle-ui.ready-ui .toolbar h1,.app.eagle-ui.ready-ui .view-actions button,.app.eagle-ui.ready-ui .meta strong,.app.eagle-ui.ready-ui .import-actions strong,.app.eagle-ui.ready-ui .import-actions .import-action,.app.eagle-ui.ready-ui .detail-body,.app.eagle-ui.ready-ui .detail-head,.app.eagle-ui.ready-ui .folder-inspector,.app.eagle-ui.ready-ui .folder-inspector strong{color:var(--text-primary)}
+.app.eagle-ui.ready-ui nav button.active,.app.eagle-ui.ready-ui .folder-row.active{color:var(--text-primary);background:var(--selected-bg)}
+.app.eagle-ui.ready-ui .nav-title,.app.eagle-ui.ready-ui nav button b,.app.eagle-ui.ready-ui .toolbar>div:first-child>span,.app.eagle-ui.ready-ui .brand small,.app.eagle-ui.ready-ui .library-status,.app.eagle-ui.ready-ui .sidebar-footer,.app.eagle-ui.ready-ui .storage span{color:var(--text-secondary)}
+.app.eagle-ui.ready-ui .search,.app.eagle-ui.ready-ui .storage,.app.eagle-ui.ready-ui main>header .top-pill,.app.eagle-ui.ready-ui .top-action-strip button,.app.eagle-ui.ready-ui .detail input:not([type=range]),.app.eagle-ui.ready-ui .detail textarea,.app.eagle-ui.ready-ui .detail select{background:var(--bg-overlay);color:var(--text-primary);border-color:var(--ui-border)}
+.app.eagle-ui.ready-ui .search input{color:var(--text-primary)}
+.app.eagle-ui.ready-ui .folder-main>span,.app.eagle-ui.ready-ui nav button>svg,.app.eagle-ui.ready-ui .sidebar-disk b,.app.eagle-ui.ready-ui .sidebar-disk>svg{color:var(--text-primary)}
+.app.eagle-ui.ready-ui .sidebar-disk{background:var(--bg-overlay);border-color:var(--ui-border);color:var(--text-primary)}
+.app.eagle-ui.ready-ui .sidebar-disk span,.app.eagle-ui.ready-ui .folder-main small,.app.eagle-ui.ready-ui .sidebar-version,.app.eagle-ui.ready-ui .folder-toggle{color:var(--text-secondary)}
+
+/* Light and custom themes: keep import labels and icons on semantic colors. */
+.app.ready-ui .import-actions-head strong,.app.ready-ui .import-action>span{color:var(--text-primary)!important}
+.app.ready-ui .import-actions-head small,.app.ready-ui .import-action>small{color:var(--text-secondary)!important}
+.app.ready-ui .import-actions .import-action>svg{color:var(--text-secondary)!important;filter:none}
+.app.ready-ui .import-actions .import-action:disabled{opacity:1!important;cursor:not-allowed}
+.app.ready-ui .import-actions .import-action:disabled>span,.app.ready-ui .import-actions .import-action:disabled>small,.app.ready-ui .import-actions .import-action:disabled>svg{color:var(--text-secondary)!important}
+
+/* A tight edge shadow keeps the connected marker legible on pale folders. */
+.app.ready-ui .aiflow-live-bolt{filter:drop-shadow(0 1px 1px color-mix(in srgb,var(--text-primary) 72%,transparent));box-shadow:none;animation:ready-aiflow-live-pulse 1.5s ease-in-out infinite}
+.app.ready-ui.theme-light .aiflow-live-bolt{color:#0aa66f}
+@keyframes ready-aiflow-live-pulse{50%{filter:drop-shadow(0 1px 1px color-mix(in srgb,var(--text-primary) 72%,transparent)) drop-shadow(0 0 2px currentColor);transform:scale(1.06)}}
+@media(prefers-reduced-motion:reduce){.app.ready-ui .aiflow-live-bolt{animation:none}}
+
+/* White theme contrast: retain hierarchy without letting legacy dark-theme
+   literals fade into pale panels. */
+.app.ready-ui.theme-light .empty-library-state h2{color:var(--text-primary)}
+.app.ready-ui.theme-light .empty-library-state p{color:var(--text-secondary)}
+.app.ready-ui.theme-light .breadcrumbs b,
+.app.ready-ui.theme-light .breadcrumbs .breadcrumb-link{color:var(--text-secondary)}
+.app.ready-ui.theme-light .toolbar .view-actions button span{color:inherit}
+.app.ready-ui.theme-light .view-actions button:disabled{opacity:.72;color:var(--text-secondary)}
+.app.ready-ui.theme-light .bug-feedback{border-color:var(--ui-border);background:var(--bg-card);color:var(--text-primary);box-shadow:0 8px 24px #20263420}
+.app.ready-ui.theme-light .bug-feedback:hover{border-color:var(--accent);background:var(--accent);color:var(--accent-text)}
+.app.ready-ui.theme-light .folder-inspector-description,
+.app.ready-ui.theme-light .folder-inspector-section h2,
+.app.ready-ui.theme-light .folder-inspector-section dt{color:var(--text-secondary)}
+.app.ready-ui.theme-light .folder-inspector-section dd{color:var(--text-primary)}
+.app.ready-ui.theme-light .folder-inspector-section{border-color:var(--ui-border)}
+.app.ready-ui .folder-inspector-name,
+.app.ready-ui .folder-inspector-description{border-color:var(--ui-border);background:var(--bg-overlay);color:var(--text-primary)}
+.app.ready-ui .folder-inspector-description{color:var(--text-secondary)}
+
+/* Folder actions stay icon-sized; no combined rectangular hover slab. */
+.app.ready-ui .compact-folder-tree .folder-action{top:4px;right:25px!important;flex:0 0 22px;width:22px!important;min-width:22px;height:22px!important;min-height:22px!important;padding:0!important;border:0;border-radius:5px;background:transparent!important;box-shadow:none!important;filter:none}
+.app.ready-ui .compact-folder-tree .folder-action:last-child{right:1px!important}
+.app.ready-ui .compact-folder-tree .folder-action:hover,.app.ready-ui .compact-folder-tree .folder-action:focus-visible{background:var(--hover-bg)!important;box-shadow:none!important}
+.app.ready-ui .compact-folder-tree .folder-action.danger:hover{background:color-mix(in srgb,#ef4444 14%,transparent)!important;color:#dc2626}
+.app.ready-ui .compact-folder-tree .folder-row:hover .folder-main{padding-right:49px!important}
+.app.ready-ui .compact-folder-tree .folder-row:hover .folder-main span{max-width:calc(100% - 42px)}
+
+/* Leaf folders keep the hierarchy indent but never show a fake expand arrow. */
+.app.ready-ui .compact-folder-tree .folder-toggle:disabled{opacity:0!important;visibility:hidden;pointer-events:none}
+
+/* Paper theme uses ink-dark controls and copy; selected actions use the accent. */
+.app.ready-ui.theme-light button:not(.primary):not(.menu-danger),
+.app.ready-ui.theme-light input,
+.app.ready-ui.theme-light textarea,
+.app.ready-ui.theme-light select{color:var(--text-primary)!important}
+.app.ready-ui.theme-light button.on,
+.app.ready-ui.theme-light button.active,
+.app.ready-ui.theme-light button.selected,
+.app.ready-ui.theme-light .folder-row.active .folder-main{color:var(--accent)!important}
+.app.ready-ui.theme-light button:disabled{color:var(--text-secondary)!important;opacity:.72!important}
+.app.ready-ui.theme-light .import-actions .import-action:disabled{color:var(--text-primary)!important;opacity:1!important}
+.app.ready-ui.theme-light .import-actions .import-action:disabled>span,
+.app.ready-ui.theme-light .import-actions .import-action:disabled>span strong{color:var(--text-primary)!important}
+.app.ready-ui.theme-light .import-actions .import-action:disabled>small{color:var(--text-secondary)!important}
+.app.ready-ui.theme-light .import-actions .import-action:disabled>svg{color:var(--text-secondary)!important}
+.app.ready-ui.theme-light input::placeholder,
+.app.ready-ui.theme-light textarea::placeholder{color:var(--text-secondary)!important;opacity:1}
+.app.ready-ui.theme-light .nav-title,
+.app.ready-ui.theme-light .toolbar>div:first-child>span,
+.app.ready-ui.theme-light .meta span,
+.app.ready-ui.theme-light small{color:var(--text-secondary)}
+.app.ready-ui.theme-light .primary,
+.app.ready-ui.theme-light .import,
+.app.ready-ui.theme-light .filter-count{color:var(--accent-text)!important}
+
+/* The floating batch bar stays dark in the paper theme, so its actions need
+   their own light foreground instead of inheriting the page's ink color. */
+.app.ready-ui.theme-light .batch-bar{border-color:#315b85;background:#102b45f2;box-shadow:0 16px 40px #17314b45,0 0 0 1px #ffffff10}
+.app.ready-ui.theme-light .batch-bar strong{color:#f5f9ff!important}
+.app.ready-ui.theme-light .batch-bar button:not(.danger){color:#dcecff!important}
+.app.ready-ui.theme-light .batch-bar button:not(:disabled):hover{background:#ffffff17;color:#fff!important}
+.app.ready-ui.theme-light .batch-bar button.danger{color:#ff9aa4!important}
+.app.ready-ui.theme-light .batch-bar button:disabled{color:#9db1c6!important;opacity:.78!important}
+
+/* Paper mode still contains deliberately dark media and overlay surfaces.
+   Keep their controls light instead of inheriting the page's ink color. */
+.app.ready-ui.theme-light .preview-top button,
+.app.ready-ui.theme-light .video-card-controls button,
+.app.ready-ui.theme-light .support-dialog button{color:#e5f0fc!important}
+.app.ready-ui.theme-light .preview-top button:hover,
+.app.ready-ui.theme-light .video-card-controls button:hover,
+.app.ready-ui.theme-light .support-dialog button:hover{color:#fff!important}
+.app.ready-ui.theme-light .preview-top .preview-close,
+.app.ready-ui.theme-light .preview-top .preview-close>span,
+.app.ready-ui.theme-light .preview-top .preview-close>svg{color:#f5f9ff!important;opacity:1!important}
+.app.ready-ui.theme-light .asset-menu>.fui-Button,
+.app.ready-ui.theme-light .asset-menu>.fui-Button span,
+.app.ready-ui.theme-light .move-submenu .fui-Button,
+.ready-ui-menu.theme-light>.fui-Button,
+.ready-ui-menu.theme-light>.fui-Button span{color:#dcecff!important}
+.app.ready-ui.theme-light .asset-menu>.fui-Button:disabled,
+.app.ready-ui.theme-light .asset-menu>.fui-Button:disabled span,
+.app.ready-ui.theme-light .move-submenu .fui-Button:disabled,
+.ready-ui-menu.theme-light>.fui-Button:disabled{color:#9db1c6!important;opacity:.78!important}
+.app.ready-ui.theme-light .asset-menu>.menu-danger,
+.app.ready-ui.theme-light .asset-menu>.menu-danger span{color:#ff9aa4!important}
+.app.ready-ui.theme-light .thumb .select-dot,
+.app.ready-ui.theme-light .thumb .fav{color:#f5f9ff!important}
+.app.ready-ui.theme-light .thumb .fav.yes{color:#ff9aaa!important}
+.app.ready-ui.theme-light .thumb .external-drag-handle,
+.app.ready-ui.theme-light .thumb .dimensions{color:#dcecff!important}
+
+/* The paper theme gives the audio waveform card the same pale surface as its
+   surrounding card, and darkens the canvas bars for clear contrast. */
+.app.ready-ui.theme-light .audio-wave-card{background:color-mix(in srgb,var(--bg-sidebar) 84%,var(--bg-main));border-color:var(--ui-border)}
+.app.ready-ui.theme-light .audio-waveform{filter:none}
+.app.ready-ui.theme-light .detail-preview{background:var(--bg-card);border:1px solid var(--ui-border)}
+.app.ready-ui.theme-light .detail-preview .ready-audio-preview{background:var(--bg-card);color:var(--text-primary)}
+.app.ready-ui.theme-light .detail-preview .audio-wave-card{background:color-mix(in srgb,var(--bg-sidebar) 84%,var(--bg-main));border-color:var(--ui-border)}
+.app.eagle-ui.ready-ui.theme-light .detail:not(.ai-assistant) .folder-select{background:var(--bg-overlay)!important;border-color:var(--ui-border)!important;color:var(--text-primary)!important}
+.app.eagle-ui.ready-ui.theme-light .detail:not(.ai-assistant) .detail-preview{background:var(--bg-main)!important;border-color:var(--ui-border)!important}
+
+/* Keep inspector helper text readable on paper surfaces. The general light
+   theme intentionally softens secondary text, but the narrow detail column
+   needs a darker label tone at its small font sizes. */
+.app.eagle-ui.ready-ui.theme-light .detail:not(.ai-assistant) .detail-body>label,
+.app.eagle-ui.ready-ui.theme-light .detail:not(.ai-assistant) .facts span,
+.app.eagle-ui.ready-ui.theme-light .detail:not(.ai-assistant) .usage-row small{color:#586575!important}
+
+/* The main stylesheet forces accent-text on this action, which can resolve
+   to near-black for a bright accent over the dark inspector button. */
+.app.eagle-ui.ready-ui .detail:not(.ai-assistant) .detail-actions .open{color:var(--text-primary)!important}
+
+/* Keep the inspector scrollable without the old OS-style arrow controls. */
+.app.ready-ui .detail::-webkit-scrollbar-button{display:none;width:0;height:0}
+
+/* Paper theme uses light surfaces for asset operation menus as well. */
+.app.ready-ui.theme-light .asset-menu,
+.app.ready-ui.theme-light .move-submenu,
+.app.ready-ui.theme-light .folder-icon-flyout,
+.ready-ui-menu.theme-light{background:var(--bg-overlay)!important;border-color:var(--ui-border)!important;color:var(--text-primary)!important;box-shadow:0 12px 32px color-mix(in srgb,var(--text-primary) 14%,transparent)!important}
+.app.ready-ui.theme-light .asset-menu>.fui-Button,
+.app.ready-ui.theme-light .asset-menu>.fui-Button span,
+.app.ready-ui.theme-light .move-submenu .fui-Button,
+.app.ready-ui.theme-light .folder-icon-flyout .fui-Button,
+.ready-ui-menu.theme-light>.fui-Button,
+.ready-ui-menu.theme-light>.fui-Button span{color:var(--text-primary)!important}
+.app.ready-ui.theme-light .asset-menu>.fui-Button:hover,
+.app.ready-ui.theme-light .move-submenu .fui-Button:hover,
+.app.ready-ui.theme-light .folder-icon-flyout .fui-Button:hover,
+.ready-ui-menu.theme-light>.fui-Button:hover{background:var(--hover-bg)!important;color:var(--text-primary)!important}
+.app.ready-ui.theme-light .asset-menu>.menu-danger,
+.app.ready-ui.theme-light .asset-menu>.menu-danger span{color:#b42332!important}
+.app.ready-ui.theme-light .asset-menu>.fui-Button:disabled,
+.app.ready-ui.theme-light .asset-menu>.fui-Button:disabled span,
+.app.ready-ui.theme-light .move-submenu .fui-Button:disabled,
+.ready-ui-menu.theme-light>.fui-Button:disabled{color:var(--text-secondary)!important;opacity:.78!important}
+
+

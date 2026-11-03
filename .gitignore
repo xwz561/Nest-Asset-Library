@@ -1,0 +1,11 @@
+node_modules/
+dist/
+release-*/
+.npm-cache/
+__pycache__/
+*.py[cod]
+*.log
+.DS_Store
+Thumbs.db
+build/icon.icns
+dist-config-check/

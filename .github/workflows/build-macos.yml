@@ -1,0 +1,207 @@
+name: Build macOS installers
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/deepseek-leads-silver-kitten
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: macOS x64 and Apple silicon
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test source against known failures
+        shell: bash
+        run: |
+          set -euo pipefail
+          export LC_ALL=C
+          baseline_path="test/fixtures/known-failures.txt"
+          actual_path="$RUNNER_TEMP/macos-test-failures.txt"
+          output_path="$RUNNER_TEMP/test-output.tap"
+          baseline_sorted="$RUNNER_TEMP/known-failures.sorted"
+          actual_sorted="$RUNNER_TEMP/actual-failures.sorted"
+          new_failures="$RUNNER_TEMP/new-failures.txt"
+          resolved_failures="$RUNNER_TEMP/resolved-failures.txt"
+          : > "$actual_path"
+
+          for test_file in test/*.test.cjs; do
+            if node --test "$test_file" > "$output_path" 2>&1; then
+              test_status=0
+            else
+              test_status=$?
+            fi
+            cat "$output_path"
+            sed -nE 's/^[[:space:]]*not ok [0-9]+ - (.*)$/\1/p' "$output_path" >> "$actual_path"
+            if [ "$test_status" -ne 0 ] && ! grep -qE '^[[:space:]]*not ok [0-9]+ - ' "$output_path"; then
+              echo "::error title=macOS test runner failed::$test_file exited $test_status without a TAP failure name"
+              exit "$test_status"
+            fi
+          done
+
+          sed '/^[[:space:]]*#/d; /^[[:space:]]*$/d' "$baseline_path" | sort > "$baseline_sorted"
+          sort "$actual_path" > "$actual_sorted"
+          comm -23 "$actual_sorted" "$baseline_sorted" > "$new_failures"
+          comm -13 "$actual_sorted" "$baseline_sorted" > "$resolved_failures"
+          printf 'Known baseline failures: %s\n' "$(wc -l < "$baseline_sorted" | tr -d '[:space:]')"
+          printf 'Failures on macOS: %s\n' "$(wc -l < "$actual_sorted" | tr -d '[:space:]')"
+
+          if [ -s "$new_failures" ]; then
+            echo 'Failures not present in the committed baseline:'
+            cat "$new_failures"
+            echo 'Failures in the baseline but not reproduced on macOS:'
+            cat "$resolved_failures"
+            echo '::error title=New macOS test failures::Review the platform differences before packaging.'
+            exit 1
+          fi
+
+          if [ -s "$resolved_failures" ]; then
+            echo '::notice title=macOS differs from the Windows baseline::The following known failures did not reproduce on macOS.'
+            cat "$resolved_failures"
+          fi
+
+      - name: Build renderer
+        run: npm run build
+
+      - name: Package DMG and ZIP for both architectures
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          NEST_PACKAGE_OUTPUT: release-3.0.56-macos
+        run: npm run package:mac
+
+      - name: Compute installer sizes and SHA-256 manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          output_dir="release-3.0.56-macos"
+          : > "$output_dir/SHA256SUMS.txt"
+
+          for arch in x64 arm64; do
+            for extension in dmg zip; do
+              archive="$output_dir/NestAssetLibrary-3.0.56-macOS-$arch.$extension"
+              test -s "$archive"
+              printf '%s bytes  %s\n' "$(wc -c < "$archive" | tr -d '[:space:]')" "$archive"
+              shasum -a 256 "$archive" | tee -a "$output_dir/SHA256SUMS.txt"
+            done
+          done
+
+      - name: Upload x64 DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: 小旺仔素材库-3.0.56-macOS-x64-dmg
+          path: release-3.0.56-macos/NestAssetLibrary-3.0.56-macOS-x64.dmg
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Upload x64 ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: 小旺仔素材库-3.0.56-macOS-x64-zip
+          path: release-3.0.56-macos/NestAssetLibrary-3.0.56-macOS-x64.zip
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Upload arm64 DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: 小旺仔素材库-3.0.56-macOS-arm64-dmg
+          path: release-3.0.56-macos/NestAssetLibrary-3.0.56-macOS-arm64.dmg
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Upload arm64 ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: 小旺仔素材库-3.0.56-macOS-arm64-zip
+          path: release-3.0.56-macos/NestAssetLibrary-3.0.56-macOS-arm64.zip
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Upload SHA-256 manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: 小旺仔素材库-3.0.56-macOS-SHA256
+          path: release-3.0.56-macos/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Verify app.asar in macOS DMG and ZIP packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          output_dir="release-3.0.56-macos"
+          temp_root="$RUNNER_TEMP/macos-package-verify"
+          mkdir -p "$temp_root"
+
+          verify_app_asar() {
+            ASAR_PATH="$1" node <<'NODE'
+          const assert = require('node:assert/strict');
+          const asar = require('@electron/asar');
+          const archive = process.env.ASAR_PATH;
+          const normalize = name => {
+            let result = name.split(String.fromCharCode(92)).join('/');
+            while (result.startsWith('/')) result = result.slice(1);
+            return result;
+          };
+          const entries = asar.listPackage(archive).map(normalize);
+          const readAsarFile = name => {
+            try { return asar.extractFile(archive, name); }
+            catch (error) {
+              try { return asar.extractFile(archive, name.replaceAll('/', String.fromCharCode(92))); }
+              catch { throw error; }
+            }
+          };
+          const pkg = JSON.parse(readAsarFile('package.json').toString('utf8'));
+          assert.equal(pkg.version, '3.0.56', `unexpected app version: ${pkg.version}`);
+          const frames = entries.filter(name => /^dist\/pets\/maid-leash-kitten\/frame-\d{3}\.png$/.test(name));
+          assert.equal(frames.length, 24, `expected 24 kitten frames, found ${frames.length}`);
+          assert(entries.includes('electron/pet-leash.js'), 'electron/pet-leash.js is missing');
+          const cssFiles = entries.filter(name => /^dist\/assets\/index-.*\.css$/.test(name));
+          assert(cssFiles.length > 0, 'bundled index CSS is missing');
+          assert(cssFiles.some(name => readAsarFile(name).toString('utf8').includes('--rf-btn-surface')),
+            'r8 UI token --rf-btn-surface is missing from bundled index CSS');
+          console.log(`Verified app.asar ${pkg.version}: ${frames.length} kitten frames, leash engine, and r8 UI token`);
+          NODE
+          }
+
+          for arch in x64 arm64; do
+            dmg="$output_dir/NestAssetLibrary-3.0.56-macOS-$arch.dmg"
+            zip="$output_dir/NestAssetLibrary-3.0.56-macOS-$arch.zip"
+
+            mountpoint="$temp_root/mount-$arch"
+            mkdir -p "$mountpoint"
+            hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$mountpoint" >/dev/null
+            dmg_asar="$(find "$mountpoint" -path '*/Contents/Resources/app.asar' -print -quit)"
+            test -n "$dmg_asar"
+            cp "$dmg_asar" "$temp_root/app-$arch-dmg.asar"
+            hdiutil detach "$mountpoint" -quiet
+            verify_app_asar "$temp_root/app-$arch-dmg.asar"
+
+            unzip -tq "$zip"
+            zip_extract="$temp_root/zip-$arch"
+            mkdir -p "$zip_extract"
+            ditto -x -k "$zip" "$zip_extract"
+            zip_asar="$(find "$zip_extract" -path '*/Contents/Resources/app.asar' -type f -print -quit)"
+            test -n "$zip_asar"
+            cp "$zip_asar" "$temp_root/app-$arch-zip.asar"
+            verify_app_asar "$temp_root/app-$arch-zip.asar"
+            rm -rf "$zip_extract"
+          done

@@ -1,0 +1,45 @@
+@font-face{font-family:"Source Han Sans SC";src:url("/fonts/SourceHanSansSC-VF.otf.woff2") format("woff2");font-style:normal;font-weight:250 900;font-display:swap}
+:root{--ui-font:"Source Han Sans SC","Segoe UI","Microsoft YaHei",sans-serif}
+body,.app.eagle-ui.ready-ui,.app.eagle-ui.ready-ui button,.app.eagle-ui.ready-ui input,.app.eagle-ui.ready-ui select,.app.eagle-ui.ready-ui textarea,.ready-ui-menu{font-family:var(--ui-font);font-synthesis:none;text-rendering:optimizeLegibility}
+.app.eagle-ui.ready-ui{font-size:13px;line-height:1.55}
+.app.eagle-ui.ready-ui .brand span{font-size:16px;font-weight:650}
+.app.eagle-ui.ready-ui nav button,.app.eagle-ui.ready-ui .folder-main,.app.eagle-ui.ready-ui .view-actions button,.app.eagle-ui.ready-ui .top-action-strip button,.app.eagle-ui.ready-ui .ai-settings-nav>button{font-size:13px;font-weight:450;line-height:1.45}
+.app.eagle-ui.ready-ui .folder-row{min-height:32px}
+.app.eagle-ui.ready-ui .folder-main small,.app.eagle-ui.ready-ui nav button b{font-size:11px}
+.app.eagle-ui.ready-ui .toolbar h1{font-size:18px;font-weight:650;line-height:1.4}
+.app.eagle-ui.ready-ui .breadcrumbs{font-size:12px;line-height:1.5}
+.app.eagle-ui.ready-ui .masonry .meta strong{font-size:12px;font-weight:450;line-height:1.6;overflow-wrap:anywhere}
+.app.eagle-ui.ready-ui .masonry .meta span,.app.eagle-ui.ready-ui .toolbar .aiflow-live-status{font-size:11px;line-height:1.55}
+.app.eagle-ui.ready-ui .import-actions-head strong,.app.eagle-ui.ready-ui .import-actions .import-action>span{font-size:13px;font-weight:550}
+.app.eagle-ui.ready-ui .import-actions small,.app.eagle-ui.ready-ui .import-actions .import-action>small{font-size:11px!important;line-height:1.5}
+.app.eagle-ui.ready-ui .import-actions .import-action{min-height:54px}
+.app.eagle-ui.ready-ui .nav-title,.app.eagle-ui.ready-ui .detail-body>label,.app.eagle-ui.ready-ui .sidebar-disk span{font-size:11px;line-height:1.55}
+.app.eagle-ui.ready-ui .detail-head,.app.eagle-ui.ready-ui .detail-body .name-input,.app.eagle-ui.ready-ui .ai-settings-main,.app.eagle-ui.ready-ui .settings-kv{font-size:13px;line-height:1.6}
+.app.eagle-ui.ready-ui .ai-settings-main h2{font-size:16px;line-height:1.4;font-weight:650}
+.app.eagle-ui.ready-ui .ai-settings-main p,.app.eagle-ui.ready-ui .ai-settings-main small,.app.eagle-ui.ready-ui .settings-kv span,.app.eagle-ui.ready-ui .appearance-actions>span{font-size:12px;line-height:1.6}
+.app.eagle-ui.ready-ui .theme-color-controls label{font-size:13px;line-height:1.6}
+.app.eagle-ui.ready-ui .settings-kv>div{min-height:44px;align-items:center}
+@media(max-width:680px){.app.eagle-ui.ready-ui .ai-settings-nav>button{font-size:0}}
+/* 字号下限：把过小的字（8–10px）统一调大。只改字号，不改字体族和字重。 */
+.app.eagle-ui.ready-ui .sidebar-disk b{font-size:12px}
+.app.eagle-ui.ready-ui .sidebar-disk small{font-size:10px}
+.app.eagle-ui.ready-ui .sidebar-version{font-size:11px}
+.app.eagle-ui.ready-ui .nav-title{font-size:12px}
+.app.eagle-ui.ready-ui .facts span{font-size:11px}
+.app.eagle-ui.ready-ui .facts b{font-size:12px}
+.app.eagle-ui.ready-ui .detail label,.app.eagle-ui.ready-ui .detail-body>label{font-size:12px}
+.app.eagle-ui.ready-ui .detail-body .tags>button{font-size:11px}
+.app.eagle-ui.ready-ui .counted-input span{font-size:11px}
+.app.eagle-ui.ready-ui .masonry .dimensions{font-size:10px}
+.app.eagle-ui.ready-ui .content-folders small{font-size:11px}
+.app.eagle-ui.ready-ui .filter-count{font-size:11px}
+.app.eagle-ui.ready-ui .toolbar-popover small{font-size:11px}
+.app.eagle-ui.ready-ui .folder-inspector-section dt,.app.eagle-ui.ready-ui .folder-inspector-section dd{font-size:12px}
+.app.eagle-ui.ready-ui .folder-inspector-section h2{font-size:12px}
+.app.eagle-ui.ready-ui .audio-badge{font-size:10px}
+.app.eagle-ui.ready-ui .forward-folder{font-size:11px}
+.app.eagle-ui.ready-ui .team-library-folder-actions{font-size:11px}
+.app.eagle-ui.ready-ui .toolbar-layout-item button{font-size:11px}
+.app.eagle-ui.ready-ui .script-source-title span,.app.eagle-ui.ready-ui .script-source-count,.app.eagle-ui.ready-ui .script-source-toolbar>button{font-size:11px}
+.app.eagle-ui.ready-ui .ai-behavior-options small,.app.eagle-ui.ready-ui .ai-behavior-meta small{font-size:10px}
+.app.eagle-ui.ready-ui .ai-behavior-options b,.app.eagle-ui.ready-ui .ai-behavior-meta b{font-size:11px}

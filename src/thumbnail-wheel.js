@@ -1,0 +1,2 @@
+export const resizeThumbnail=(size,direction)=>Math.min(420,Math.max(96,size+direction*20));
+export function bindThumbnailWheel(element,change){if(!element)return()=>{};const wheel=event=>{if(!event.shiftKey||event.ctrlKey||event.altKey||event.metaKey||!event.target.closest?.('.masonry'))return;const delta=event.deltaY||event.deltaX;if(!delta)return;event.preventDefault();change(delta<0?1:-1)};element.addEventListener('wheel',wheel,{passive:false});return()=>element.removeEventListener('wheel',wheel)}

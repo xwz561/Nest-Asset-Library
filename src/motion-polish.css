@@ -1,0 +1,273 @@
+/*
+ * 统一的过渡动效层（motion-polish）
+ *
+ * 设计原则
+ *  - 只"补充"动效，不改变任何最终样式：绝大多数规则用 :where() 保持零优先级，
+ *    项目里已有的样式（包括像素风主题刻意使用的 steps() 过渡）始终优先。
+ *  - 位移/缩放一律使用独立属性 scale / translate，不占用 transform，
+ *    因此不会破坏用 transform 居中或旋转的现有元素。
+ *  - 悬停不位移、不放大按钮本体（工具栏有 overflow:hidden，会被裁边），
+ *    只做亮度变化 + 图标微放大；按下时才缩小（缩小不会被裁剪）。
+ *  - 尊重系统"减少动态效果"设置。
+ */
+
+:root {
+  /* 苹果式曲线：状态变化用柔和的 ease；位移/弹出用 iOS 同款“快起慢停”曲线；回弹只留极轻的过冲 */
+  --apple-ease: cubic-bezier(.32, .72, 0, 1);
+  --motion-ease: cubic-bezier(.25, .1, .25, 1);
+  --motion-ease-out: var(--apple-ease);
+  --motion-spring: cubic-bezier(.32, 1.12, .52, 1);
+  --motion-fast: 150ms;
+  --motion-base: 220ms;
+  --motion-slow: 360ms;
+}
+
+/* ---------- 1. 按钮：悬停提亮、按下回弹、键盘聚焦光圈 ---------- */
+:where(body) :where(button, [role="button"], [role="menuitem"], [role="tab"], summary, select) {
+  transition:
+    background-color var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) var(--motion-ease),
+    color var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease),
+    filter var(--motion-base) var(--motion-ease),
+    opacity var(--motion-base) var(--motion-ease),
+    outline-color var(--motion-base) var(--motion-ease),
+    scale var(--motion-fast) var(--motion-spring);
+}
+
+:where(body) :where(button, [role="button"], [role="menuitem"], [role="tab"]):not(:disabled):not([aria-disabled="true"]):not(.window-controls *):active {
+  scale: .97;
+  filter: brightness(.96);
+  transition-duration: 90ms;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :where(body) :where(button, [role="button"], [role="tab"]):not(:disabled):not([aria-disabled="true"]):not(.window-controls *):not(.masonry *):hover {
+    filter: brightness(1.05);
+  }
+}
+
+/* 图标：悬停时轻轻放大，按下时还原 */
+:where(body) :where(button, [role="button"]) > svg:not(.pixel-nav-icon) {
+  transition: scale var(--motion-base) var(--motion-spring), rotate var(--motion-slow) var(--motion-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :where(body) :where(button, [role="button"]):not(:disabled):not(.window-controls *):hover > svg:not(.pixel-nav-icon) {
+    scale: 1.06;
+  }
+
+  :where(body) :where(button, [role="button"]):not(:disabled):active > svg:not(.pixel-nav-icon) {
+    scale: .94;
+  }
+}
+
+/* 菜单里的整行按钮：按下只做很轻的收缩，避免整行"缩进去" */
+:where(body) :where(.asset-menu, .app-menu, .move-submenu, .folder-icon-flyout, .ready-ui-menu, .toolbar-popover) :where(button):not(:disabled):active {
+  scale: .985;
+}
+
+/* 键盘聚焦：光圈渐显 */
+body :where(button, [role="button"], [role="tab"], [role="menuitem"], summary, select):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent, #2f7dff) 72%, transparent);
+  outline-offset: 2px;
+}
+
+/* 禁用态：淡出而非瞬变 */
+:where(body) :where(button, input, select, textarea):disabled {
+  transition: opacity var(--motion-base) var(--motion-ease), filter var(--motion-base) var(--motion-ease);
+}
+
+/* ---------- 2. 输入框：聚焦时边框与光晕渐变 ---------- */
+:where(body) :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), textarea) {
+  transition:
+    border-color var(--motion-base) var(--motion-ease),
+    background-color var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease),
+    outline-color var(--motion-base) var(--motion-ease);
+}
+
+:where(body) :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), textarea, select):focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #2f7dff) 22%, transparent);
+}
+
+/* 复选框 / 单选 / 滑块 / 取色：状态切换更顺滑 */
+:where(body) :where(input[type="checkbox"], input[type="radio"], input[type="range"], input[type="color"]) {
+  transition: filter var(--motion-base) var(--motion-ease), scale var(--motion-fast) var(--motion-spring), opacity var(--motion-base) var(--motion-ease);
+}
+
+:where(body) :where(input[type="checkbox"], input[type="radio"]):not(:disabled):active {
+  scale: .88;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :where(body) :where(input[type="checkbox"], input[type="radio"], input[type="range"]):not(:disabled):hover {
+    filter: brightness(1.12);
+  }
+}
+
+/* ---------- 3. 胶囊 / 标签 / 开关 / 页签：颜色状态平滑切换（只加过渡，不改最终样式） ---------- */
+:where(body) :where([class*="pill"], [class*="chip"], [class*="badge"], [class*="switch"], [class*="toggle"], [class*="-tab"], [class*="tab-"], [class*="tag-"], [class*="-tag"]) {
+  transition:
+    background-color var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) var(--motion-ease),
+    color var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease),
+    opacity var(--motion-base) var(--motion-ease);
+}
+
+/* 通用列表行 / 菜单项 / 选项：悬停背景渐变 */
+:where(body) :where([role="option"], [role="menuitem"], [role="treeitem"], [role="listitem"], .usage-row, .reference-board-picker-row, .aiflow-video-row) {
+  transition: background-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+}
+
+/* 链接 */
+:where(body) a {
+  transition: color var(--motion-base) var(--motion-ease), opacity var(--motion-base) var(--motion-ease), text-decoration-color var(--motion-base) var(--motion-ease);
+}
+
+/* ---------- 4. 弹出层：菜单 / 浮层 / 弹窗 / 遮罩 / 提示 ---------- */
+@keyframes motion-pop-in {
+  from { opacity: 0; scale: .95; translate: 0 -3px; }
+  to { opacity: 1; scale: 1; translate: 0 0; }
+}
+
+@keyframes motion-dialog-in {
+  from { opacity: 0; scale: .94; translate: 0 8px; }
+  to { opacity: 1; scale: 1; translate: 0 0; }
+}
+
+@keyframes motion-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes motion-rise-in {
+  from { opacity: 0; translate: 0 6px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes motion-toast-in {
+  from { opacity: 0; scale: .96; translate: 0 12px; }
+  to { opacity: 1; scale: 1; translate: 0 0; }
+}
+
+/* 右键菜单 / 下拉菜单 / 子菜单：从触发点展开（backwards：结束后不残留 transform 状态） */
+:where(.asset-menu, .app-menu, .move-submenu, .folder-icon-flyout, .ready-ui-menu) {
+  transform-origin: top left;
+  animation: motion-pop-in 240ms var(--apple-ease) backwards;
+}
+
+/* 遮罩：淡入 */
+:where(.modal-backdrop, .support-backdrop, .ai-settings-backdrop, .team-library-backdrop, .team-library-preview-backdrop, .theme-backdrop, .onboarding-tour-backdrop, .preview-overlay) {
+  animation: motion-fade-in 320ms var(--motion-ease) backwards;
+}
+
+/* 弹窗本体：轻微上浮 + 放大 */
+:where(.app-dialog, .support-dialog, .team-dialog, .appearance-dialog, .theme-dialog, .ai-settings-dialog, .folder-dialog) {
+  animation: motion-dialog-in 420ms var(--apple-ease) backwards;
+}
+
+/* 弹窗内部区块不再逐项错峰：苹果式弹窗是整体一起出现的 */
+
+/* 提示条（toast）/ 团队通知：从下方滑入 */
+:where(.toast) {
+  animation: motion-toast-in 420ms var(--apple-ease) backwards;
+}
+
+:where(.team-notice) {
+  animation: motion-rise-in 320ms var(--apple-ease) backwards;
+}
+
+/* ---------- 5. 素材与面板的补充过渡（不覆盖 interaction-motion.css 已有项） ---------- */
+:where(body) :where(.reference-board-node, .reference-board-group, .detail-actions button, .view-actions button) {
+  transition:
+    background-color var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease),
+    color var(--motion-base) var(--motion-ease),
+    filter var(--motion-base) var(--motion-ease),
+    scale var(--motion-fast) var(--motion-spring);
+}
+
+/* 进度条：宽度变化平滑 */
+:where(body) :where([class*="progress"] > i, [class*="progress"] > span:only-child, [role="progressbar"] > *) {
+  transition: width 300ms var(--motion-ease);
+}
+
+/* 滚动区域：平滑滚动（锚点跳转、scrollIntoView） */
+:where(body) :where(.sidebar-scroll-content, .folder-tree, .masonry-scroll, .detail, .inspector-scroll) {
+  scroll-behavior: smooth;
+}
+
+/* ---------- 5b. 自带 transition 的按钮：保留原有过渡，并补上提亮 / 回弹 ----------
+ * 这些按钮在原样式里写了完整的 transition 简写，会整体顶掉上面的通用规则，
+ * 所以用同级选择器（本文件最后加载，同级时后者生效）把原值重述一遍再追加 filter / scale。 */
+.top-pill {
+  transition:
+    background .16s, border-color .16s, color .16s, transform .1s, box-shadow .16s,
+    filter var(--motion-base) var(--motion-ease), scale var(--motion-fast) var(--motion-spring);
+}
+
+.import-action {
+  transition:
+    transform .12s, border-color .12s, background .12s, box-shadow .12s,
+    filter var(--motion-base) var(--motion-ease), scale var(--motion-fast) var(--motion-spring);
+}
+
+.import-actions .import-action {
+  transition:
+    transform 80ms, border-color 80ms, background 80ms, box-shadow 80ms,
+    filter 80ms, scale 80ms;
+}
+
+.empty-library-actions button {
+  transition:
+    background .12s, border-color .12s,
+    filter var(--motion-base) var(--motion-ease), scale var(--motion-fast) var(--motion-spring);
+}
+
+.app.eagle-ui .friend-tools-grid button.friend-tool-card {
+  transition:
+    transform .16s, border-color .16s, background .16s, box-shadow .16s,
+    filter var(--motion-base) var(--motion-ease), scale var(--motion-fast) var(--motion-spring);
+}
+
+/* ---------- 5c. 右侧详情面板展开/收起：不再让素材网格"先变宽再变窄" ----------
+ * 面板是通过把原生窗口向右加宽 350px 实现的，而窗口缩放对页面的生效是异步的。
+ * 切换期间（.main-locked）把内容区宽度钉在切换前的像素值上，等视口真正变化到位后再一次性释放，
+ * 网格因此只会按最终宽度排版一次（宽度由 main.jsx 通过 --main-lock-width 提供）。 */
+.app.main-locked > main {
+  width: var(--main-lock-width) !important;
+  min-width: 0 !important;
+  max-width: var(--main-lock-width) !important;
+  justify-self: start !important;
+  margin-right: 0 !important;
+}
+
+/* Windows 下顶部栏右侧要给最小化/最大化/关闭按钮留位置（154px），展开面板后这些按钮移到详情栏，
+ * 留白会收回到 12px：加过渡，搜索框平滑变宽而不是瞬间跳变。 */
+html[data-platform="win32"] .app.ready-ui main > header {
+  transition: padding-right var(--motion-slow) var(--motion-ease-out);
+}
+
+/* ---------- 6. 减少动态效果：全部关闭 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  body :where(button, [role="button"], [role="tab"], [role="menuitem"], input, select, textarea):active,
+  body :where(button, [role="button"]):hover > svg {
+    scale: none !important;
+  }
+
+  body :where(.asset-menu, .app-menu, .move-submenu, .folder-icon-flyout, .ready-ui-menu,
+    .modal-backdrop, .support-backdrop, .ai-settings-backdrop, .team-library-backdrop, .team-library-preview-backdrop,
+    .theme-backdrop, .onboarding-tour-backdrop, .preview-overlay,
+    .app-dialog, .support-dialog, .team-dialog, .appearance-dialog, .theme-dialog, .ai-settings-dialog, .folder-dialog,
+    .toast, .team-notice),
+  body :where(.app-dialog, .support-dialog, .team-dialog, .appearance-dialog, .ai-settings-dialog) > * {
+    animation: none !important;
+  }
+
+  body * {
+    scroll-behavior: auto !important;
+  }
+}

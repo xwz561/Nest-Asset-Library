@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>局域网信号</title>
+<style>
+:root{color-scheme:dark;font-family:"Microsoft YaHei",system-ui,sans-serif;color:#e7eef2;background:#10181d;scrollbar-width:none}*::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+*{box-sizing:border-box}body{margin:0;padding:22px;background:radial-gradient(ellipse at top right,#12332f 0,transparent 45%),#10181d}
+header{display:flex;align-items:center;gap:13px;padding-bottom:18px;border-bottom:1px solid #25423f}
+.icon{width:42px;height:42px;display:grid;place-items:center;border:1px solid #167e6c;border-radius:12px;background:#10352e;color:#42e2c0;font-size:22px}
+h1{margin:0;font-size:18px}header small{display:block;margin-top:4px;color:#96aaa8;font-size:11px}
+.status{display:flex;align-items:center;gap:8px;margin:20px 0 14px;padding:13px 14px;border:1px solid #24443d;border-radius:10px;background:#13231f}
+.dot{width:9px;height:9px;border-radius:50%;background:#83908c}.dot.online{background:#37d9a9;box-shadow:0 0 10px #37d9a9aa}
+.status strong{font-size:12px}.status span{margin-left:auto;color:#9cb1ac;font-size:11px}
+h2{margin:20px 0 9px;color:#a8bfba;font-size:11px;font-weight:650}
+.name-form{display:flex;gap:7px}.name-form input{min-width:0;flex:1;padding:9px 10px;border:1px solid #294b44;border-radius:7px;background:#111d1b;color:#e7eef2;font:inherit;font-size:12px;outline:none}.name-form input:focus{border-color:#35daba}.name-form button{padding:0 12px;border:1px solid #167e6c;border-radius:7px;background:#10352e;color:#64edc9;font:inherit;font-size:12px;cursor:pointer}.save-result{min-height:16px;margin-top:5px;color:#8da49e;font-size:10px}
+.account-id-row{display:flex;gap:7px}.account-id-row input{min-width:0;flex:1;padding:9px 10px;border:1px solid #294b44;border-radius:7px;background:#0c1514;color:#a9c2bc;font:11px/1.4 Consolas,monospace;outline:none}.account-id-row button{padding:0 12px;border:1px solid #167e6c;border-radius:7px;background:#10352e;color:#64edc9;font:inherit;font-size:11px;cursor:pointer}.account-id-note{margin:5px 0 0;color:#849a95;font-size:10px;line-height:1.5}.admin-badge{margin-left:5px;padding:2px 6px;border:1px solid #32b28e;border-radius:9px;background:#123b31;color:#74e8c2;font-size:9px;font-weight:600;vertical-align:1px}.admin-badge[hidden]{display:none}
+.shortcut-row{display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid #24443d;border-radius:9px;background:#13231f;cursor:pointer}.shortcut-copy{min-width:0;flex:1}.shortcut-copy strong{display:block;color:#dceae6;font-size:12px}.shortcut-copy small{display:block;margin-top:4px;color:#8fa59f;font-size:10px;line-height:1.5}.switch{position:relative;width:38px;height:22px;flex:none;border-radius:12px;background:#46534f;transition:background .16s}.switch:after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#e7eef2;transition:transform .16s}.shortcut-row input{position:absolute;width:1px;height:1px;opacity:0}.shortcut-row input:checked+.switch{background:#13b994}.shortcut-row input:checked+.switch:after{transform:translateX(16px)}.shortcut-row:focus-within{outline:2px solid #35daba;outline-offset:2px}
+.peers{display:grid;gap:7px;min-height:72px}
+.peer{display:flex;align-items:center;gap:9px;padding:10px 12px;border:1px solid #223a36;border-radius:8px;background:#14211f;font-size:12px}.peer.local{border-color:#267a68}.peer>span{min-width:0;flex:1}.peer small{color:#69dfbd;font-size:10px}
+.avatar{width:27px;height:27px;display:grid;place-items:center;border-radius:50%;background:#184a41;color:#64edc9}
+.avatar{overflow:hidden;font-style:normal;flex:none}.avatar img{width:100%;height:100%;object-fit:cover}.avatar-form{display:flex;align-items:center;gap:10px;margin:14px 0}.avatar-form .avatar{height:48px;width:48px;font-size:20px}.avatar-form button{padding:7px 9px;border:1px solid #294b44;border-radius:7px;background:#142b24;color:#9ce5ca;font:inherit;font-size:11px;cursor:pointer}.peer[type=button]{width:100%;font:inherit;font-size:12px;color:inherit;text-align:left;cursor:pointer}.peer[type=button]:hover{border-color:#32c49f;background:#19392e}.peer:disabled{cursor:default;opacity:.65}.peer:focus-visible,.avatar-form button:focus-visible{outline:2px solid #35daba;outline-offset:2px}.peer .unread{background:#0caf8e;padding:2px 6px;border-radius:10px;color:#eafff7;font-size:10px}.online-hint{color:#8da49e;font-size:10px;margin:0 0 8px}
+#openChats{margin-top:8px;padding:7px 11px;border:1px solid #294b44;border-radius:7px;background:#142b24;color:#9ce5ca;font:inherit;font-size:11px;cursor:pointer}
+.empty{padding:18px 12px;border:1px dashed #314541;border-radius:8px;color:#859894;font-size:11px;line-height:1.65}
+.wheel-emotes{display:grid;gap:6px}.wheel-emote{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid #24443d;border-radius:8px;background:#13231f}.wheel-emote-preview{width:30px;height:30px;display:grid;place-items:center;flex:none;border-radius:6px;background:#1b302c;font-size:20px}.wheel-emote-preview img{width:100%;height:100%;object-fit:contain}.wheel-emote-name{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#dceae6;font-size:11px}.wheel-emote-actions{display:flex;gap:4px}.wheel-emote-actions button,.wheel-emote-add button{padding:5px 8px;border:1px solid #294b44;border-radius:6px;background:#142b24;color:#9ce5ca;font:inherit;font-size:11px;cursor:pointer}.wheel-emote-actions button:disabled,.wheel-emote-add button:disabled{opacity:.45;cursor:default}.wheel-emote-add{display:flex;gap:6px;margin-top:7px}.wheel-emote-add input{min-width:0;flex:1;padding:8px;border:1px solid #294b44;border-radius:7px;background:#111d1b;color:#e7eef2;font:inherit;font-size:13px}.wheel-emote-note{margin:5px 0;color:#8da49e;font-size:10px;line-height:1.5}
+.tips{padding:12px 14px;border:1px solid #223d39;border-radius:9px;background:#121f1d;color:#9db0ac;font-size:11px;line-height:1.8}
+kbd{display:inline-block;padding:2px 6px;border:1px solid #3a5a53;border-radius:4px;background:#1b302c;color:#d6eee8;font:10px inherit}
+footer{margin-top:18px;color:#728783;font-size:10px;line-height:1.6}
+</style>
+</head>
+<body>
+<header><div class="icon">⌖</div><div><h1>局域网信号</h1><small>同一局域网内自动发现素材库用户</small></div></header>
+<div class="status"><i id="dot" class="dot"></i><strong id="state">正在连接局域网…</strong><span id="count">0 台在线电脑</span></div>
+<div class="avatar-form"><div class="avatar" id="myAvatar"></div><button type="button" id="chooseAvatar">更换头像</button><button type="button" id="resetAvatar">恢复默认</button></div><div class="save-result" id="avatarResult" aria-live="polite"></div>
+<h2>我的昵称</h2><div class="name-form"><input id="nickname" maxlength="32" autocomplete="nickname" aria-label="我的昵称"><button id="saveName" type="button">保存</button></div><div class="save-result" id="saveResult"></div>
+<h2>账户 ID <span class="admin-badge" id="adminBadge" hidden>管理员模式</span></h2><div class="account-id-row"><input id="accountId" readonly aria-label="本机账户 ID"><button id="copyAccountId" type="button">复制</button></div><p class="account-id-note">此编号用于识别当前设备上的登录账户。</p><div class="save-result" id="accountIdResult" aria-live="polite"></div>
+<h2>在线电脑</h2><p class="online-hint">点击好友打开私聊，可以发送消息和文件。</p><div class="peers" id="peers"></div><button id="openChats" type="button">打开聊天记录</button><div class="save-result" id="chatResult" aria-live="polite"></div>
+<h2>全桌面快捷键</h2><label class="shortcut-row"><input id="shortcutToggle" type="checkbox" role="switch" aria-label="启用全桌面轮盘快捷键"><span class="switch" aria-hidden="true"></span><span class="shortcut-copy"><strong id="shortcutStatus">快捷键已开启</strong><small id="shortcutDescription">按住 Alt 打开信号轮盘，按住 Ctrl 打开表情轮盘；移动选择，松开发送。</small></span></label><div class="save-result" id="shortcutResult" aria-live="polite"></div>
+<h2>本机表情显示</h2><label class="shortcut-row"><input id="hideEmoteToggle" type="checkbox" role="switch" aria-label="在本机屏幕隐藏表情"><span class="switch" aria-hidden="true"></span><span class="shortcut-copy"><strong id="hideEmoteStatus">本机显示表情</strong><small id="hideEmoteDescription">表情会显示在本机屏幕；打开隐藏后，其他电脑仍可正常看到。</small></span></label><div class="save-result" id="hideEmoteResult" aria-live="polite"></div>
+<h2>自定义轮盘表情</h2><div class="wheel-emotes" id="wheelEmotes" aria-label="轮盘表情列表"></div><div class="wheel-emote-add"><input id="newWheelEmoji" maxlength="16" aria-label="添加自定义表情" placeholder="输入一个 emoji"><button id="addWheelEmoji" type="button">添加表情</button><button id="addWheelImage" type="button">添加本地图片</button></div><p class="wheel-emote-note">最多 8 项，可上下调整方向位置。图片会传给在线电脑（对方需更新至支持此功能的版本），单张最多 512 KB。</p><div class="save-result" id="wheelEmoteResult" aria-live="polite"></div>
+<h2>发送方式</h2><div class="tips">轮盘可在其他软件上方操作；关闭快捷键后仍会接收局域网其他电脑发送的信号和表情。</div>
+<footer>在局域网内自动发现电脑。私聊与文件通过本地连接传递，双方需要运行支持私聊的素材库版本。</footer>
+<script src="lan-signal-panel.js"></script>
+</body>
+</html>

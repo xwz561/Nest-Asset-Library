@@ -1,0 +1,871 @@
+/* ==========================================================================
+   ui-refresh.css — 小旺仔素材库 界面重做（简洁专业的深色）
+   --------------------------------------------------------------------------
+   设计原则
+   1. 分层靠明暗，不靠描边：容器之间用 1px 的低对比细线，不再用亮色边框圈住每个元素。
+   2. 强调色只出现在“选中 / 主按钮 / 焦点”三处，其余全部中性。
+   3. 图标统一为同一粗细的线性矢量（1.6px），去掉像素风描边与发光。
+   4. 颜色全部来自主题变量（--bg-* / --text-* / --accent），任何主题都适用。
+
+   加载顺序：必须放在 mineradio-theme.css 之后、motion-polish.css 之前。
+   整个文件只在根节点带 .ui-refresh 时生效；去掉该 class 即可回到旧界面。
+   ========================================================================== */
+
+/* ---------- 0. 设计令牌 ------------------------------------------------- */
+:root,
+.app.ui-refresh {
+  /* --ui-border 已在 theme-utils.js 里被调成细线色；这里再派生几档 */
+  --rf-line: var(--ui-border, #2a2a30);
+  --rf-line-strong: color-mix(in srgb, var(--text-primary, #ececef) 18%, var(--bg-main, #121214));
+  --rf-fill-1: color-mix(in srgb, var(--text-primary, #ececef) 5%, transparent);
+  --rf-fill-2: color-mix(in srgb, var(--text-primary, #ececef) 9%, transparent);
+  --rf-fill-3: color-mix(in srgb, var(--text-primary, #ececef) 14%, transparent);
+  --rf-accent-fill: color-mix(in srgb, var(--accent, #8b7cf6) 16%, transparent);
+  --rf-accent-fill-2: color-mix(in srgb, var(--accent, #8b7cf6) 24%, transparent);
+  --rf-accent-line: color-mix(in srgb, var(--accent, #8b7cf6) 60%, transparent);
+  --rf-focus: color-mix(in srgb, var(--accent, #8b7cf6) 70%, transparent);
+  --rf-dim: color-mix(in srgb, var(--text-secondary, #9a9aa3) 82%, var(--bg-main, #121214));
+  --rf-r-sm: 6px;
+  --rf-r: 8px;
+  --rf-r-lg: 12px;
+  --rf-icon-stroke: 1.6px;
+  --rf-pop-shadow: 0 14px 36px rgba(0, 0, 0, .42), 0 2px 8px rgba(0, 0, 0, .28);
+  --theme-edge: var(--rf-line);
+}
+.app.ui-refresh.eagle-ui.theme-dark {
+  background: var(--bg-main);
+}
+
+/* ---------- 1. 矢量图标线条（“边框线条”） -------------------------------- */
+/* 所有 lucide 图标统一线宽；CSS 的 stroke-width 会覆盖组件上写死的属性值 */
+.ui-refresh svg.lucide,
+.ui-refresh .lucide {
+  stroke-width: var(--rf-icon-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* 像素风图标：去掉描边阴影与发光，整体降饱和，和线性图标并排时不再突兀 */
+.ui-refresh .pixel-icon,
+.ui-refresh .pixel-nav-icon,
+.ui-refresh .import-actions .pixel-icon,
+.ui-refresh .import-actions .import-action .pixel-icon--chest,
+.ui-refresh .asset-filter-nav .pixel-nav-icon {
+  filter: saturate(.55) brightness(.95) !important;
+  image-rendering: auto;
+}
+/* 空状态插图：描边变细变淡，且不随缩放变粗 */
+.ui-refresh .empty-folder-illustration {
+  filter: none;
+  opacity: .9;
+}
+.ui-refresh .empty-folder-illustration :where(path, rect, circle)[stroke]:not([stroke-linecap]) {
+  stroke: color-mix(in srgb, var(--text-primary) 34%, var(--bg-main));
+  stroke-width: 1.25px;
+  vector-effect: non-scaling-stroke;
+}
+.ui-refresh .empty-folder-illustration path[stroke-linecap] {
+  stroke: color-mix(in srgb, var(--text-primary) 62%, var(--bg-main));
+  stroke-width: 1.6px;
+  vector-effect: non-scaling-stroke;
+}
+/* 图标颜色：默认次要色，悬停主色，选中强调色 */
+.ui-refresh :where(.asset-filter-nav, .reference-board-nav, .folder-row) button > svg {
+  color: var(--rf-dim);
+  transition: color var(--motion-fast, .12s) ease;
+}
+.ui-refresh :where(.asset-filter-nav, .reference-board-nav, .folder-row) button:hover > svg {
+  color: var(--text-primary);
+}
+.ui-refresh :where(.asset-filter-nav, .reference-board-nav) button.active > svg {
+  color: var(--accent);
+}
+
+/* ---------- 2. 侧栏 ----------------------------------------------------- */
+.app.ui-refresh.eagle-ui.ready-ui > aside {
+  background: var(--bg-sidebar);
+  background-image: none;
+  box-shadow: none;
+  border-right: 1px solid var(--rf-line);
+}
+.app.ui-refresh .sidebar-fixed-controls {
+  border-bottom: 1px solid var(--rf-line);
+}
+.app.ui-refresh.eagle-ui.theme-dark .brand {
+  border-bottom-color: var(--rf-line);
+}
+.app.ui-refresh.eagle-ui.theme-dark .brand .mark {
+  box-shadow: none;
+  border: 0;
+}
+
+/* 导入面板：安静的分组，主按钮用强调色，其余是幽灵按钮 */
+.app.ui-refresh.eagle-ui.ready-ui .import-actions {
+  background: transparent;
+  background-image: none;
+  border: 1px solid var(--rf-line);
+  border-radius: var(--rf-r-lg);
+  box-shadow: none;
+  padding: 10px;
+}
+.app.ui-refresh .import-actions-head {
+  padding: 0 2px 8px;
+}
+.app.ui-refresh .import-actions-head > span {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  color: var(--rf-dim);
+}
+.app.ui-refresh .import-actions-grid {
+  grid-template-columns: 1fr !important;
+  gap: 6px;
+}
+.app.ui-refresh.eagle-ui.ready-ui .import-actions .import-action {
+  min-height: 38px;
+  height: auto;
+  padding: 7px 10px;
+  border: 1px solid var(--rf-line);
+  border-radius: var(--rf-r);
+  background: var(--rf-fill-1);
+  background-image: none;
+  box-shadow: none;
+  grid-column: 1 / -1;
+}
+.app.ui-refresh.eagle-ui.ready-ui .import-actions .import-action:hover:not(:disabled) {
+  background: var(--rf-fill-2);
+  border-color: var(--rf-line-strong);
+}
+.app.ui-refresh.eagle-ui.ready-ui .import-actions .import-action.primary,
+.app.ui-refresh.eagle-ui.ready-ui.theme-dark .import-actions .import-action.primary,
+.app.ui-refresh.eagle-ui.ready-ui.theme-dark .import-actions .import-action.primary:focus-visible,
+.app.ui-refresh.eagle-ui.ready-ui.theme-light .import-actions .import-action.primary {
+  background: var(--accent) !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--accent-text) !important;
+}
+.app.ui-refresh.eagle-ui.ready-ui .import-actions .import-action.primary:hover:not(:disabled),
+.app.ui-refresh.eagle-ui.ready-ui.theme-dark .import-actions .import-action.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 88%, #fff) !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.app.ui-refresh.eagle-ui.ready-ui .import-actions .import-action.primary > span,
+.app.ui-refresh.eagle-ui.ready-ui .import-actions .import-action.primary > span strong,
+.app.ui-refresh.eagle-ui.ready-ui.theme-dark .import-actions .import-action.primary > span,
+.app.ui-refresh.eagle-ui.ready-ui.theme-dark .import-actions .import-action.primary > span strong {
+  color: var(--accent-text) !important;
+}
+.app.ui-refresh.eagle-ui.ready-ui .import-actions .import-action.primary > small,
+.app.ui-refresh.eagle-ui.ready-ui .import-actions .import-action.primary > svg,
+.app.ui-refresh.eagle-ui.ready-ui.theme-dark .import-actions .import-action.primary > small,
+.app.ui-refresh.eagle-ui.ready-ui.theme-dark .import-actions .import-action.primary > svg {
+  color: color-mix(in srgb, var(--accent-text) 78%, transparent) !important;
+}
+.app.ui-refresh .new-folder-primary {
+  border: 1px solid var(--rf-line);
+  border-radius: var(--rf-r);
+  background: transparent;
+  background-image: none;
+  box-shadow: none;
+  color: var(--text-primary);
+}
+.app.ui-refresh .new-folder-primary:hover:not(:disabled) {
+  background: var(--rf-fill-2);
+  border-color: var(--rf-line-strong);
+}
+
+/* 导航：无边框，悬停淡底，选中=淡强调底 + 强调色图标，去掉左侧竖条与发光 */
+.app.ui-refresh.eagle-ui.ready-ui :where(.asset-filter-nav, .reference-board-nav) button,
+.app.ui-refresh.eagle-ui.ready-ui .folder-row button {
+  border: 0;
+  border-radius: var(--rf-r-sm);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-secondary);
+}
+.app.ui-refresh.eagle-ui.ready-ui :where(.asset-filter-nav, .reference-board-nav) button:hover:not(:disabled),
+.app.ui-refresh.eagle-ui.ready-ui .folder-row button:hover:not(:disabled) {
+  background: var(--rf-fill-1);
+  color: var(--text-primary);
+}
+.app.ui-refresh.eagle-ui.ready-ui :where(.asset-filter-nav, .reference-board-nav) button.active,
+.app.ui-refresh.eagle-ui.ready-ui.theme-dark :where(.asset-filter-nav, .reference-board-nav) button.active,
+.app.ui-refresh.eagle-ui.ready-ui.theme-light :where(.asset-filter-nav, .reference-board-nav) button.active {
+  background: var(--rf-accent-fill);
+  box-shadow: none;
+  color: var(--text-primary);
+}
+
+/* ---------- 3. 顶栏 / 工具栏 ------------------------------------------- */
+.app.ui-refresh.eagle-ui.ready-ui > main > header {
+  background: var(--bg-main);
+  border-bottom: 1px solid var(--rf-line);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.app.ui-refresh.eagle-ui.ready-ui .search {
+  height: 32px;
+  border: 1px solid var(--rf-line);
+  border-radius: var(--rf-r);
+  background: var(--rf-fill-1);
+  box-shadow: none;
+}
+.app.ui-refresh .search:focus-within {
+  border-color: var(--rf-accent-line);
+  background: var(--rf-fill-1);
+  box-shadow: 0 0 0 3px var(--rf-accent-fill);
+}
+.app.ui-refresh .search svg {
+  color: var(--rf-dim);
+}
+.app.ui-refresh .search input {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  outline: 0;
+}
+
+/* 顶栏胶囊与工具栏按钮：同一套幽灵按钮 */
+.app.ui-refresh.eagle-ui.ready-ui .top-pill,
+.app.ui-refresh.eagle-ui.ready-ui .view-actions > button,
+.app.ui-refresh.eagle-ui.ready-ui .view-actions .popover-anchor > button {
+  height: 30px;
+  min-height: 30px;
+  border: 1px solid var(--rf-line);
+  border-radius: var(--rf-r);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-secondary);
+}
+.app.ui-refresh.eagle-ui.ready-ui .top-pill:hover:not(:disabled),
+.app.ui-refresh.eagle-ui.ready-ui .view-actions > button:hover:not(:disabled),
+.app.ui-refresh.eagle-ui.ready-ui .view-actions .popover-anchor > button:hover:not(:disabled) {
+  background: var(--rf-fill-2);
+  border-color: var(--rf-line-strong);
+  color: var(--text-primary);
+}
+.app.ui-refresh.eagle-ui.ready-ui .top-pill.on,
+.app.ui-refresh.eagle-ui.ready-ui .view-actions button.on,
+.app.ui-refresh.eagle-ui.ready-ui .view-actions .popover-anchor > button.on {
+  background: var(--rf-accent-fill);
+  border-color: var(--rf-accent-line);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+.app.ui-refresh .filter-count {
+  background: var(--accent);
+  color: var(--accent-text);
+  border: 0;
+}
+.app.ui-refresh.eagle-ui.ready-ui > main > .toolbar {
+  background: var(--bg-main);
+  border-bottom: 1px solid var(--rf-line);
+  box-shadow: none;
+}
+
+/* 内容区文件夹条 */
+.app.ui-refresh.eagle-ui.ready-ui .content-folders > button {
+  border: 1px solid var(--rf-line);
+  border-radius: var(--rf-r-lg);
+  background: var(--bg-card);
+  box-shadow: none;
+}
+.app.ui-refresh.eagle-ui.ready-ui .content-folders > button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--bg-card) 90%, var(--text-primary));
+  border-color: var(--rf-line-strong);
+}
+.app.ui-refresh .content-folders > button.drop-target {
+  border-color: var(--accent);
+  background: var(--rf-accent-fill);
+}
+
+/* ---------- 4. 素材卡片 ------------------------------------------------- */
+.app.ui-refresh.eagle-ui.ready-ui .masonry > article {
+  border: 1px solid var(--rf-line);
+  border-radius: var(--rf-r-lg);
+  background: var(--bg-card);
+  box-shadow: none;
+}
+.app.ui-refresh.eagle-ui.ready-ui .masonry > article:hover {
+  border-color: var(--rf-line-strong);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
+}
+.app.ui-refresh.eagle-ui.ready-ui .masonry > article.selected,
+.app.ui-refresh.eagle-ui.ready-ui .masonry > article.multi-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--bg-card));
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.app.ui-refresh .masonry > article .thumb,
+.app.ui-refresh .masonry > article.selected .thumb,
+.app.ui-refresh .masonry > article.multi-selected .thumb {
+  outline: 0;
+  border: 0;
+  border-radius: calc(var(--rf-r-lg) - 3px);
+  background: var(--bg-overlay);
+  box-shadow: none;
+  margin: 3px 3px 0;
+}
+.app.ui-refresh .masonry > article .meta > div > span {
+  border: 0;
+  border-radius: 999px;
+  background: var(--rf-fill-2);
+  color: var(--rf-dim);
+  box-shadow: none;
+  padding: 1px 8px;
+}
+/* 缩略图上的圆形小按钮：半透明黑底，不要描边 */
+.app.ui-refresh .masonry > article :where(.select-dot, .fav, .external-drag-handle) {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(10, 10, 12, .55);
+  backdrop-filter: blur(6px);
+  box-shadow: none;
+  color: #fff;
+}
+.app.ui-refresh .masonry > article .select-dot:hover,
+.app.ui-refresh .masonry > article .fav:hover,
+.app.ui-refresh .masonry > article .external-drag-handle:hover {
+  background: rgba(10, 10, 12, .75);
+}
+.app.ui-refresh .masonry > article .fav.yes {
+  color: var(--accent);
+}
+.app.ui-refresh .masonry > article .select-dot:not(:empty) {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.app.ui-refresh .masonry > article .dimensions {
+  border: 0;
+  border-radius: 999px;
+  background: rgba(10, 10, 12, .55);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  box-shadow: none;
+}
+
+/* ---------- 5. 右侧详情栏 ----------------------------------------------- */
+.app.ui-refresh.eagle-ui.ready-ui > .detail,
+.app.ui-refresh.eagle-ui.ready-ui > .folder-inspector {
+  background: var(--bg-sidebar);
+  border-left: 1px solid var(--rf-line);
+  box-shadow: none;
+}
+.app.ui-refresh .detail-head {
+  background: transparent;
+  border-bottom: 1px solid var(--rf-line);
+  box-shadow: none;
+}
+.app.ui-refresh .detail-preview {
+  border: 0;
+  border-radius: var(--rf-r);
+  background: var(--bg-overlay);
+  box-shadow: none;
+}
+.app.ui-refresh .detail-body .facts {
+  border-top: 1px solid var(--rf-line);
+  border-bottom: 1px solid var(--rf-line);
+}
+.app.ui-refresh .detail-body .rating button {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--rf-fill-3);
+}
+.app.ui-refresh .detail-body .rating button.rated {
+  color: var(--accent);
+}
+.app.ui-refresh .detail-body .tags > button {
+  border: 0;
+  border-radius: 999px;
+  background: var(--rf-fill-2);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+.app.ui-refresh .detail-body .tags > button:hover {
+  background: var(--rf-fill-3);
+}
+.app.ui-refresh .detail-body .usage-row {
+  border: 1px solid var(--rf-line);
+  border-radius: var(--rf-r);
+  background: transparent;
+  box-shadow: none;
+}
+.app.ui-refresh .detail-body .usage-row:hover {
+  background: var(--rf-fill-1);
+  border-color: var(--rf-line-strong);
+}
+.app.ui-refresh .detail-actions > button {
+  border: 1px solid var(--rf-line);
+  border-radius: var(--rf-r);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-primary);
+}
+.app.ui-refresh .detail-actions > button:hover:not(:disabled) {
+  background: var(--rf-fill-2);
+  border-color: var(--rf-line-strong);
+}
+.app.ui-refresh.eagle-ui.ready-ui .detail-actions > button.open {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-text) !important;
+  box-shadow: none;
+}
+.app.ui-refresh .detail-actions > button.open:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 88%, #fff);
+}
+
+/* 浅色主题下详情栏的几处旧问题：参数值/标签文字与背景同色、评分星全黑 */
+.app.ui-refresh.eagle-ui.ready-ui .detail:not(.ai-assistant) .facts b {
+  color: var(--text-primary);
+}
+.app.ui-refresh.eagle-ui.ready-ui .detail:not(.ai-assistant) .detail-body .tags > button {
+  background: var(--rf-fill-2);
+  color: var(--text-primary) !important;
+}
+.app.ui-refresh.eagle-ui.ready-ui.theme-light .detail:not(.ai-assistant) .detail-body .rating > button,
+.app.ui-refresh.eagle-ui.ready-ui.theme-dark .detail:not(.ai-assistant) .detail-body .rating > button {
+  color: var(--rf-fill-3) !important;
+}
+.app.ui-refresh.eagle-ui.ready-ui.theme-light .detail:not(.ai-assistant) .detail-body .rating > button.rated,
+.app.ui-refresh.eagle-ui.ready-ui.theme-dark .detail:not(.ai-assistant) .detail-body .rating > button.rated {
+  color: var(--accent) !important;
+}
+
+/* ---------- 6. 输入控件（全局） ----------------------------------------- */
+.ui-refresh :where(input:not([type="checkbox"], [type="radio"], [type="color"], [type="range"], [type="file"]), textarea, select) {
+  border: 1px solid var(--rf-line);
+  border-radius: var(--rf-r);
+  background: var(--rf-fill-1);
+  box-shadow: none;
+  color: var(--text-primary);
+  transition: border-color .14s ease, box-shadow .14s ease, background-color .14s ease;
+}
+.ui-refresh :where(input:not([type="checkbox"], [type="radio"], [type="color"], [type="range"], [type="file"]), textarea, select):hover {
+  border-color: var(--rf-line-strong);
+}
+.ui-refresh :where(input:not([type="checkbox"], [type="radio"], [type="color"], [type="range"], [type="file"]), textarea, select):focus {
+  border-color: var(--rf-accent-line);
+  box-shadow: 0 0 0 3px var(--rf-accent-fill);
+  outline: 0;
+}
+.app.ui-refresh.eagle-ui.ready-ui .detail :is(input:not([type="range"]), textarea, select) {
+  border-color: var(--rf-line);
+  background: var(--rf-fill-1);
+}
+.app.ui-refresh.eagle-ui.ready-ui .detail :is(input:not([type="range"]), textarea, select):hover {
+  border-color: var(--rf-line-strong);
+}
+.app.ui-refresh.eagle-ui.ready-ui .detail :is(input:not([type="range"]), textarea, select):focus {
+  border-color: var(--rf-accent-line);
+}
+.app.ui-refresh.eagle-ui.ready-ui .detail .detail-body input.name-input {
+  border-color: transparent;
+  background: transparent;
+}
+.app.ui-refresh.eagle-ui.ready-ui .detail .detail-body input.name-input:hover,
+.app.ui-refresh.eagle-ui.ready-ui .detail .detail-body input.name-input:focus {
+  background: var(--rf-fill-1);
+}
+
+/* ---------- 7. 对话框 / 菜单 / 浮层 ------------------------------------- */
+.modal-backdrop,
+.support-backdrop {
+  background: rgba(6, 6, 8, .55) !important;
+  backdrop-filter: blur(6px);
+}
+.ui-refresh .app-dialog,
+.modal-backdrop .app-dialog,
+.support-dialog {
+  background: var(--bg-overlay) !important;
+  background-image: none !important;
+  border: 1px solid var(--rf-line) !important;
+  border-radius: var(--rf-r-lg) !important;
+  box-shadow: var(--rf-pop-shadow) !important;
+}
+.modal-backdrop .dialog-head {
+  border-bottom: 0;
+}
+.modal-backdrop .dialog-actions button,
+.ui-refresh .dialog-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 14px;
+  line-height: 1;
+  border: 1px solid var(--rf-line);
+  border-radius: var(--rf-r);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-primary);
+}
+.modal-backdrop .dialog-actions button:hover:not(:disabled),
+.ui-refresh .dialog-actions button:hover:not(:disabled) {
+  background: var(--rf-fill-2);
+  border-color: var(--rf-line-strong);
+}
+.modal-backdrop .dialog-actions button.primary,
+.ui-refresh .dialog-actions button.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-text);
+  box-shadow: none;
+}
+.modal-backdrop .dialog-actions button.primary:hover:not(:disabled),
+.ui-refresh .dialog-actions button.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 88%, #fff);
+}
+.context-menu,
+.toolbar-popover,
+.move-submenu.ready-ui-menu,
+.library-switcher {
+  background: var(--bg-overlay) !important;
+  background-image: none !important;
+  border: 1px solid var(--rf-line) !important;
+  border-radius: var(--rf-r-lg) !important;
+  box-shadow: var(--rf-pop-shadow) !important;
+  backdrop-filter: none;
+}
+:where(.context-menu, .toolbar-popover, .move-submenu) button {
+  border: 0;
+  border-radius: var(--rf-r-sm);
+  background: transparent;
+  box-shadow: none;
+}
+:where(.context-menu, .toolbar-popover, .move-submenu) button:hover:not(:disabled) {
+  background: var(--rf-fill-2);
+}
+:where(.context-menu, .toolbar-popover, .move-submenu) .menu-separator,
+.context-menu hr {
+  border: 0;
+  height: 1px;
+  background: var(--rf-line);
+}
+
+/* ---------- 8. 偏好设置页 ----------------------------------------------- */
+.ui-refresh .ai-settings-page {
+  background: var(--bg-main);
+}
+.ui-refresh .ai-settings-nav {
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--rf-line);
+}
+.ui-refresh .ai-settings-nav button {
+  border: 0;
+  border-radius: var(--rf-r-sm);
+  box-shadow: none;
+}
+.ui-refresh .ai-settings-nav button.active {
+  background: var(--rf-accent-fill);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+.ui-refresh :where(.settings-generic, .appearance-section) {
+  background: var(--bg-card);
+  border: 1px solid var(--rf-line);
+  border-radius: var(--rf-r-lg);
+  box-shadow: none;
+}
+.ui-refresh .appearance-actions,
+.ui-refresh .settings-actions {
+  border-top: 1px solid var(--rf-line);
+  background: transparent;
+  box-shadow: none;
+}
+/* 设置页里内嵌的“主题与配色”不再自带弹窗外框 */
+.ui-refresh .app-dialog.appearance-dialog-inline {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+.ui-refresh .appearance-actions > button,
+.ui-refresh .settings-actions > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 14px;
+  line-height: 1;
+  height: 32px;
+  border: 1px solid var(--rf-line);
+  border-radius: var(--rf-r);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-primary);
+}
+.ui-refresh .appearance-actions > button:hover,
+.ui-refresh .settings-actions > button:hover {
+  background: var(--rf-fill-2);
+  border-color: var(--rf-line-strong);
+}
+.ui-refresh .appearance-actions > button.primary,
+.ui-refresh .settings-actions > button.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-text);
+}
+/* 主题预设按钮：色块改成圆点（底色=界面色，描边=强调色），选中用强调色细框 */
+.ui-refresh .theme-preset-buttons > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--rf-line);
+  border-radius: var(--rf-r);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-primary);
+}
+.ui-refresh .theme-preset-buttons > button:hover {
+  background: var(--rf-fill-2);
+}
+.ui-refresh .theme-preset-buttons > button.selected,
+.ui-refresh .theme-preset-buttons > button[aria-pressed="true"] {
+  background: var(--rf-accent-fill);
+  border-color: var(--rf-accent-line);
+}
+.ui-refresh .theme-swatch {
+  width: 16px !important;
+  height: 16px !important;
+  flex: 0 0 16px;
+  border-radius: 50% !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  box-shadow: 0 0 0 1px var(--rf-line);
+}
+.ui-refresh .theme-color-controls input[type="color"] {
+  width: 30px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--rf-line);
+  border-radius: var(--rf-r-sm);
+  background: transparent;
+}
+.ui-refresh .theme-color-controls code {
+  color: var(--rf-dim);
+}
+
+/* 设置弹窗顶栏对齐（修复错位）
+   a) 顶栏品牌列原为 232px/200px，又被全局 header 的 20px 左内边距右推，而弹窗内导航列是 220px，竖线对不齐；
+   b) win32 下为“全屏设置页”预留的 138px 右边距在居中弹窗里是多余的，会把右上角关闭按钮顶进来；
+   c) 返回键“‹”按固定方块居中。 */
+@media (min-width: 981px) {
+  .ai-settings-backdrop .ai-settings-top,
+  .ai-settings-backdrop .ai-settings-page.no-side .ai-settings-top {
+    grid-template-columns: 220px minmax(120px, 1fr) minmax(190px, 280px) auto auto;
+  }
+}
+@media (min-width: 681px) {
+  html[data-platform="win32"] .ai-settings-backdrop .ai-settings-top {
+    padding-right: 14px;
+  }
+}
+.ai-settings-backdrop .ai-settings-top {
+  /* 全局 `header { padding: 0 20px }` 会把品牌列整体右推 20px，导致它和下方导航错位 */
+  padding-left: 0;
+}
+.ai-settings-backdrop .ai-settings-brand {
+  box-sizing: border-box;
+  min-width: 0;
+}
+.ai-settings-backdrop .ai-settings-crumb > button:first-child {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  line-height: 1;
+  border-radius: var(--rf-r-sm, 6px);
+}
+
+/* 音频卡片：鼠标位置指示线（Eagle 式滑动试听时跟随鼠标） */
+.audio-wave-card > .audio-scrub-guide {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: color-mix(in srgb, var(--text-primary, #fff) 72%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  will-change: transform;
+}
+.audio-wave-card > .audio-play-depth { will-change: width; }
+
+/* 团队素材库窗口：顶栏右侧不需要给系统窗口按钮留位（修复 × 被推进去），主操作按钮用强调色 */
+html[data-platform="win32"] .team-library-window > header.team-library-header,
+html[data-platform="win32"] .team-library-preview > header {
+  padding-right: 18px;
+  -webkit-app-region: no-drag;
+}
+.app.ui-refresh .team-library-connect > button[type="submit"],
+.app.ui-refresh .team-library-folder-pick > button.team-library-primary,
+.app.ui-refresh .team-library-members form button[type="submit"],
+.app.ui-refresh .team-library-new-folder button[type="submit"] {
+  background: var(--accent) !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--accent-text, #fff) !important;
+}
+.app.ui-refresh .team-library-connect > button[type="submit"]:hover:not(:disabled),
+.app.ui-refresh .team-library-folder-pick > button.team-library-primary:hover:not(:disabled),
+.app.ui-refresh .team-library-members form button[type="submit"]:hover:not(:disabled),
+.app.ui-refresh .team-library-new-folder button[type="submit"]:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.app.ui-refresh .team-library-connect > button[type="submit"]:disabled,
+.app.ui-refresh .team-library-folder-pick > button.team-library-primary:disabled { opacity: 0.55; }
+
+/* ---------- 9. 滚动条 / 焦点 / 选区 ------------------------------------- */
+.ui-refresh *::-webkit-scrollbar,
+.modal-backdrop *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.ui-refresh *::-webkit-scrollbar-track,
+.modal-backdrop *::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ui-refresh *::-webkit-scrollbar-thumb,
+.modal-backdrop *::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-primary) 20%, transparent);
+  background-clip: padding-box;
+}
+.ui-refresh *::-webkit-scrollbar-thumb:hover,
+.modal-backdrop *::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-primary) 34%, transparent);
+  background-clip: padding-box;
+}
+.ui-refresh *::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.ui-refresh :where(button, [role="button"], a, summary):focus-visible,
+.modal-backdrop :where(button, [role="button"], a):focus-visible {
+  outline: 2px solid var(--rf-focus);
+  outline-offset: 1px;
+}
+.ui-refresh ::selection {
+  background: var(--rf-accent-fill-2);
+}
+
+/* ---------- N. 按钮微阴影（立体感） --------------------------------------
+   只给“有按钮外形”的控件加：顶栏胶囊/图标按钮、视图操作、导入、详情操作、
+   对话框按钮、主按钮。侧栏导航行、文件夹树、窗口控制按钮、菜单行保持平面。
+   不改字体和文字样式。 */
+:root,
+.app.ui-refresh {
+  /* On near-black backgrounds a black drop shadow is invisible, so dark themes
+     also get a faint light rim and a brighter top edge to show the button's depth. */
+  --rf-btn-shadow: 0 0 0 1px rgba(255, 255, 255, .045), 0 1px 2px rgba(0, 0, 0, .8), 0 5px 12px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .16), inset 0 -1px 0 rgba(0, 0, 0, .4);
+  --rf-btn-shadow-hover: 0 0 0 1px rgba(255, 255, 255, .07), 0 2px 4px rgba(0, 0, 0, .85), 0 8px 18px rgba(0, 0, 0, .65), inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 -1px 0 rgba(0, 0, 0, .4);
+  --rf-btn-shadow-press: 0 0 0 1px rgba(255, 255, 255, .04), inset 0 2px 4px rgba(0, 0, 0, .55);
+  --rf-btn-surface: linear-gradient(180deg, rgba(255, 255, 255, .075), rgba(255, 255, 255, .018));
+}
+/* Dark themes: lift plain buttons slightly off the page so the shadow and top edge read. */
+.app.ui-refresh.theme-dark :is(.top-pill, .view-actions > button, .view-actions .popover-anchor > button, .content-folders > button, .detail-actions > button, .batch-bar button):not(:disabled):not(.primary):not(.on):not(.director-prank-button) {
+  background-image: var(--rf-btn-surface);
+}
+.app.ui-refresh.theme-light {
+  --rf-btn-shadow: 0 1px 2px rgba(20, 30, 50, .16), 0 3px 8px rgba(20, 30, 50, .10), inset 0 1px 0 rgba(255, 255, 255, .65);
+  --rf-btn-shadow-hover: 0 2px 4px rgba(20, 30, 50, .20), 0 6px 14px rgba(20, 30, 50, .14), inset 0 1px 0 rgba(255, 255, 255, .75);
+  --rf-btn-shadow-press: 0 0 1px rgba(20, 30, 50, .28), inset 0 1px 3px rgba(20, 30, 50, .20);
+}
+.app.ui-refresh .top-pill:not(:disabled),
+.app.ui-refresh .view-actions > button:not(:disabled),
+.app.ui-refresh .view-actions .popover-anchor > button:not(:disabled),
+.app.ui-refresh .content-folders > button:not(:disabled),
+.app.ui-refresh .import-actions .import-action:not(:disabled),
+.app.ui-refresh .new-folder-primary:not(:disabled),
+.app.ui-refresh .detail-actions > button:not(:disabled),
+.app.ui-refresh .detail-body .tags > button:not(:disabled),
+.app.ui-refresh .batch-bar button:not(:disabled),
+.app.ui-refresh .dialog-actions button:not(:disabled),
+.modal-backdrop .dialog-actions button:not(:disabled),
+.app.ui-refresh button.primary:not(:disabled),
+.modal-backdrop button.primary:not(:disabled),
+.app.ui-refresh .team-library-panel footer button:not(:disabled),
+.app.ui-refresh .team-library-primary:not(:disabled),
+.modal-backdrop .team-library-primary:not(:disabled) {
+  box-shadow: var(--rf-btn-shadow) !important;
+}
+.app.ui-refresh .top-pill:hover:not(:disabled),
+.app.ui-refresh .view-actions > button:hover:not(:disabled),
+.app.ui-refresh .view-actions .popover-anchor > button:hover:not(:disabled),
+.app.ui-refresh .content-folders > button:hover:not(:disabled),
+.app.ui-refresh .import-actions .import-action:hover:not(:disabled),
+.app.ui-refresh .new-folder-primary:hover:not(:disabled),
+.app.ui-refresh .detail-actions > button:hover:not(:disabled),
+.app.ui-refresh .detail-body .tags > button:hover:not(:disabled),
+.app.ui-refresh .batch-bar button:hover:not(:disabled),
+.app.ui-refresh .dialog-actions button:hover:not(:disabled),
+.modal-backdrop .dialog-actions button:hover:not(:disabled),
+.app.ui-refresh button.primary:hover:not(:disabled),
+.modal-backdrop button.primary:hover:not(:disabled),
+.app.ui-refresh .team-library-panel footer button:hover:not(:disabled),
+.app.ui-refresh .team-library-primary:hover:not(:disabled),
+.modal-backdrop .team-library-primary:hover:not(:disabled) {
+  box-shadow: var(--rf-btn-shadow-hover) !important;
+}
+.app.ui-refresh .top-pill:active:not(:disabled),
+.app.ui-refresh .view-actions > button:active:not(:disabled),
+.app.ui-refresh .view-actions .popover-anchor > button:active:not(:disabled),
+.app.ui-refresh .content-folders > button:active:not(:disabled),
+.app.ui-refresh .import-actions .import-action:active:not(:disabled),
+.app.ui-refresh .new-folder-primary:active:not(:disabled),
+.app.ui-refresh .detail-actions > button:active:not(:disabled),
+.app.ui-refresh .detail-body .tags > button:active:not(:disabled),
+.app.ui-refresh .batch-bar button:active:not(:disabled),
+.app.ui-refresh .dialog-actions button:active:not(:disabled),
+.modal-backdrop .dialog-actions button:active:not(:disabled),
+.app.ui-refresh button.primary:active:not(:disabled),
+.modal-backdrop button.primary:active:not(:disabled),
+.app.ui-refresh .team-library-panel footer button:active:not(:disabled),
+.app.ui-refresh .team-library-primary:active:not(:disabled),
+.modal-backdrop .team-library-primary:active:not(:disabled) {
+  box-shadow: var(--rf-btn-shadow-press) !important;
+}
+
+/* ===== 浅色主题残留修复：扩展/插件弹窗、关于、更新、欢迎页（只改颜色，不动字体样式） ===== */
+.theme-light .browser-choices>button{border-color:var(--ui-border);background:var(--bg-card);color:var(--text-primary)}
+.theme-light .browser-choices>button:hover{border-color:var(--accent);background:var(--hover-bg)}
+.theme-light .browser-choices strong{color:var(--text-primary)}
+.theme-light .browser-choices small,.theme-light .browser-choices svg,.theme-light .browser-choices i{color:var(--text-secondary)}
+.theme-light .extension-dialog>p,.theme-light .extension-dialog .plugin-row small,.theme-light .extension-result span{color:var(--text-secondary)}
+.theme-light .extension-dialog .extension-section-title{color:var(--text-primary)}
+.theme-light .extension-uninstall{border-color:#f0b4b9;background:#fdecee;color:#b42334}
+.theme-light .extension-uninstall:hover:not(:disabled){border-color:#d9505e;background:#fbd9dd;color:#8f1626}
+.theme-light .extension-uninstall-hint{color:var(--text-secondary)}
+.theme-light .extension-status{border:1px solid #bcd2f7;background:#eaf1fd;color:#1d4ed8}
+.theme-light .extension-result{border:1px solid var(--ui-border);background:var(--bg-overlay);color:var(--text-primary)}
+.theme-light .extension-result strong{color:var(--text-primary)}
+.theme-light .extension-result.success{background:#e8f6ef;color:#0c6b45}
+.theme-light .extension-result.error{background:#fdecee;color:#b42334}
+.theme-light .extension-result code{border:1px solid var(--ui-border);background:var(--bg-card);color:var(--text-primary)}
+.theme-light .plugin-row{border-color:var(--ui-border);background:var(--bg-card);color:var(--text-primary)}
+.theme-light .plugin-row.invalid{border-color:#e08a92}
+.theme-light .app-about-dialog{border-color:var(--ui-border);background:var(--bg-card);color:var(--text-primary)}
+.theme-light .app-about-dialog p{color:var(--text-secondary)}
+.theme-light .app-about-dialog small{color:var(--text-secondary)}
+.theme-light .app-about-dialog>.primary{background:var(--accent);color:#fff}
+.theme-light .update-versions,.theme-light .update-progress{border:1px solid var(--ui-border);background:var(--bg-overlay)}
+.theme-light .update-versions span,.theme-light .update-progress small{color:var(--text-secondary)}
+.theme-light .update-versions b,.theme-light .update-progress span{color:var(--text-primary)}
+.theme-light .update-progress>div{background:var(--ui-border)}
+.theme-light .welcome{background:var(--bg-main)}
+.theme-light .welcome-card{border-color:var(--ui-border);background:var(--bg-card);color:var(--text-primary);box-shadow:0 24px 80px #1118271f}
+.theme-light .welcome-error{color:#b42334}

@@ -1,0 +1,9 @@
+AGENTS.md export-ignore
+HANDOFF.md export-ignore
+DECISIONS.md export-ignore
+LESSONS.md export-ignore
+MEMORY_WORKFLOW.md export-ignore
+PRE_COMPACTION_CHECKLIST.md export-ignore
+BUG-REPORT-2.0.8.md export-ignore
+memory/ export-ignore
+qa-*.json export-ignore
