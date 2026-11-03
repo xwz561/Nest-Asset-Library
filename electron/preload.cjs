@@ -79,6 +79,7 @@ contextBridge.exposeInMainWorld('nestDesktop', {
   openLanSignals: () => ipcRenderer.invoke('lan-signals:open'),
   onLanSignalsPanelState: callback => { const listener = (_, value) => callback(Boolean(value?.open)); ipcRenderer.on('lan-signals:panel-state', listener); return () => ipcRenderer.removeListener('lan-signals:panel-state', listener); },
   windowControl: action => ipcRenderer.invoke('app:window-control', String(action || '')),
+  onWindowState: callback => { const listener = (_, value) => callback({ maximized: Boolean(value?.maximized), fullScreen: Boolean(value?.fullScreen) }); ipcRenderer.on('app:window-state', listener); return () => ipcRenderer.removeListener('app:window-state', listener); },
   setFullscreen: enabled => ipcRenderer.invoke('app:set-fullscreen', Boolean(enabled)),
   setInspectorOpen: (open, width, options) => ipcRenderer.invoke('app:set-inspector-open', open, width, options),
   setTitleBarColors: colors => {

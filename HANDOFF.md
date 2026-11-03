@@ -2,29 +2,30 @@
 
 ## 当前目标
 
-- 修复 3.0.56 macOS 版截图里的问题（用户 2026-11-03 反馈）。
+- 按用户给的浅色柔光仪表盘参考图做一套**新界面**（布局、SVG 和按钮），对所有主题生效；切换主题只换颜色，不换界面（DEC-002）。"柔光橙"是新用户的默认配色。然后提交并打 Windows/Mac 包。不改字体。
 
 ## 当前状态
 
-- 2026-11-03 用户在 Mac 上实测运行 54 的包：菜单栏小图标、磁盘卡片"磁盘 (Dramabox_HZ)"、logo 都已正常。新问题：工具集打不开，原因是 4 个工具都是 Windows .exe，按钮只在 Windows 上可用。已改（未提交、未打包）：Mac 上按钮可点；Mineradio 已安装时 `shell.openPath` 打开 `/Applications` 或 `~/Applications` 下的 `Mineradio.app`，未安装时打开官方 Mac 版下载页 `github.com/XxHuberrr/Mineradio-paused/releases`；其余三张卡片置灰，显示"仅 Windows 可用"。测试 522 条：500 通过、22 失败（旧失败）。
-- 2026-11-03 Mac 问题修复：已提交 `0eb8bd1` 并推送（fast-forward）。Actions 运行 54（41607774003）全部步骤成功，产物在 Actions artifacts，保留 14 天，版本仍为 3.0.56：x64 DMG 357,529,367 / x64 ZIP 351,476,022 / arm64 DMG 353,189,110 / arm64 ZIP 347,190,000 字节。还没下载到本地（下载需要登录 GitHub），也还没在真 Mac 上复测。
-  - 菜单栏被一长条图片占满：托盘图标直接用了 1254px 的 `build/icon.png`，macOS 菜单栏不会自动缩小。`background-tray.cjs` 的 `trayIcon()` 在 Mac 上缩到 18px 并附带 36px Retina 版本，Linux 缩到 22px，Windows 不变。已用真实的 nativeImage 验证。
-  - "这个资源库已移动或不可用"（用户点了团队素材库）：加入团队库会先改写 `.nest-library.json`（临时文件 + rename），紧接着检查文件是否存在；NAS/SMB 上 Mac 会短暂看不到这个文件。`openKnownLibrary` 改为异步，通过 `library-index-wait.cjs` 最多等约 2 秒，4 个入口都改成 await，错误信息里带路径。已在开发版模拟 SMB 延迟，团队库能正常连上。
-  - 磁盘卡片"本地磁盘 (—)"、总是统计系统盘：新增 `disk-info.cjs`，Mac 上按素材库目录或 `/Volumes/卷名` 统计并显示名字。
-  - 红绿灯按钮压住 logo：Mac 的顶部留白移到 `.sidebar-fixed-controls`（40px）。
-  - 侧栏导入卡片消失是设计如此（库为空时隐藏）。
-  - 测试 518 条：496 通过、22 失败（均为旧失败）。
-- Actions 运行 53（41596058466）成功：macOS 测试符合已知 22 条失败基线；四包均通过 ZIP/DMG、app.asar、版本 3.0.56、24 帧小猫、牵引脚本和 r8 CSS token 核验。
-- 本地包在 `release-3.0.56-macos/`，含四个安装包和 `SHA256SUMS.txt`。四包大小依次为 357,517,804、351,474,807、353,199,083、347,188,781 字节；SHA 清单已逐项核对。
-- GitHub 三分支均为无父根快照，42 个 tag 已删。按 Release ID 复核 32 个 Release、167 个附件，资产 ID/名称/大小/摘要与清理前完全相同。旧 `/releases/download/<tag>/...` 链接会 404；附件 API 在 `Accept: application/octet-stream` 下仍返回下载重定向。
-- 不碰 NAS；本地未跟踪文件与旧包目录保留。Mac 包无签名/公证，首次打开需右键“打开”，或运行 `xattr -dr com.apple.quarantine 小旺仔素材库.app`。
+- 新界面五轮改动已提交（分支 `codex/deepseek-leads-silver-kitten` 上 `052f689` 之后的那一条提交），未推送、未打包。
+- 主题：`src/theme-utils.js` 新增 `soft-orange` 预设，设为新用户默认；`themeStyle` 补上团队库面板用的 `--bg-primary/--bg-secondary/--border-subtle`，并通过 `softUiColors` 输出新界面专用的 `--soft-select`（选中色）、`--soft-select-text`、`--soft-select-strong`、`--soft-accent-text`。柔光橙的选中色是浅蓝 `#6FA8F5`、按钮固定白字；其他主题选中色就是强调色，字色用 `onAccentText`（白字对比度 ≥3 才用白字）。
+- 布局：`src/main.jsx` 根节点始终带 `soft-ui` 类，body 始终带 `soft-ui-body`（深色主题再加 `soft-ui-dark`），始终渲染图标栏 `.soft-rail` 和问候顶栏 `.soft-greeting`，旧的空状态插画已删除。拖动侧栏时要减掉 `softRailWidth`（76）。插画：`components/soft-empty-illustration.jsx`，颜色全部用 `--soft-*` 变量。
+- 样式：`src/soft-ui.css` 管布局、按钮和顶栏，`src/soft-ui-panels.css` 管面板和对话框。选择器以 `.app.soft-ui.ready-ui.ui-refresh` 开头（和原来的 `.theme-light` 写法特异性相同，用来压过旧主题的 `!important`）。`soft-ui.css` 开头的变量块把所有 `--soft-*` 颜色从主题变量推出来；`.theme-dark` / `body.soft-ui-dark` 另有一套更深的投影和遮罩。写死的颜色只剩关闭按钮红、AI 导演按钮粉紫等几处（测试里有白名单）。按钮无描边，圆角用 10/12/14/99，投影用 `--soft-btn-shadow`（普通）、`--soft-btn-shadow-primary`（主按钮）、`--soft-btn-shadow-blue`（选中项）。
+- Windows 窗口按钮改为页面自画：`components/window-controls.jsx`、`window-controls.css`，`titleBarOverlay:undefined`，原因见 DEC-001。
+- 测试 528 条：506 通过、22 失败（旧基线，`.codex-temp/claude-fail-leash.txt`）。`test/lan-chat.test.cjs` 在整套一起跑时偶尔失败，单独跑能过。`test/soft-ui-theme.test.cjs` 会按逗号切分选择器检查是否限定在 `.soft-ui` 下，所以 `:has()` / `:is()` 括号里不要写逗号，拆成多条选择器；新加颜色要用变量，否则会被"写死的颜色"测试拦下。
+- 验收：先 `npm run build`（应用读 `dist/`），设 `NEST_USER_DATA_DIR` 为 `.codex-temp/qa-r6-20261102/user-data` 的**绝对路径**（相对路径会被 `electron/main.cjs` 忽略，进而撞上正式实例的单实例锁直接退出），运行 `node_modules/electron/dist/electron.exe . --remote-debugging-port=9333`，用 CDP 截图；结束时按 PID 关闭进程。9333 被占用说明已有验收实例在跑，可直接连上去 `location.reload()` 后截图。切主题预览不用改设置：在页面里派发 `nest-theme-change` 事件，`detail` 传 `{mode, preset, colors}`。
+- 未确认：真 Mac 上的新界面；运行 55 的包上团队库能否正常连接；侧栏实际拖动；约 900 宽的窄窗口里问候语被搜索框挤成"你…"（上一轮有意用省略号，是否改待用户定）；深色主题下的详情面板、右键菜单、各类小对话框只抽查了设置页、资源库菜单和空状态。
 
 ## 最近里程碑（最多 3 条）
 
-- 3.0.56 Mac 双架构构建、测试基线和四包内容核验通过。
-- 本地交付文件、大小和 SHA-256 完成校验。
-- 清理所有分支历史和标签；GitHub Release 附件仍在。
+- 新界面对所有主题生效（DEC-002）：六个预设都截图确认过是同一套布局，只换颜色；柔光橙和改之前一致。
+- 设置页 9 个分页的模块边缘统一：一级模块无描边、18px 圆角、柔和投影，子块浅灰无描边；修了"通用"卡片套卡片、主题预设选中双圈、灰框色块、"测试连接"深灰按钮、版本号黑框、助手提示语输入框只有 34px 高。
+- 弹窗打开时，窗口按钮退到窗口顶边、变成无底色线条图标，不再悬在遮罩上、压住设置弹窗上沿；矮窗口下图标栏自动收紧。
+
+## 当前阻塞
+
+- 无。
 
 ## 下一步
 
-- 提交工具集改动并重新打 Mac 包（推送就会触发运行 55），然后在 Mac 上复测工具集和团队素材库。
+- 用户在问界面卡片模块能否拖动。已建议做"在各自区域里拖动排序"（侧栏面板各块、图标栏图标、顶栏工具按钮，每人记住自己的排列，带"恢复默认布局"），而不是完全自由摆放；等用户定。
+- 打包：`NEST_PACKAGE_OUTPUT=release-3.0.56-rX node scripts/package-windows-setup.cjs` 打 Windows 包；推送分支后 Actions 会打 Mac 包。

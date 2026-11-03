@@ -1,0 +1,732 @@
+/* =========================================================================
+   新界面（.app.soft-ui）——参考浅色柔光仪表盘风格：大圆角卡片、柔和投影、
+   强调色主按钮、选中态、左侧图标栏、问候顶栏。
+   这是界面本身，不是某个主题：所有主题都用这一套布局、卡片和按钮，
+   颜色全部从当前主题取（theme-utils.js 的 themeStyle 把主题颜色写成 --bg-* / --text-* / --accent 等变量）。
+   “柔光橙”只是其中一个配色预设（浅蓝选中色也只属于它，见 softUiColors）。
+   这个文件最后加载，并且要压过旧主题规则（ready-ui.css 里有不少 !important），
+   所以这里的关键属性也用了 !important。不改字体。
+   ========================================================================= */
+
+/* 颜色变量：全部由主题颜色推出来。资源库切换菜单挂在 <body> 上，所以 body.soft-ui-body 也定义一份 */
+.app.soft-ui.ready-ui.ui-refresh,
+body.soft-ui-body {
+  --soft-bg: var(--bg-main);
+  --soft-card: var(--bg-card);
+  --soft-tint: color-mix(in srgb, var(--hover-bg) 70%, var(--bg-card));
+  --soft-line: color-mix(in srgb, var(--theme-border) 70%, var(--bg-card));
+  --soft-text: var(--text-primary);
+  --soft-muted: var(--text-secondary);
+  /* 正文和次要文字之间的两档灰（按钮文字、路径、菜单） */
+  --soft-text-2: color-mix(in srgb, var(--soft-text) 60%, var(--soft-muted));
+  --soft-text-3: color-mix(in srgb, var(--soft-text) 40%, var(--soft-muted));
+  --soft-faint: color-mix(in srgb, var(--soft-muted) 60%, var(--soft-card));
+  --soft-hairline: color-mix(in srgb, var(--soft-text) 10%, transparent);
+  --soft-accent: var(--accent);
+  --soft-accent-2: color-mix(in srgb, var(--soft-accent) 70%, #fff);
+  --soft-accent-tint: color-mix(in srgb, var(--soft-accent) 12%, var(--soft-card));
+  --soft-accent-strong: color-mix(in srgb, var(--soft-accent) 70%, var(--soft-text));
+  --soft-on-accent: var(--soft-accent-text, #fff);
+  /* 选中色：柔光橙是浅蓝，其他主题就是强调色 */
+  --soft-blue: var(--soft-select, var(--accent));
+  --soft-blue-2: color-mix(in srgb, var(--soft-blue) 75%, #fff);
+  --soft-blue-tint: color-mix(in srgb, var(--soft-blue) 14%, var(--soft-card));
+  --soft-blue-tint-2: color-mix(in srgb, var(--soft-blue) 24%, var(--soft-card));
+  --soft-blue-strong: var(--soft-select-strong, color-mix(in srgb, var(--soft-blue) 72%, var(--soft-text)));
+  --soft-on-blue: var(--soft-select-text, #fff);
+  --soft-danger: color-mix(in srgb, #e5484d 90%, var(--soft-text));
+  --soft-danger-tint: color-mix(in srgb, #ff6b5e 10%, var(--soft-card));
+  --soft-danger-tint-2: color-mix(in srgb, #ff6b5e 18%, var(--soft-card));
+  --soft-radius: 22px;
+  --soft-radius-md: 16px;
+  --soft-radius-sm: 12px;
+  /* 投影：浅色主题用带蓝调的淡灰，深色主题在下面换成更深的黑 */
+  --soft-shadow-tone: #8a94b8;
+  --soft-shadow: 0 12px 32px rgba(31, 35, 51, .06), 0 2px 6px rgba(31, 35, 51, .04);
+  --soft-shadow-sm: 0 6px 16px rgba(31, 35, 51, .07);
+  --soft-shadow-lg: 0 18px 44px rgba(31, 35, 51, .14);
+  --soft-shadow-hover: 0 16px 36px rgba(31, 35, 51, .1);
+  --soft-shadow-dialog: 0 24px 64px rgba(31, 35, 51, .18);
+  --soft-backdrop: rgba(31, 35, 51, .26);
+  --soft-glow-orange: 0 8px 20px color-mix(in srgb, var(--soft-accent) 38%, transparent);
+  --soft-glow-blue: 0 8px 20px color-mix(in srgb, var(--soft-blue) 42%, transparent);
+  /* 按钮统一用这三种投影：普通按钮极淡的灰色，主按钮收紧的强调色，选中的图标栏 / 头像收紧的选中色 */
+  --soft-btn-shadow: 0 1px 2px rgba(31, 35, 51, .06), 0 3px 8px rgba(31, 35, 51, .06);
+  --soft-btn-shadow-primary: 0 2px 4px color-mix(in srgb, var(--soft-accent) 18%, transparent), 0 5px 12px color-mix(in srgb, var(--soft-accent) 26%, transparent);
+  --soft-btn-shadow-blue: 0 2px 4px color-mix(in srgb, var(--soft-blue) 16%, transparent), 0 5px 12px color-mix(in srgb, var(--soft-blue) 28%, transparent);
+  --soft-gap: 16px;
+}
+.app.soft-ui.ready-ui.ui-refresh.theme-dark,
+body.soft-ui-body.soft-ui-dark {
+  --soft-shadow-tone: #000;
+  --soft-shadow: 0 12px 32px rgba(0, 0, 0, .28), 0 2px 6px rgba(0, 0, 0, .18);
+  --soft-shadow-sm: 0 6px 16px rgba(0, 0, 0, .24);
+  --soft-shadow-lg: 0 18px 44px rgba(0, 0, 0, .42);
+  --soft-shadow-hover: 0 16px 36px rgba(0, 0, 0, .36);
+  --soft-shadow-dialog: 0 24px 64px rgba(0, 0, 0, .5);
+  --soft-backdrop: rgba(0, 0, 0, .42);
+  --soft-btn-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 3px 8px rgba(0, 0, 0, .22);
+}
+.app.soft-ui.ready-ui.ui-refresh {
+  background: var(--soft-bg) !important;
+  color: var(--soft-text);
+}
+
+/* ---------- 左侧：图标栏 + 白色面板 ------------------------------------- */
+.app.soft-ui.ready-ui.ui-refresh > aside:first-child {
+  display: grid !important;
+  grid-template-columns: 60px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  column-gap: 12px;
+  padding: var(--soft-gap) 0 var(--soft-gap) var(--soft-gap) !important;
+  background: transparent !important;
+  border-right: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  overflow: hidden !important;
+}
+/* 右边这一列（品牌、导入、文件夹、标签、磁盘）画成一整张白卡片 */
+.app.soft-ui.ready-ui.ui-refresh > aside:first-child::before {
+  content: "";
+  grid-column: 2;
+  grid-row: 1 / -1;
+  border-radius: var(--soft-radius);
+  background: var(--soft-card);
+  box-shadow: var(--soft-shadow);
+  pointer-events: none;
+}
+.app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-fixed-controls,
+.app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-scroll-content,
+.app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-fixed-footer {
+  grid-column: 2;
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-fixed-controls { grid-row: 1; padding: 14px 12px 0 !important; }
+.app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-scroll-content { grid-row: 2; min-height: 0; overflow-y: auto; padding: 4px 4px 8px !important; }
+.app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-fixed-footer { grid-row: 3; padding: 8px 12px 12px !important; }
+
+.app.soft-ui.ready-ui.ui-refresh .soft-rail {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  min-height: 0;
+  padding: 14px 0;
+  border-radius: var(--soft-radius);
+  background: var(--soft-card);
+  box-shadow: var(--soft-shadow);
+  overflow-y: auto;
+}
+html[data-platform=darwin] .app.soft-ui.ready-ui.ui-refresh .soft-rail { padding-top: 40px; }
+html[data-platform=darwin] .app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-fixed-controls { padding-top: 14px !important; }
+.app.soft-ui.ready-ui.ui-refresh .soft-rail-logo img { display: block; width: 38px; height: 38px; border-radius: 13px; object-fit: cover; box-shadow: var(--soft-shadow-sm); }
+.app.soft-ui.ready-ui.ui-refresh .soft-rail-group { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.app.soft-ui.ready-ui.ui-refresh .soft-rail-group + .soft-rail-group { padding-top: 16px; border-top: 1px solid var(--soft-line); }
+.app.soft-ui.ready-ui.ui-refresh .soft-rail-bottom { margin-top: auto; }
+.app.soft-ui.ready-ui.ui-refresh .soft-rail .soft-rail-item {
+  display: grid;
+  place-items: center;
+  width: 44px !important;
+  min-width: 44px !important;
+  height: 44px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  background: var(--soft-tint) !important;
+  color: var(--soft-muted) !important;
+  box-shadow: var(--soft-btn-shadow) !important;
+  transition: background .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.app.soft-ui.ready-ui.ui-refresh .soft-rail .soft-rail-item:hover:not(:disabled) { background: var(--soft-blue-tint) !important; color: var(--soft-blue) !important; transform: translateY(-1px); }
+.app.soft-ui.ready-ui.ui-refresh .soft-rail .soft-rail-item.active,
+.app.soft-ui.ready-ui.ui-refresh .soft-rail .soft-rail-item.active:hover {
+  background: linear-gradient(140deg, var(--soft-blue-2), var(--soft-blue)) !important;
+  color: var(--soft-on-blue) !important;
+  box-shadow: var(--soft-btn-shadow-blue) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .soft-rail .soft-rail-item.drop-target { background: var(--soft-accent-tint) !important; color: var(--soft-accent) !important; }
+.app.soft-ui.ready-ui.ui-refresh .soft-rail .soft-rail-item:disabled { opacity: .45; }
+
+/* 窗口较矮时收紧图标栏，避免底部回收站按钮被裁掉（窗口最小高度 560） */
+@media (max-height: 820px) {
+  .app.soft-ui.ready-ui.ui-refresh .soft-rail { gap: 12px; }
+  .app.soft-ui.ready-ui.ui-refresh .soft-rail-group { gap: 6px; }
+  .app.soft-ui.ready-ui.ui-refresh .soft-rail-group + .soft-rail-group { padding-top: 12px; }
+  .app.soft-ui.ready-ui.ui-refresh .soft-rail .soft-rail-item { width: 38px !important; min-width: 38px !important; height: 38px !important; border-radius: 12px !important; }
+}
+@media (max-height: 680px) {
+  .app.soft-ui.ready-ui.ui-refresh .soft-rail { gap: 8px; padding: 10px 0; }
+  .app.soft-ui.ready-ui.ui-refresh .soft-rail-logo img { width: 32px; height: 32px; border-radius: 11px; }
+  .app.soft-ui.ready-ui.ui-refresh .soft-rail-group { gap: 4px; }
+  .app.soft-ui.ready-ui.ui-refresh .soft-rail-group + .soft-rail-group { padding-top: 8px; }
+  .app.soft-ui.ready-ui.ui-refresh .soft-rail .soft-rail-item { width: 34px !important; min-width: 34px !important; height: 34px !important; border-radius: 10px !important; }
+}
+
+/* 图标栏里已有的入口，在面板里不再重复显示 */
+.app.soft-ui.ready-ui.ui-refresh .sidebar-scroll-content > nav.asset-filter-nav,
+.app.soft-ui.ready-ui.ui-refresh .sidebar-scroll-content > nav.reference-board-nav,
+.app.soft-ui.ready-ui.ui-refresh .sidebar-scroll-content > .nav-title:has(+ nav),
+.app.soft-ui.ready-ui.ui-refresh .sidebar-fixed-footer .sidebar-recycle,
+.app.soft-ui.ready-ui.ui-refresh .brand .mark { display: none !important; }
+
+.app.soft-ui.ready-ui.ui-refresh .brand { padding: 4px 6px 12px !important; border-bottom: 0 !important; }
+.app.soft-ui.ready-ui.ui-refresh .brand span { color: var(--soft-text) !important; font-weight: 700; }
+.app.soft-ui.ready-ui.ui-refresh .brand .fui-Button { width: 36px; height: 36px; border: 0 !important; border-radius: 12px !important; background: var(--soft-tint) !important; color: var(--soft-muted) !important; box-shadow: var(--soft-btn-shadow) !important; }
+
+/* 导入卡片：浅灰底，主按钮是橙色渐变 */
+.app.soft-ui.ready-ui.ui-refresh .import-actions {
+  margin: 0 0 6px !important;
+  padding: 12px !important;
+  border: 0 !important;
+  border-radius: var(--soft-radius-md) !important;
+  background: var(--soft-tint) !important;
+  box-shadow: var(--soft-btn-shadow) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .import-actions .import-actions-head strong { color: var(--soft-text) !important; }
+.app.soft-ui.ready-ui.ui-refresh .import-actions .import-actions-head small { color: var(--soft-muted) !important; }
+.app.soft-ui.ready-ui.ui-refresh .import-actions .import-action {
+  border: 0 !important;
+  border-radius: var(--soft-radius-sm) !important;
+  background: var(--soft-card) !important;
+  color: var(--soft-text) !important;
+  box-shadow: var(--soft-shadow-sm) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .import-actions .import-action > span,
+.app.soft-ui.ready-ui.ui-refresh .import-actions .import-action strong { color: var(--soft-text) !important; }
+.app.soft-ui.ready-ui.ui-refresh .import-actions .import-action small { color: var(--soft-muted) !important; }
+.app.soft-ui.ready-ui.ui-refresh .import-actions .import-action > svg { color: var(--soft-muted) !important; }
+.app.soft-ui.ready-ui.ui-refresh .import-actions .import-action.primary,
+.app.soft-ui.ready-ui.ui-refresh .import-actions .import-action.primary:hover,
+.app.soft-ui.ready-ui.ui-refresh .import-actions .import-action.primary:focus-visible {
+  background: linear-gradient(135deg, var(--soft-accent-2), var(--soft-accent)) !important;
+  color: var(--soft-on-accent) !important;
+  box-shadow: var(--soft-btn-shadow-primary) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .import-actions .import-action.primary > span,
+.app.soft-ui.ready-ui.ui-refresh .import-actions .import-action.primary strong,
+.app.soft-ui.ready-ui.ui-refresh .import-actions .import-action.primary small,
+.app.soft-ui.ready-ui.ui-refresh .import-actions .import-action.primary > svg { color: var(--soft-on-accent) !important; }
+.app.soft-ui.ready-ui.ui-refresh .import-actions .import-action:hover:not(:disabled):not(.primary) { background: var(--soft-accent-tint) !important; transform: translateY(-1px); }
+
+/* 文件夹 / 标签 */
+.app.soft-ui.ready-ui.ui-refresh .nav-title { color: var(--soft-muted) !important; }
+.app.soft-ui.ready-ui.ui-refresh .nav-title span { color: var(--soft-text) !important; font-weight: 650; }
+.app.soft-ui.ready-ui.ui-refresh .nav-title .fui-Button { border: 0 !important; border-radius: 10px !important; background: var(--soft-tint) !important; color: var(--soft-muted) !important; box-shadow: var(--soft-btn-shadow) !important; }
+.app.soft-ui.ready-ui.ui-refresh .folder-row,
+.app.soft-ui.ready-ui.ui-refresh .compact-folder-tree .fui-TreeItemLayout { border-radius: var(--soft-radius-sm) !important; color: var(--soft-text-2) !important; }
+.app.soft-ui.ready-ui.ui-refresh .folder-row:hover,
+.app.soft-ui.ready-ui.ui-refresh .compact-folder-tree .fui-TreeItemLayout:hover { background: var(--soft-tint) !important; }
+.app.soft-ui.ready-ui.ui-refresh .folder-row.active,
+.app.soft-ui.ready-ui.ui-refresh .folder-row.selected,
+.app.soft-ui.ready-ui.ui-refresh .compact-folder-tree [aria-selected="true"] > .fui-TreeItemLayout {
+  background: var(--soft-blue-tint) !important;
+  color: var(--soft-blue-strong) !important;
+  box-shadow: inset 3px 0 0 var(--soft-blue) !important;
+}
+
+/* 底部磁盘卡片 */
+.app.soft-ui.ready-ui.ui-refresh .sidebar-disk {
+  border: 0 !important;
+  border-radius: var(--soft-radius-md) !important;
+  background: var(--soft-tint) !important;
+  box-shadow: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .sidebar-disk b { color: var(--soft-text) !important; }
+.app.soft-ui.ready-ui.ui-refresh .sidebar-disk small,
+.app.soft-ui.ready-ui.ui-refresh .sidebar-disk span small { color: var(--soft-muted) !important; }
+.app.soft-ui.ready-ui.ui-refresh .sidebar-disk > svg { color: var(--soft-blue) !important; }
+.app.soft-ui.ready-ui.ui-refresh .sidebar-disk i,
+.app.soft-ui.ready-ui.ui-refresh .sidebar-disk .disk-bar,
+.app.soft-ui.ready-ui.ui-refresh .sidebar-disk progress { border-radius: 99px !important; }
+.app.soft-ui.ready-ui.ui-refresh .sidebar-version { color: var(--soft-muted) !important; background: transparent !important; border: 0 !important; box-shadow: none !important; }
+.app.soft-ui.ready-ui.ui-refresh .sidebar-resizer { opacity: 0; }
+
+/* ---------- 主区：问候卡片（顶栏） --------------------------------------- */
+.app.soft-ui.ready-ui.ui-refresh > main {
+  background: transparent !important;
+  padding: 0 var(--soft-gap) 0 var(--soft-gap);
+}
+.app.soft-ui.ready-ui.ui-refresh > main > header {
+  position: sticky !important;
+  top: var(--soft-gap) !important;
+  z-index: 45;
+  display: grid !important;
+  /* 两行：第一行 名字 · 搜索 · 极简切换；第二行 路径 · 工具按钮。头像跨两行 */
+  grid-template-columns: 48px auto minmax(0, 1fr) auto auto;
+  grid-template-rows: 40px 40px;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 8px;
+  height: auto !important;
+  min-height: 0;
+  margin: var(--soft-gap) 0 12px !important;
+  padding: 12px 18px !important;
+  border: 0 !important;
+  border-radius: var(--soft-radius) !important;
+  background: var(--soft-card) !important;
+  box-shadow: var(--soft-shadow) !important;
+  backdrop-filter: none !important;
+}
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { padding-right: 150px !important; }
+.app.soft-ui.ready-ui.ui-refresh .soft-greeting { display: contents; }
+.app.soft-ui.ready-ui.ui-refresh .soft-avatar {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--soft-blue-2), var(--soft-blue));
+  color: var(--soft-on-blue);
+  font-weight: 700;
+  font-size: 17px;
+  box-shadow: var(--soft-btn-shadow-blue);
+}
+.app.soft-ui.ready-ui.ui-refresh .soft-greeting-name {
+  grid-column: 2 / span 2;
+  grid-row: 1;
+  align-self: center;
+  color: var(--soft-text);
+  font-size: 18px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.app.soft-ui.ready-ui.ui-refresh > main > header .breadcrumbs {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: center;
+  min-width: 0;
+  margin: 0 !important;
+  color: var(--soft-muted) !important;
+  font-size: 12px;
+}
+.app.soft-ui.ready-ui.ui-refresh > main > header .breadcrumbs strong,
+.app.soft-ui.ready-ui.ui-refresh > main > header .breadcrumbs .breadcrumb-link { color: var(--soft-muted) !important; font-size: 12px; }
+.app.soft-ui.ready-ui.ui-refresh > main > header .breadcrumbs strong { color: var(--soft-text-3) !important; }
+.app.soft-ui.ready-ui.ui-refresh > main > header .breadcrumbs b { color: var(--soft-faint) !important; }
+.app.soft-ui.ready-ui.ui-refresh > main > header .top-action-strip {
+  grid-column: 3 / -1;
+  grid-row: 2;
+  justify-self: end;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  max-width: 100%;
+  justify-content: flex-end;
+  gap: 8px !important;
+  margin: 0 !important;
+}
+.app.soft-ui.ready-ui.ui-refresh > main > header .search {
+  grid-column: 4;
+  grid-row: 1;
+  width: min(280px, 28vw) !important;
+  height: 40px;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  background: var(--soft-tint) !important;
+  box-shadow: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh > main > header .search:focus-within { box-shadow: 0 0 0 2px color-mix(in srgb, var(--soft-accent) 35%, transparent) !important; background: var(--soft-card) !important; }
+.app.soft-ui.ready-ui.ui-refresh > main > header .search input { color: var(--soft-text) !important; }
+.app.soft-ui.ready-ui.ui-refresh > main > header .search input::placeholder { color: var(--soft-faint) !important; }
+.app.soft-ui.ready-ui.ui-refresh > main > header .search > svg { color: var(--soft-muted) !important; }
+.app.soft-ui.ready-ui.ui-refresh > main > header > .minimal-mode-toggle { grid-column: 5; grid-row: 1; }
+
+/* 顶栏的圆角白色图标按钮（像参考图的铃铛/搜索） */
+.app.soft-ui.ready-ui.ui-refresh > main > header .top-pill,
+.app.soft-ui.ready-ui.ui-refresh > main > header > .minimal-mode-toggle {
+  width: 40px !important;
+  min-width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  background: var(--soft-card) !important;
+  background-image: none !important;
+  color: var(--soft-muted) !important;
+  box-shadow: var(--soft-shadow-sm) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh > main > header .top-pill:hover:not(:disabled),
+.app.soft-ui.ready-ui.ui-refresh > main > header > .minimal-mode-toggle:hover { color: var(--soft-accent) !important; background: var(--soft-accent-tint) !important; transform: translateY(-1px); }
+.app.soft-ui.ready-ui.ui-refresh > main > header .top-pill.on { color: var(--soft-on-accent) !important; background: linear-gradient(135deg, var(--soft-accent-2), var(--soft-accent)) !important; box-shadow: var(--soft-btn-shadow-primary) !important; }
+/* AI 导演按钮保留自己的粉紫渐变 */
+.app.soft-ui.ready-ui.ui-refresh > main > header .top-pill.director-prank-button { background: linear-gradient(135deg, #ff7ab8, #8d6bff) !important; color: #fff !important; }
+.app.soft-ui.ready-ui.ui-refresh > main > header .top-pill > span:not(.sr-only) { display: none; }
+
+/* ---------- 工具栏卡片 ---------------------------------------------------- */
+.app.soft-ui.ready-ui.ui-refresh .toolbar {
+  position: sticky !important;
+  top: calc(var(--soft-gap) + 124px) !important;
+  margin: 0 0 12px !important;
+  padding: 14px 18px !important;
+  min-height: 0 !important;
+  border: 0 !important;
+  border-radius: var(--soft-radius) !important;
+  background: var(--soft-card) !important;
+  box-shadow: var(--soft-shadow) !important;
+  backdrop-filter: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .toolbar h1 { color: var(--soft-text) !important; font-weight: 700; }
+.app.soft-ui.ready-ui.ui-refresh .toolbar > div:first-child > span { color: var(--soft-muted) !important; }
+.app.soft-ui.ready-ui.ui-refresh .view-actions { gap: 8px !important; }
+.app.soft-ui.ready-ui.ui-refresh .view-actions > button,
+.app.soft-ui.ready-ui.ui-refresh .view-actions > .popover-anchor > button {
+  min-height: 36px !important;
+  padding: 0 14px !important;
+  border: 0 !important;
+  border-radius: var(--soft-radius-sm) !important;
+  background: var(--soft-tint) !important;
+  background-image: none !important;
+  color: var(--soft-text-3) !important;
+  box-shadow: var(--soft-btn-shadow) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .view-actions > button:hover:not(:disabled),
+.app.soft-ui.ready-ui.ui-refresh .view-actions > .popover-anchor > button:hover:not(:disabled) { background: var(--soft-accent-tint) !important; color: var(--soft-accent) !important; }
+.app.soft-ui.ready-ui.ui-refresh .view-actions > button.on,
+.app.soft-ui.ready-ui.ui-refresh .view-actions > .popover-anchor > button.on,
+.app.soft-ui.ready-ui.ui-refresh .toolbar.popover-open .view-actions > .popover-anchor > button[aria-expanded="true"] {
+  background: linear-gradient(135deg, var(--soft-accent-2), var(--soft-accent)) !important;
+  color: var(--soft-on-accent) !important;
+  box-shadow: var(--soft-btn-shadow-primary) !important;
+}
+
+/* 工具栏弹层（筛选 / 排序） */
+.app.soft-ui.ready-ui.ui-refresh .toolbar-popover {
+  border: 0 !important;
+  border-radius: var(--soft-radius-md) !important;
+  background: var(--soft-card) !important;
+  box-shadow: var(--soft-shadow-lg) !important;
+  backdrop-filter: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .toolbar-popover strong { color: var(--soft-text) !important; }
+.app.soft-ui.ready-ui.ui-refresh .filter-chips button {
+  border: 0 !important;
+  border-radius: 99px !important;
+  background: var(--soft-tint) !important;
+  color: var(--soft-text-3) !important;
+  box-shadow: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .filter-chips button.selected { background: var(--soft-blue-tint) !important; color: var(--soft-blue-strong) !important; box-shadow: inset 0 0 0 1.5px var(--soft-blue) !important; }
+.app.soft-ui.ready-ui.ui-refresh .filter-actions { border-top-color: var(--soft-line) !important; }
+.app.soft-ui.ready-ui.ui-refresh .view-actions .filter-actions button.primary {
+  border: 0 !important;
+  border-radius: 99px !important;
+  background: linear-gradient(135deg, var(--soft-accent-2), var(--soft-accent)) !important;
+  color: var(--soft-on-accent) !important;
+  box-shadow: var(--soft-btn-shadow-primary) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .sort-popover > button { border-radius: 10px !important; color: var(--soft-text-2) !important; }
+.app.soft-ui.ready-ui.ui-refresh .sort-popover > button:hover { background: var(--soft-tint) !important; }
+.app.soft-ui.ready-ui.ui-refresh .sort-popover > button.selected { color: var(--soft-accent) !important; }
+
+/* ---------- 素材卡片 ------------------------------------------------------ */
+.app.soft-ui.ready-ui.ui-refresh .masonry { gap: 14px !important; padding: 2px 0 28px !important; }
+.app.soft-ui.ready-ui.ui-refresh .masonry article {
+  padding: 10px !important;
+  border: 0 !important;
+  border-radius: 20px !important;
+  background: var(--soft-card) !important;
+  box-shadow: var(--soft-shadow) !important;
+  transition: transform .2s ease, box-shadow .2s ease !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .masonry article:hover:not(.selected):not(.multi-selected) { transform: translateY(-2px); box-shadow: var(--soft-shadow-hover) !important; }
+.app.soft-ui.ready-ui.ui-refresh .masonry article .thumb { border-radius: 14px !important; background: var(--soft-tint) !important; overflow: hidden; }
+.app.soft-ui.ready-ui.ui-refresh .masonry article .name,
+.app.soft-ui.ready-ui.ui-refresh .masonry article h3,
+.app.soft-ui.ready-ui.ui-refresh .masonry article strong { color: var(--soft-text) !important; }
+.app.soft-ui.ready-ui.ui-refresh .masonry article.selected,
+.app.soft-ui.ready-ui.ui-refresh .masonry article.multi-selected { box-shadow: 0 0 0 2px var(--soft-accent), var(--soft-btn-shadow-primary) !important; }
+
+/* 文件夹卡片（主区） */
+.app.soft-ui.ready-ui.ui-refresh .content-folders > button {
+  border: 0 !important;
+  border-radius: var(--soft-radius-md) !important;
+  background: var(--soft-card) !important;
+  color: var(--soft-text) !important;
+  box-shadow: var(--soft-shadow-sm) !important;
+}
+
+/* ---------- 空状态 -------------------------------------------------------- */
+.app.soft-ui.ready-ui.ui-refresh .empty-library-state h2 { color: var(--soft-text) !important; font-weight: 700; }
+.app.soft-ui.ready-ui.ui-refresh .empty-library-state p { color: var(--soft-muted) !important; }
+.app.soft-ui.ready-ui.ui-refresh .empty-library-state .empty-folder-illustration { filter: none !important; width: min(300px, 60vw); height: 212px; }
+.app.soft-ui.ready-ui.ui-refresh .empty-library-actions button {
+  min-height: 40px !important;
+  padding: 0 20px !important;
+  border: 0 !important;
+  border-radius: 99px !important;
+  background: var(--soft-card) !important;
+  color: var(--soft-text) !important;
+  box-shadow: var(--soft-shadow-sm) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .empty-library-actions button:first-child {
+  background: linear-gradient(135deg, var(--soft-accent-2), var(--soft-accent)) !important;
+  color: var(--soft-on-accent) !important;
+  box-shadow: var(--soft-btn-shadow-primary) !important;
+}
+
+/* ---------- 右侧详情面板 -------------------------------------------------- */
+.app.soft-ui.ready-ui.ui-refresh .detail {
+  margin: var(--soft-gap) var(--soft-gap) var(--soft-gap) 0;
+  height: calc(100vh - var(--soft-gap) * 2) !important;
+  border: 0 !important;
+  border-radius: var(--soft-radius) !important;
+  background: var(--soft-card) !important;
+  box-shadow: var(--soft-shadow) !important;
+  backdrop-filter: none !important;
+  overflow: auto;
+}
+.app.soft-ui.ready-ui.ui-refresh .detail-head { border-bottom-color: var(--soft-line) !important; background: transparent !important; }
+.app.soft-ui.ready-ui.ui-refresh .detail .fui-Input,
+.app.soft-ui.ready-ui.ui-refresh .detail input,
+.app.soft-ui.ready-ui.ui-refresh .detail textarea,
+.app.soft-ui.ready-ui.ui-refresh .detail select {
+  border: 0 !important;
+  border-radius: var(--soft-radius-sm) !important;
+  background: var(--soft-tint) !important;
+  color: var(--soft-text) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .detail-actions > button { border: 0 !important; border-radius: var(--soft-radius-sm) !important; background: var(--soft-tint) !important; color: var(--soft-text) !important; box-shadow: var(--soft-btn-shadow) !important; }
+.app.soft-ui.ready-ui.ui-refresh .detail-actions .open { background: linear-gradient(135deg, var(--soft-accent-2), var(--soft-accent)) !important; color: var(--soft-on-accent) !important; box-shadow: var(--soft-btn-shadow-primary) !important; }
+.app.soft-ui.ready-ui.ui-refresh .ready-audio-preview { border-radius: var(--soft-radius-md) !important; background: var(--soft-tint) !important; border: 0 !important; }
+
+/* ---------- 菜单、对话框、提示 ------------------------------------------- */
+.app.soft-ui.ready-ui.ui-refresh .context-menu,
+.app.soft-ui.ready-ui.ui-refresh .app-menu,
+.app.soft-ui.ready-ui.ui-refresh .asset-menu,
+.app.soft-ui.ready-ui.ui-refresh .ready-ui-menu {
+  border: 0 !important;
+  border-radius: var(--soft-radius-md) !important;
+  background: var(--soft-card) !important;
+  box-shadow: var(--soft-shadow-lg) !important;
+  backdrop-filter: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .modal-backdrop .app-dialog,
+.app.soft-ui.ready-ui.ui-refresh .app-dialog { border: 0 !important; border-radius: var(--soft-radius) !important; box-shadow: var(--soft-shadow-dialog) !important; }
+.app.soft-ui.ready-ui.ui-refresh .bug-feedback {
+  border: 0 !important;
+  border-radius: 99px !important;
+  background: var(--soft-card) !important;
+  color: var(--soft-text-3) !important;
+  box-shadow: var(--soft-shadow-sm) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .toast { border: 0 !important; border-radius: 99px !important; background: var(--soft-text) !important; color: var(--soft-card) !important; box-shadow: var(--soft-shadow) !important; }
+
+/* 右键菜单：白底、浅色分隔线、圆角悬停 */
+.app.soft-ui.ready-ui.ui-refresh .asset-menu,
+.app.soft-ui.ready-ui.ui-refresh .app-menu,
+.app.soft-ui.ready-ui.ui-refresh .context-menu { background: var(--soft-card) !important; padding: 6px !important; }
+.app.soft-ui.ready-ui.ui-refresh .menu-separator,
+.app.soft-ui.ready-ui.ui-refresh .app-menu-divider { height: 1px !important; margin: 5px 8px !important; border: 0 !important; background: var(--soft-line) !important; }
+.app.soft-ui.ready-ui.ui-refresh .asset-menu > button,
+.app.soft-ui.ready-ui.ui-refresh .asset-menu .menu-item,
+.app.soft-ui.ready-ui.ui-refresh .app-menu button,
+.app.soft-ui.ready-ui.ui-refresh .context-menu button { border-radius: 10px !important; color: var(--soft-text-2) !important; }
+.app.soft-ui.ready-ui.ui-refresh .asset-menu > button:hover:not(:disabled),
+.app.soft-ui.ready-ui.ui-refresh .asset-menu .menu-item:hover,
+.app.soft-ui.ready-ui.ui-refresh .app-menu button:hover:not(:disabled),
+.app.soft-ui.ready-ui.ui-refresh .context-menu button:hover:not(:disabled) { background: var(--soft-accent-tint) !important; color: var(--soft-accent) !important; }
+.app.soft-ui.ready-ui.ui-refresh .asset-menu svg,
+.app.soft-ui.ready-ui.ui-refresh .app-menu svg,
+.app.soft-ui.ready-ui.ui-refresh .context-menu svg { color: var(--soft-muted); }
+
+/* Windows 窗口按钮：放进问候卡片右上角，做成圆角小方块 */
+.app.soft-ui.ready-ui.ui-refresh .window-controls { top: 24px; right: 30px; height: auto; gap: 8px; }
+.app.soft-ui.ready-ui.ui-refresh button.window-control {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: var(--soft-tint) !important;
+  color: var(--soft-muted) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh button.window-control:hover { background: var(--soft-blue-tint) !important; color: var(--soft-blue) !important; }
+.app.soft-ui.ready-ui.ui-refresh button.window-control:active { background: var(--soft-blue-tint-2) !important; color: var(--soft-blue-strong) !important; }
+.app.soft-ui.ready-ui.ui-refresh button.window-control.close:hover { background: linear-gradient(135deg, #ff9a8a, #ff6b5e) !important; color: #fff !important; box-shadow: 0 6px 14px rgba(255, 107, 94, .35); }
+.app.soft-ui.ready-ui.ui-refresh button.window-control.close:active { background: #f0564a !important; color: #fff !important; }
+
+/* =========================================================================
+   第三轮：统一按钮系统
+   - 所有按钮 / 输入框去掉描边；需要强调时用 1.5px 内描边（box-shadow inset）
+   - 圆角只用四档：小控件 10px、按钮与输入框 12px、卡片 16~22px、胶囊 99px
+   - 主按钮：橙色渐变；次要：浅灰底，悬停变浅橙；危险：浅红底；文字链接：蓝色
+   ========================================================================= */
+.app.soft-ui.ready-ui.ui-refresh button:not(.window-control):not(.soft-rail-item),
+.app.soft-ui.ready-ui.ui-refresh select,
+.app.soft-ui.ready-ui.ui-refresh input:not([type=checkbox]):not([type=radio]):not([type=range]),
+.app.soft-ui.ready-ui.ui-refresh textarea { border-color: transparent !important; }
+.app.soft-ui.ready-ui.ui-refresh button:focus-visible,
+.app.soft-ui.ready-ui.ui-refresh select:focus-visible,
+.app.soft-ui.ready-ui.ui-refresh input:focus-visible,
+.app.soft-ui.ready-ui.ui-refresh textarea:focus-visible { outline: 2px solid color-mix(in srgb, var(--soft-accent) 60%, transparent) !important; outline-offset: 2px !important; }
+.app.soft-ui.ready-ui.ui-refresh button:not(:disabled):not(.window-control):active { transform: translateY(1px) scale(.985); }
+.app.soft-ui.ready-ui.ui-refresh button:disabled { cursor: not-allowed; }
+
+/* 小控件统一 10px 圆角 */
+.app.soft-ui.ready-ui.ui-refresh .folder-toggle,
+.app.soft-ui.ready-ui.ui-refresh .folder-action,
+.app.soft-ui.ready-ui.ui-refresh .folder-main,
+.app.soft-ui.ready-ui.ui-refresh .breadcrumb-link,
+.app.soft-ui.ready-ui.ui-refresh .sidebar-version,
+.app.soft-ui.ready-ui.ui-refresh .rating button,
+.app.soft-ui.ready-ui.ui-refresh .asset-palette button,
+.app.soft-ui.ready-ui.ui-refresh .detail-head button { border-radius: 10px !important; }
+.app.soft-ui.ready-ui.ui-refresh .folder-action.danger:hover { background: var(--soft-danger-tint) !important; color: var(--soft-danger) !important; }
+
+/* 次要按钮：弹层里的“清除全部 / 重置”、排序项 */
+.app.soft-ui.ready-ui.ui-refresh .popover-title button,
+.app.soft-ui.ready-ui.ui-refresh .filter-actions button:not(.primary) {
+  min-height: 32px !important;
+  padding: 0 14px !important;
+  border-radius: 99px !important;
+  background: var(--soft-tint) !important;
+  color: var(--soft-text-3) !important;
+  box-shadow: var(--soft-btn-shadow) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .popover-title button:hover,
+.app.soft-ui.ready-ui.ui-refresh .filter-actions button:not(.primary):hover { background: var(--soft-accent-tint) !important; color: var(--soft-accent) !important; }
+.app.soft-ui.ready-ui.ui-refresh .sort-popover > button { box-shadow: none !important; background: transparent !important; }
+.app.soft-ui.ready-ui.ui-refresh .sort-popover > button:hover { background: var(--soft-tint) !important; }
+.app.soft-ui.ready-ui.ui-refresh .sort-popover > button.selected { background: var(--soft-accent-tint) !important; color: var(--soft-accent) !important; }
+
+/* 详情面板里的小按钮 */
+.app.soft-ui.ready-ui.ui-refresh .asset-palette button { box-shadow: inset 0 0 0 1px var(--soft-hairline) !important; }
+.app.soft-ui.ready-ui.ui-refresh .add-tag { gap: 8px !important; }
+.app.soft-ui.ready-ui.ui-refresh .add-tag input { border-radius: var(--soft-radius-sm) !important; }
+.app.soft-ui.ready-ui.ui-refresh .add-tag button {
+  width: 36px !important;
+  min-width: 36px !important;
+  border-radius: var(--soft-radius-sm) !important;
+  background: var(--soft-tint) !important;
+  color: var(--soft-muted) !important;
+  box-shadow: var(--soft-btn-shadow) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .add-tag button:hover:not(:disabled) { background: var(--soft-accent-tint) !important; color: var(--soft-accent) !important; }
+.app.soft-ui.ready-ui.ui-refresh .usage-row { border-radius: var(--soft-radius-sm) !important; background: var(--soft-tint) !important; box-shadow: none !important; }
+.app.soft-ui.ready-ui.ui-refresh .usage-row:hover { background: var(--soft-blue-tint) !important; }
+.app.soft-ui.ready-ui.ui-refresh .detail-body button.delete,
+.app.soft-ui.ready-ui.ui-refresh button.danger,
+.app.soft-ui.ready-ui.ui-refresh .menu-danger {
+  border-radius: var(--soft-radius-sm) !important;
+  background: var(--soft-danger-tint) !important;
+  color: var(--soft-danger) !important;
+  box-shadow: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .detail-body button.delete:hover,
+.app.soft-ui.ready-ui.ui-refresh button.danger:hover:not(:disabled) { background: var(--soft-danger-tint-2) !important; }
+
+/* 设置页的主题预设：选中用内描边，不用粗边框 */
+.app.soft-ui.ready-ui.ui-refresh .theme-preset-buttons button {
+  border-radius: var(--soft-radius-sm) !important;
+  background: var(--soft-tint) !important;
+  color: var(--soft-text-2) !important;
+  box-shadow: var(--soft-btn-shadow) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .theme-preset-buttons button:hover { background: var(--soft-accent-tint) !important; }
+.app.soft-ui.ready-ui.ui-refresh .theme-preset-buttons button.selected { background: var(--soft-accent-tint) !important; color: var(--soft-accent) !important; box-shadow: inset 0 0 0 1.5px var(--soft-accent) !important; }
+
+/* 参考板名称输入框 */
+.app.soft-ui.ready-ui.ui-refresh .reference-board-create-form input { border-radius: var(--soft-radius-sm) !important; background: var(--soft-tint) !important; box-shadow: none !important; }
+
+/* 文字链接按钮 */
+.app.soft-ui.ready-ui.ui-refresh .breadcrumb-link:hover { background: var(--soft-blue-tint) !important; color: var(--soft-blue) !important; text-decoration: none !important; }
+
+/* =========================================================================
+   顶栏按钮统一（用户反馈：样式不一致、右边被截断、窗口按钮没对齐）
+   - 顶栏所有按钮（工具图标、极简切换、窗口按钮）同一种：36px 圆角方块、浅灰底、无投影
+   - Windows 窗口按钮占顶栏第一行的最后一列，和搜索框对齐；第二行的工具按钮可以用满整行宽度
+   - 去掉旧的 48vw 宽度限制，放不下时缩小间距，再放不下就换行，不再被截断
+   ========================================================================= */
+.app.soft-ui.ready-ui.ui-refresh > main > header .top-pill,
+.app.soft-ui.ready-ui.ui-refresh > main > header > .minimal-mode-toggle,
+.app.soft-ui.ready-ui.ui-refresh button.window-control {
+  width: 36px !important;
+  min-width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: var(--soft-tint) !important;
+  background-image: none !important;
+  color: var(--soft-text-3) !important;
+  box-shadow: var(--soft-btn-shadow) !important;
+  transform: none;
+}
+.app.soft-ui.ready-ui.ui-refresh > main > header .top-pill:hover:not(:disabled),
+.app.soft-ui.ready-ui.ui-refresh > main > header > .minimal-mode-toggle:hover,
+.app.soft-ui.ready-ui.ui-refresh button.window-control:hover { background: var(--soft-blue-tint) !important; color: var(--soft-blue) !important; transform: none; }
+.app.soft-ui.ready-ui.ui-refresh > main > header .top-pill.on,
+.app.soft-ui.ready-ui.ui-refresh > main > header > .minimal-mode-toggle.on {
+  background: linear-gradient(135deg, var(--soft-accent-2), var(--soft-accent)) !important;
+  color: var(--soft-on-accent) !important;
+  box-shadow: var(--soft-btn-shadow-primary) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh > main > header .top-pill.director-prank-button { background: linear-gradient(135deg, #ff7ab8, #8d6bff) !important; color: #fff !important; }
+.app.soft-ui.ready-ui.ui-refresh > main > header .top-pill:disabled { opacity: .45; }
+.app.soft-ui.ready-ui.ui-refresh button.window-control.close:hover { background: linear-gradient(135deg, #ff9a8a, #ff6b5e) !important; color: #fff !important; box-shadow: 0 6px 14px rgba(255, 107, 94, .35) !important; }
+/* 文字按钮（“聊天”）做成胶囊 */
+.app.soft-ui.ready-ui.ui-refresh > main > header .top-action-strip .top-pill:not(:has(> svg)) {
+  width: auto !important;
+  padding: 0 12px !important;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 布局：Windows 上第一行最后一列留给窗口按钮（3×36 + 2×6 = 120px） */
+.app.soft-ui.ready-ui.ui-refresh > main > header .top-action-strip {
+  grid-column: 3 / -1 !important;
+  justify-self: end;
+  max-width: 100% !important;
+  overflow: visible !important;
+  flex-wrap: wrap !important;
+  justify-content: flex-end !important;
+  gap: 6px !important;
+}
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header {
+  grid-template-columns: 48px auto minmax(0, 1fr) auto auto 120px;
+  grid-template-rows: 40px auto;
+  padding-right: 18px !important;
+}
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header .top-action-strip { grid-column: 3 / -1 !important; }
+/* 窗口按钮：固定定位对准第一行（顶栏上边距 16 + 内边距 12 + (40-36)/2 = 30） */
+.app.soft-ui.ready-ui.ui-refresh .window-controls { top: 30px !important; right: calc(var(--soft-gap) + 18px) !important; gap: 6px !important; }
+/* 弹窗打开时（遮罩是淡灰半透明的那几种）：窗口按钮还浮在遮罩上面，白色方块悬在半空、贴着弹窗自己的 ×，
+   下沿还压住设置弹窗的上边缘。改成贴窗口顶边、无底色无投影的线条图标，像系统标题栏按钮一样。 */
+.app.soft-ui.ready-ui.ui-refresh:has(.modal-backdrop) .window-controls,
+.app.soft-ui.ready-ui.ui-refresh:has(.ai-settings-backdrop) .window-controls { top: 8px !important; right: 10px !important; gap: 2px !important; }
+.app.soft-ui.ready-ui.ui-refresh:has(.modal-backdrop) button.window-control,
+.app.soft-ui.ready-ui.ui-refresh:has(.ai-settings-backdrop) button.window-control {
+  width: 40px !important;
+  min-width: 40px !important;
+  height: 32px !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  color: color-mix(in srgb, var(--soft-text) 72%, transparent) !important;
+  box-shadow: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh:has(.modal-backdrop) button.window-control:hover,
+.app.soft-ui.ready-ui.ui-refresh:has(.ai-settings-backdrop) button.window-control:hover { background: color-mix(in srgb, var(--soft-card) 55%, transparent) !important; color: var(--soft-text) !important; }
+.app.soft-ui.ready-ui.ui-refresh:has(.modal-backdrop) button.window-control.close:hover,
+.app.soft-ui.ready-ui.ui-refresh:has(.ai-settings-backdrop) button.window-control.close:hover { background: linear-gradient(135deg, #ff9a8a, #ff6b5e) !important; color: #fff !important; box-shadow: none !important; }
+/* 窄窗口：缩小间距与按钮 */
+@media (max-width: 1180px) {
+  .app.soft-ui.ready-ui.ui-refresh > main > header .top-action-strip { gap: 4px !important; }
+  .app.soft-ui.ready-ui.ui-refresh > main > header .top-action-strip .top-pill { width: 32px !important; min-width: 32px !important; height: 32px !important; border-radius: 10px !important; }
+  .app.soft-ui.ready-ui.ui-refresh > main > header .search { width: min(180px, 20vw) !important; }
+}
+/* 窄窗口：名字和路径放不下时显示省略号，不钻到搜索框下面；路径保持一行 */
+.app.soft-ui.ready-ui.ui-refresh .soft-greeting-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.app.soft-ui.ready-ui.ui-refresh > main > header .breadcrumbs { flex-wrap: nowrap !important; white-space: nowrap; overflow: hidden; }
+@media (max-width: 1180px) {
+  .app.soft-ui.ready-ui.ui-refresh > main > header .search { width: min(180px, 20vw) !important; }
+  .app.soft-ui.ready-ui.ui-refresh .soft-greeting-name { font-size: 16px; }
+}
+/* 侧栏橙色“导入素材”按钮：旧的 mineradio 规则选择器更长，这里同样加上 .eagle-ui 才能盖过它 */
+.app.soft-ui.ready-ui.ui-refresh.eagle-ui .import-actions .import-action.primary,
+.app.soft-ui.ready-ui.ui-refresh.eagle-ui .import-actions .import-action.primary:hover { box-shadow: var(--soft-btn-shadow-primary) !important; }

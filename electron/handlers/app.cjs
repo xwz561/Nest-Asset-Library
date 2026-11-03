@@ -26,7 +26,7 @@ ipcMain.handle('app:set-inspector-open',(event,open,width=350,options={})=>{
 
 ipcMain.handle('app:window-control',(event,action)=>{const win=BrowserWindow.fromWebContents(event.sender);if(!win||win.isDestroyed())return{error:'窗口不可用'};if(action==='minimize')win.minimize();else if(action==='maximize')win.isMaximized()?win.unmaximize():win.maximize();else if(action==='close')win.close();else return{error:'未知窗口操作'};return{ok:true,maximized:!win.isDestroyed()&&win.isMaximized()}});
 
-ipcMain.handle('app:set-title-bar-colors',(event,colors={})=>{const win=BrowserWindow.fromWebContents(event.sender);if(process.platform!=='win32'||!win||win.isDestroyed())return{ok:true};const validColor=value=>/^#[0-9a-f]{6,8}$/i.test(String(value||''));if(!validColor(colors.background)||!validColor(colors.symbols))return{error:'标题栏颜色无效'};win.setTitleBarOverlay({color:colors.background,symbolColor:colors.symbols,height:44});return{ok:true,native:true}});
+ipcMain.handle('app:set-title-bar-colors',(event,colors={})=>{const win=BrowserWindow.fromWebContents(event.sender);if(process.platform!=='win32'||!win||win.isDestroyed())return{ok:true};const validColor=value=>/^#[0-9a-f]{6,8}$/i.test(String(value||''));if(!validColor(colors.background)||!validColor(colors.symbols))return{error:'标题栏颜色无效'};return{ok:true,native:false}});
 
 
 ipcMain.handle('app:open-update', async (_, url) => {try{if(!/^https:\/\/github\.com\//i.test(String(url)))return{error:'更新地址无效'};await shell.openExternal(url);return{ok:true}}catch(error){return{error:`无法打开更新地址：${error.message}`}}});

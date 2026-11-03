@@ -1,0 +1,281 @@
+/* =========================================================================
+   柔光橙主题 · 第二轮：面板与对话框（团队素材库、成员、工具集、设置、参考板、资源库菜单）
+   和 soft-ui.css 一样，全部限定在 .app.soft-ui.ready-ui.ui-refresh 下；
+   资源库切换菜单挂在 <body> 上，用 body.soft-ui-body 标记。
+   ========================================================================= */
+
+/* 通用遮罩与对话框 */
+.app.soft-ui.ready-ui.ui-refresh .modal-backdrop,
+.app.soft-ui.ready-ui.ui-refresh .team-library-backdrop,
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-backdrop { background: var(--soft-backdrop) !important; backdrop-filter: blur(6px) !important; }
+.app.soft-ui.ready-ui.ui-refresh .app-dialog { background: var(--soft-card) !important; border-radius: 24px !important; color: var(--soft-text) !important; }
+.app.soft-ui.ready-ui.ui-refresh .app-dialog h2,
+.app.soft-ui.ready-ui.ui-refresh .app-dialog h3,
+.app.soft-ui.ready-ui.ui-refresh .app-dialog strong { color: var(--soft-text) !important; }
+.app.soft-ui.ready-ui.ui-refresh .app-dialog input,
+.app.soft-ui.ready-ui.ui-refresh .app-dialog select,
+.app.soft-ui.ready-ui.ui-refresh .app-dialog textarea {
+  border: 0 !important;
+  border-radius: var(--soft-radius-sm) !important;
+  background: var(--soft-tint) !important;
+  color: var(--soft-text) !important;
+  box-shadow: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .app-dialog input:focus,
+.app.soft-ui.ready-ui.ui-refresh .app-dialog select:focus,
+.app.soft-ui.ready-ui.ui-refresh .app-dialog textarea:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--soft-accent) 35%, transparent) !important; background: var(--soft-card) !important; }
+.app.soft-ui.ready-ui.ui-refresh .app-dialog button.primary,
+.app.soft-ui.ready-ui.ui-refresh .modal-backdrop button.primary,
+.app.soft-ui.ready-ui.ui-refresh .dialog-actions button.primary {
+  border: 0 !important;
+  border-radius: var(--soft-radius-sm) !important;
+  background: linear-gradient(135deg, var(--soft-accent-2), var(--soft-accent)) !important;
+  color: var(--soft-on-accent) !important;
+  box-shadow: var(--soft-btn-shadow-primary) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .dialog-actions button:not(.primary) { border: 0 !important; border-radius: var(--soft-radius-sm) !important; background: var(--soft-tint) !important; color: var(--soft-text) !important; box-shadow: var(--soft-btn-shadow) !important; }
+
+/* 团队素材库窗口 */
+.app.soft-ui.ready-ui.ui-refresh .team-library-window {
+  border: 0 !important;
+  border-radius: 24px !important;
+  background: var(--soft-bg) !important;
+  color: var(--soft-text) !important;
+  box-shadow: var(--soft-shadow-dialog) !important;
+  overflow: hidden;
+}
+.app.soft-ui.ready-ui.ui-refresh .team-library-header { background: var(--soft-card) !important; border-bottom: 1px solid var(--soft-line) !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-library-header strong,
+.app.soft-ui.ready-ui.ui-refresh .team-library-title strong { color: var(--soft-text) !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-library-header small,
+.app.soft-ui.ready-ui.ui-refresh .team-library-title small { color: var(--soft-muted) !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-library-header > button { border: 0 !important; border-radius: 12px !important; background: var(--soft-tint) !important; color: var(--soft-muted) !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-library-connect {
+  padding: 30px 32px;
+  border-radius: 24px;
+  background: var(--soft-card);
+  box-shadow: var(--soft-shadow);
+  width: min(440px, calc(100% - 40px)) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .team-library-connect-icon { border-radius: 18px !important; background: var(--soft-accent-tint) !important; color: var(--soft-accent) !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-library-connect h2 { color: var(--soft-text) !important; font-weight: 700; }
+.app.soft-ui.ready-ui.ui-refresh .team-library-connect p,
+.app.soft-ui.ready-ui.ui-refresh .team-library-connect label { color: var(--soft-muted) !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-library-connect input,
+.app.soft-ui.ready-ui.ui-refresh .team-library-new-folder select,
+.app.soft-ui.ready-ui.ui-refresh .team-library-search {
+  border: 0 !important;
+  border-radius: var(--soft-radius-sm) !important;
+  background: var(--soft-tint) !important;
+  color: var(--soft-text) !important;
+  box-shadow: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .team-library-connect input:focus { background: var(--soft-card) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--soft-accent) 35%, transparent) !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-library-connect > button:not(.team-library-link) {
+  border: 0 !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, var(--soft-accent-2), var(--soft-accent)) !important;
+  color: var(--soft-on-accent) !important;
+  box-shadow: var(--soft-btn-shadow-primary) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .team-library-link { color: var(--soft-blue) !important; background: transparent !important; box-shadow: none !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-library-folder-path { border: 0 !important; border-radius: var(--soft-radius-sm) !important; background: var(--soft-tint) !important; color: var(--soft-text) !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-library-folder-tree,
+.app.soft-ui.ready-ui.ui-refresh .team-library-members form,
+.app.soft-ui.ready-ui.ui-refresh .team-library-member-list { border: 0 !important; border-radius: 18px !important; background: var(--soft-card) !important; box-shadow: var(--soft-shadow-sm) !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-library-subfolders button,
+.app.soft-ui.ready-ui.ui-refresh .team-library-asset-grid article,
+.app.soft-ui.ready-ui.ui-refresh .team-library-asset-list article {
+  border: 0 !important;
+  border-radius: 16px !important;
+  background: var(--soft-card) !important;
+  color: var(--soft-text) !important;
+  box-shadow: var(--soft-shadow-sm) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .team-library-file-icon { border-radius: 12px !important; background: var(--soft-blue-tint) !important; color: var(--soft-blue) !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-library-preview { border: 0 !important; border-radius: 22px !important; background: var(--soft-card) !important; box-shadow: var(--soft-shadow-dialog) !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-library-error-banner { background: var(--soft-danger-tint) !important; color: var(--soft-danger) !important; }
+
+/* 成员与权限 */
+.app.soft-ui.ready-ui.ui-refresh .team-dialog { border: 0 !important; border-radius: 24px !important; background: var(--soft-card) !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-dialog .team-notice { border: 0 !important; border-radius: 14px !important; background: var(--soft-accent-tint) !important; color: var(--soft-accent-strong) !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-dialog .team-current,
+.app.soft-ui.ready-ui.ui-refresh .team-dialog .team-members,
+.app.soft-ui.ready-ui.ui-refresh .team-dialog .team-default-role,
+.app.soft-ui.ready-ui.ui-refresh .team-dialog .team-matrix {
+  border: 0 !important;
+  border-radius: 16px !important;
+  background: var(--soft-tint) !important;
+  box-shadow: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .team-dialog .team-member { border: 0 !important; border-top: 1px solid var(--soft-line) !important; background: transparent !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-dialog select,
+.app.soft-ui.ready-ui.ui-refresh .team-dialog input { border: 0 !important; border-radius: var(--soft-radius-sm) !important; background: var(--soft-card) !important; box-shadow: var(--soft-shadow-sm) !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-dialog .team-add input { background: var(--soft-tint) !important; box-shadow: none !important; }
+.app.soft-ui.ready-ui.ui-refresh .team-dialog .team-members > header,
+.app.soft-ui.ready-ui.ui-refresh .team-dialog .team-members > div:first-child { background: transparent !important; border-bottom: 1px solid var(--soft-line) !important; box-shadow: none !important; }
+
+/* 友商工具集 */
+.app.soft-ui.ready-ui.ui-refresh .friend-tools-dialog { border: 0 !important; border-radius: 24px !important; background: var(--soft-bg) !important; }
+.app.soft-ui.ready-ui.ui-refresh .friend-tools-heading { border: 0 !important; border-radius: 18px !important; background: var(--soft-card) !important; box-shadow: var(--soft-shadow-sm) !important; }
+.app.soft-ui.ready-ui.ui-refresh .friend-tools-grid .friend-tool-card {
+  border: 0 !important;
+  border-radius: 18px !important;
+  background: var(--soft-card) !important;
+  color: var(--soft-text) !important;
+  box-shadow: var(--soft-shadow-sm) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .friend-tools-grid .friend-tool-card:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--soft-shadow) !important; }
+.app.soft-ui.ready-ui.ui-refresh .friend-tools-grid .friend-tool-card:disabled { opacity: .55; }
+.app.soft-ui.ready-ui.ui-refresh .friend-tools-grid .friend-tool-empty { border: 1.5px dashed var(--soft-line) !important; border-radius: 18px !important; background: transparent !important; box-shadow: none !important; }
+.app.soft-ui.ready-ui.ui-refresh .friend-tool-icon { border: 0 !important; border-radius: 14px !important; background: var(--soft-accent-tint) !important; color: var(--soft-accent) !important; }
+.app.soft-ui.ready-ui.ui-refresh .friend-tool-empty .friend-tool-icon { background: var(--soft-tint) !important; color: var(--soft-faint) !important; }
+
+/* 设置页 */
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-page { border: 0 !important; border-radius: 24px !important; overflow: hidden; box-shadow: var(--soft-shadow-dialog) !important; }
+/* 左边是导航（.ai-settings-nav），右边是 AI 页的助手面板（.ai-settings-side），两者别弄混 */
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-nav { background: var(--soft-card) !important; border-right: 1px solid var(--soft-line) !important; }
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-side { background: var(--soft-bg) !important; border: 0 !important; border-left: 1px solid var(--soft-line) !important; }
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-main,
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-lower { background: var(--soft-bg) !important; }
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-top { background: var(--soft-card) !important; border-bottom: 1px solid var(--soft-line) !important; }
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-nav button { border: 0 !important; border-radius: 12px !important; color: var(--soft-text-2) !important; }
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-nav button.active,
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-nav button[aria-current] { background: var(--soft-accent-tint) !important; color: var(--soft-accent) !important; }
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-search { border: 0 !important; border-radius: 12px !important; background: var(--soft-tint) !important; }
+.app.soft-ui.ready-ui.ui-refresh .appearance-section,
+.app.soft-ui.ready-ui.ui-refresh .settings-generic > section,
+.app.soft-ui.ready-ui.ui-refresh .ai-model-card {
+  border: 0 !important;
+  border-radius: 18px !important;
+  background: var(--soft-card) !important;
+  box-shadow: var(--soft-shadow-sm) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .settings-actions .primary,
+.app.soft-ui.ready-ui.ui-refresh .ai-model-actions .primary {
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, var(--soft-accent-2), var(--soft-accent)) !important;
+  color: var(--soft-on-accent) !important;
+  box-shadow: var(--soft-btn-shadow-primary) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .settings-actions button:not(.primary):not(.danger) { border: 0 !important; border-radius: 12px !important; background: var(--soft-tint) !important; color: var(--soft-text) !important; box-shadow: var(--soft-btn-shadow) !important; }
+
+/* 无限参考板 */
+.app.soft-ui.ready-ui.ui-refresh button.reference-board-primary,
+.app.soft-ui.ready-ui.ui-refresh button.reference-board-primary:hover:not(:disabled) {
+  border: 0 !important;
+  background: linear-gradient(135deg, var(--soft-accent-2), var(--soft-accent)) !important;
+  color: var(--soft-on-accent) !important;
+  box-shadow: var(--soft-btn-shadow-primary) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .reference-board-primary * { color: var(--soft-on-accent) !important; }
+
+/* 资源库切换菜单 */
+body.soft-ui-body .app-menu {
+  border: 0 !important;
+  border-radius: 18px !important;
+  background: var(--soft-card) !important;
+  box-shadow: var(--soft-shadow-lg) !important;
+  backdrop-filter: none !important;
+}
+body.soft-ui-body .app-menu input { border: 0 !important; border-radius: 12px !important; background: var(--soft-tint) !important; box-shadow: none !important; }
+body.soft-ui-body .app-menu button { border-radius: 12px !important; color: var(--soft-text-2) !important; }
+body.soft-ui-body .app-menu button:hover:not(:disabled) { background: var(--soft-accent-tint) !important; color: var(--soft-accent) !important; }
+body.soft-ui-body .app-menu .app-menu-divider { background: var(--soft-line) !important; }
+
+/* 设置页“主题与配色”这类内嵌卡片（.appearance-dialog-inline）：
+   原来内边距是 0，标题贴边；底部操作栏用负外边距伸出卡片；里面的分组又是带投影的白卡片。 */
+.app.soft-ui.ready-ui.ui-refresh .appearance-dialog-inline {
+  padding: 22px 24px 18px !important;
+  border: 0 !important;
+  border-radius: 22px !important;
+  background: var(--soft-card) !important;
+  box-shadow: var(--soft-shadow) !important;
+  overflow: hidden;
+}
+.app.soft-ui.ready-ui.ui-refresh .appearance-dialog-inline .appearance-head { margin: 0 0 14px !important; padding: 0 !important; }
+.app.soft-ui.ready-ui.ui-refresh .appearance-dialog-inline .appearance-section {
+  margin: 0 0 12px !important;
+  padding: 16px 18px !important;
+  border: 0 !important;
+  border-radius: 16px !important;
+  background: var(--soft-tint) !important;
+  box-shadow: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .appearance-dialog-inline .appearance-actions {
+  position: static !important;
+  margin: 6px 0 0 !important;
+  padding: 14px 0 0 !important;
+  border: 0 !important;
+  border-top: 1px solid var(--soft-line) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .appearance-dialog-inline .appearance-actions::before,
+.app.soft-ui.ready-ui.ui-refresh .appearance-dialog-inline .appearance-actions::after { display: none !important; }
+/* 分组底色是浅灰，里面的次要按钮改成白底，才看得出是按钮 */
+.app.soft-ui.ready-ui.ui-refresh .appearance-dialog-inline .appearance-section .theme-preset-buttons button:not(.selected) { background: var(--soft-card) !important; }
+
+/* =========================================================================
+   设置页各分页的模块边缘（通用 / 宠物 / 快捷键 / 工具栏 / 素材库 / 存储 / AI 与模型 / 更新）
+   旧浅色主题给这些模块留下了 1px 灰描边 + 7–8px 小圆角，和柔光橙卡片对不上。统一成：
+   - 一级模块：白底、无描边、18px 圆角、柔和投影
+   - 模块里的子块：浅灰底、无描边、12–14px 圆角
+   ========================================================================= */
+.app.soft-ui.ready-ui.ui-refresh .settings-kv,
+.app.soft-ui.ready-ui.ui-refresh .toolbar-layout-list,
+.app.soft-ui.ready-ui.ui-refresh .automatic-update-row,
+.app.soft-ui.ready-ui.ui-refresh .ai-provider-strip,
+.app.soft-ui.ready-ui.ui-refresh .ai-usage-grid,
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-lower > section,
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-side > section {
+  border: 0 !important;
+  border-radius: 18px !important;
+  background: var(--soft-card) !important;
+  box-shadow: var(--soft-shadow-sm) !important;
+}
+/* 信息列表：左右留白，分隔线缩进到内容里，不再顶到卡片边 */
+.app.soft-ui.ready-ui.ui-refresh .settings-kv { padding: 2px 18px !important; overflow: hidden; }
+.app.soft-ui.ready-ui.ui-refresh .settings-kv > div { padding-left: 0 !important; padding-right: 0 !important; border-bottom: 1px solid var(--soft-line) !important; }
+.app.soft-ui.ready-ui.ui-refresh .settings-kv > div:last-child { border-bottom: 0 !important; }
+
+/* 工具栏：每一行是浅灰子块，“移除”是白色小按钮 */
+.app.soft-ui.ready-ui.ui-refresh .toolbar-layout-item { border: 0 !important; border-radius: 12px !important; background: var(--soft-tint) !important; box-shadow: none !important; }
+.app.soft-ui.ready-ui.ui-refresh .toolbar-layout-item button { border: 0 !important; border-radius: 10px !important; background: var(--soft-card) !important; box-shadow: var(--soft-btn-shadow) !important; }
+
+/* AI 与模型 */
+.app.soft-ui.ready-ui.ui-refresh .ai-usage-grid > div { border: 0 !important; border-radius: 14px !important; background: var(--soft-tint) !important; box-shadow: none !important; }
+.app.soft-ui.ready-ui.ui-refresh .ai-provider-strip button { border: 0 !important; border-radius: 14px !important; }
+.app.soft-ui.ready-ui.ui-refresh .ai-capabilities > span { border: 0 !important; border-radius: 99px !important; background: var(--soft-tint) !important; color: var(--soft-muted) !important; }
+/* “测试连接”沿用了旧深色主题的深灰底，字也是深色，几乎看不见 */
+.app.soft-ui.ready-ui.ui-refresh .ai-model-actions button:not(.primary) {
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: var(--soft-tint) !important;
+  color: var(--soft-text) !important;
+  box-shadow: var(--soft-btn-shadow) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .ai-model-actions button:not(.primary) * { color: inherit !important; }
+
+/* 宠物 */
+.app.soft-ui.ready-ui.ui-refresh .pet-settings-heading button { border: 0 !important; border-radius: 12px !important; background: var(--soft-card) !important; box-shadow: var(--soft-btn-shadow) !important; }
+.app.soft-ui.ready-ui.ui-refresh .pet-choice { border-radius: 14px !important; }
+
+/* 更新：标题栏自带白底和投影，在卡片里又框出一块；说明卡片改成无描边的浅灰子块 */
+.app.soft-ui.ready-ui.ui-refresh .release-notes > header { background: transparent !important; box-shadow: none !important; border-bottom: 1px solid var(--soft-line) !important; }
+.app.soft-ui.ready-ui.ui-refresh .release-note-grid > article { border: 0 !important; border-radius: 14px !important; background: var(--soft-tint) !important; box-shadow: none !important; }
+
+/* 主题与配色：选中的预设同时有 outline 和内描边，看起来是两圈 */
+.app.soft-ui.ready-ui.ui-refresh .theme-preset-buttons button.selected { outline: none !important; }
+/* 颜色色块：去掉系统默认的灰色方框，改成圆角色块 + 一圈很淡的内描边（白色也看得出） */
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-main input[type="color"] { padding: 0 !important; border: 0 !important; border-radius: 9px !important; background: transparent !important; box-shadow: none !important; overflow: hidden; cursor: pointer; }
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-main input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-main input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 9px; box-shadow: inset 0 0 0 1px var(--soft-hairline); }
+
+/* 顶部版本号小标签：原来是 1px 深灰框 */
+.app.soft-ui.ready-ui.ui-refresh .settings-version-badge { border: 0 !important; border-radius: 99px !important; background: var(--soft-tint) !important; color: var(--soft-muted) !important; }
+
+/* AI 页右侧“助手提示语”：旧样式把所有输入框（包括多行的 textarea）都定成 34px 高，提示语只露出一行半 */
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-side textarea { height: auto !important; min-height: 84px; padding: 8px 12px 24px !important; line-height: 1.55; resize: vertical; }

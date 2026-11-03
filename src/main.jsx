@@ -6,6 +6,8 @@ import { Media, Detail, Preview } from "./components/media.jsx";
 import { AIAssistant, AISettings, AIFlowImportDialog } from "./components/lazy-panels.jsx";
 import { AppDialog, TetrisAccessDialog, ExtensionPanel, AboutDialog, UpdatePanel, SupportPanel } from "./components/dialogs.jsx";
 import { FriendToolsDialog } from "./components/friend-tools-dialog.jsx";
+import { SoftEmptyIllustration } from "./components/soft-empty-illustration.jsx";
+import { WindowControls } from "./components/window-controls.jsx";
 import { TeamPanel, BatchRenameDialog } from "./components/team-dialogs.jsx";
 import { ForwardDialog } from "./components/forward-dialog.jsx";
 import { LibraryFinderDialog } from "./components/library-finder-dialog.jsx";
@@ -56,6 +58,9 @@ import "./lan-friends.css";
 import "./automatic-update.css";
 import "./ui-refresh.css";
 import "./motion-polish.css";
+import "./window-controls.css";
+import "./soft-ui.css";
+import "./soft-ui-panels.css";
 import { waitForViewportShift } from "./lib/viewport-settle.js";
 import directorPrankVideo from "./assets/director-prank.mp4";
 
@@ -115,6 +120,16 @@ function App() {
   useEffect(() => {const change=event=>setTheme(event.detail);window.addEventListener(THEME_EVENT,change);return()=>window.removeEventListener(THEME_EVENT,change);}, []);
   const resolvedThemeMode = theme.mode;
   const renderedTheme = theme;
+  // 新界面（左侧图标栏、问候卡片、圆角卡片，样式在 soft-ui.css）对所有主题生效；切换主题只换颜色，不换布局。
+  // 图标栏占的宽度：只加在显示宽度上；拖动调整侧栏时要先减掉，否则保存下来的宽度会越拖越大
+  const softRailWidth = 76;
+  const recycleBinLabel = window.nestDesktop?.platform === "darwin" ? "废纸篓" : "回收站";
+  // 资源库切换菜单挂在 <body> 上，不在 .app 里；给 body 加个标记让 soft-ui.css 也能管到它（深色主题另加 soft-ui-dark）
+  useEffect(() => {
+    document.body.classList.add("soft-ui-body");
+    document.body.classList.toggle("soft-ui-dark", resolvedThemeMode === "dark");
+    return () => document.body.classList.remove("soft-ui-body", "soft-ui-dark");
+  }, [resolvedThemeMode]);
   useEffect(() => {
     const root = document.documentElement;
     const previous = new Map();
@@ -1467,7 +1482,7 @@ function App() {
   };
   const moveSidebarResize = (event) => {
     if (sidebarResizing.current)
-      setSidebarWidth(clampSidebarWidth(event.clientX));
+      setSidebarWidth(clampSidebarWidth(event.clientX - softRailWidth));
   };
   const endSidebarResize = (event) => {
     if (!sidebarResizing.current) return;
@@ -1475,7 +1490,7 @@ function App() {
     if (event.currentTarget.hasPointerCapture(event.pointerId))
       event.currentTarget.releasePointerCapture(event.pointerId);
     document.body.classList.remove("resizing-sidebar");
-    const width = clampSidebarWidth(event.clientX);
+    const width = clampSidebarWidth(event.clientX - softRailWidth);
     setSidebarWidth(width);
     localStorage.setItem(SIDEBAR_WIDTH_KEY, String(width));
   };
@@ -1682,6 +1697,16 @@ function App() {
     return () =>
       background.forEach((element) => element.removeAttribute("inert"));
   }, [desktop, ready, library]);
+  const selectNav = (n) => {
+    setActiveModule("library");
+    setAiResultIds(null);
+    setFilter(n);
+    setCurrentTag(null);
+    if (n === "全部素材") setQuery("");
+    setActiveFolder(null);
+    setSelected(null);
+    setSelectedIds([]);
+  };
   const nav = [
     ["全部素材", "all", LayoutGrid],
     ["未分类", "unclassified", Box],
@@ -1740,9 +1765,9 @@ function App() {
   };
   return (
     <div
-      className={`app eagle-ui ready-ui ui-refresh theme-${resolvedThemeMode} ${minimalMode ? "minimal-mode" : ""} ${inspectorFrame.ready ? "detail-open" : ""} ${inspectorFrame.lockWidth ? "main-locked" : ""} ${folderInspectorOpen ? "folder-inspector-open" : ""} ${emptyFolderView ? "empty-folder-view" : ""} ${aiPanel ? "ai-panel-open" : ""} ${activeModule === "reference-board" ? "reference-board-mode" : ""} ${activeModule === "tetris" ? "tetris-mode" : ""}`}
+      className={`app eagle-ui ready-ui ui-refresh theme-${resolvedThemeMode} soft-ui ${minimalMode ? "minimal-mode" : ""} ${inspectorFrame.ready ? "detail-open" : ""} ${inspectorFrame.lockWidth ? "main-locked" : ""} ${folderInspectorOpen ? "folder-inspector-open" : ""} ${emptyFolderView ? "empty-folder-view" : ""} ${aiPanel ? "ai-panel-open" : ""} ${activeModule === "reference-board" ? "reference-board-mode" : ""} ${activeModule === "tetris" ? "tetris-mode" : ""}`}
       style={{
-        "--sidebar-width": `${sidebarWidth}px`,
+        "--sidebar-width": `${sidebarWidth + softRailWidth}px`,
         "--inspector-overlay-width": `${inspectorFrame.overlayWidth}px`,
         "--main-lock-width": inspectorFrame.lockWidth ? `${inspectorFrame.lockWidth}px` : "auto",
         ...themeStyle(renderedTheme, resolvedThemeMode),
@@ -1787,6 +1812,33 @@ function App() {
       }}
     >
       <aside>
+        <nav className="soft-rail" aria-label="主导航">
+          <div className="soft-rail-logo"><img src={appIcon} alt="" /></div>
+          <div className="soft-rail-group">
+            {nav.map(([n, , Icon]) => (
+              <Button
+                key={n}
+                className={`soft-rail-item ${activeModule === "library" && filter === n && !activeFolder && !currentTag ? "active" : ""} ${n === "未分类" && dropFolderId === null ? "drop-target" : ""}`}
+                title={n}
+                aria-label={n}
+                onDragOver={n === "未分类" ? (e) => { if (e.dataTransfer.types.includes(INTERNAL_DRAG)) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "move"; setDropFolderId(null); } } : undefined}
+                onDragLeave={n === "未分类" ? () => setDropFolderId(undefined) : undefined}
+                onDrop={n === "未分类" ? (e) => dropAssets(e, null) : undefined}
+                onClick={() => selectNav(n)}
+              >
+                <Icon size={18} strokeWidth={1.8} />
+              </Button>
+            ))}
+          </div>
+          <div className="soft-rail-group">
+            <Button className={`soft-rail-item ${activeModule === "reference-board" ? "active" : ""}`} title="无限参考板" aria-label="无限参考板" onClick={() => openReferenceBoard()}><StickyNote size={18} strokeWidth={1.8} /></Button>
+            {desktop && <Button className={`soft-rail-item ${teamLibraryOpen ? "active" : ""}`} title="团队素材库" aria-label="团队素材库" onClick={() => setTeamLibraryOpen(true)}><FolderOpen size={18} strokeWidth={1.8} /></Button>}
+            {desktop && <Button className={`soft-rail-item ${teamPanel ? "active" : ""}`} title="成员与权限" aria-label="成员与权限" disabled={!library} onClick={() => setTeamPanel(true)}><Users size={18} strokeWidth={1.8} /></Button>}
+          </div>
+          <div className="soft-rail-bottom">
+            <Button className="soft-rail-item" title={recycleBinLabel} aria-label={recycleBinLabel} onClick={async () => { const result = await window.nestDesktop?.openRecycleBin?.(); if (result?.error) showMessage(`无法打开${recycleBinLabel}：${result.error}`, 3500); }}><Trash2 size={18} strokeWidth={1.8} /></Button>
+          </div>
+        </nav>
         <div className="sidebar-fixed-controls">
         <div className="brand" ref={appMenuRef}>
           <div className="mark">
@@ -1936,16 +1988,7 @@ function App() {
                 n === "未分类" ? () => setDropFolderId(undefined) : undefined
               }
               onDrop={n === "未分类" ? (e) => dropAssets(e, null) : undefined}
-              onClick={() => {
-                setActiveModule("library");
-                setAiResultIds(null);
-                setFilter(n);
-                setCurrentTag(null);
-                if (n === "全部素材") setQuery("");
-                setActiveFolder(null);
-                setSelected(null);
-                setSelectedIds([]);
-              }}
+              onClick={() => selectNav(n)}
               key={n}
             >
               <Icon size={16} strokeWidth={1.7} />
@@ -2252,6 +2295,10 @@ function App() {
         }}
       >
         <header>
+          <div className="soft-greeting">
+            <span className="soft-avatar" aria-hidden="true">{String(library?.currentMember?.name || "我").trim().slice(0, 1) || "我"}</span>
+            <strong className="soft-greeting-name">你好，{library?.currentMember?.name || "朋友"}</strong>
+          </div>
           <div className="breadcrumbs">
             {activeModule === "reference-board" ? (
               <><StickyNote size={15}/><strong>无限参考板</strong></>
@@ -2613,37 +2660,7 @@ function App() {
         ) : (
           !contentFolders.length && (
                         <section className="empty-library-state" data-tour="assets" aria-label="空文件夹">
-              <svg className="empty-folder-illustration" viewBox="0 0 260 184" aria-hidden="true">
-                <defs>
-                  <linearGradient id="empty-folder-front" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor="#55565a" />
-                    <stop offset="1" stopColor="#35363a" />
-                  </linearGradient>
-                  <linearGradient id="empty-folder-tab" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor="#68696d" />
-                    <stop offset="1" stopColor="#45464a" />
-                  </linearGradient>
-                </defs>
-                <g fill="none" stroke="#75767a" strokeWidth="1.4" opacity=".72">
-                  <rect x="28" y="64" width="44" height="48" rx="10" />
-                  <rect x="37" y="73" width="26" height="29" rx="4" />
-                  <path d="M42 80h16M42 86h16M42 92h11" />
-                  <rect x="192" y="37" width="42" height="48" rx="10" />
-                  <rect x="201" y="46" width="24" height="29" rx="4" />
-                  <path d="M205 54h16M205 60h16M205 66h12" />
-                  <rect x="205" y="118" width="42" height="42" rx="10" />
-                  <rect x="214" y="127" width="24" height="23" rx="4" />
-                  <circle cx="220" cy="134" r="2.5" />
-                  <path d="M216 146c4-6 12-7 19-1" />
-                </g>
-                <path d="M83 76V57c0-7 5-12 12-12h25l12 12h32c7 0 12 5 12 12v16" fill="#414246" stroke="#77787c" strokeWidth="2" />
-                <path d="M94 45V28c0-7 5-12 12-12h43c7 0 12 5 12 12v47" fill="url(#empty-folder-tab)" stroke="#85868a" strokeWidth="2" />
-                <rect x="98" y="19" width="58" height="64" rx="10" fill="url(#empty-folder-tab)" stroke="#898a8e" strokeWidth="2" />
-                <path d="M127 41v27M114 54.5h26" stroke="#a9aaad" strokeWidth="2" strokeLinecap="round" />
-                <path d="M68 82h133c5 0 9 4 8 9l-8 63c-1 7-6 11-13 11H86c-7 0-12-4-13-11l-8-63c-1-5 3-9 8-9Z" fill="url(#empty-folder-front)" stroke="#8b8c90" strokeWidth="2" />
-                <path d="M72 88h130" stroke="#a5a6aa" strokeOpacity=".35" />
-                <path d="m105 25 12 4-7 3 4 9-3 1-5-9-4 5Z" fill="#c5c6c9" />
-              </svg>
+              <SoftEmptyIllustration />
               {query || currentTag || filter !== "全部素材" || hiddenFilterActive ? (
                 <>
                   <h2>没有符合条件的素材</h2>
@@ -3105,6 +3122,7 @@ function App() {
         done={(result) => showMessage(`已转发 ${result.copied} 个素材到「${result.targetName}」`, 4000)}
       />}
       {teamPanel && <TeamPanel library={library} close={() => setTeamPanel(false)} changed={(team) => setLibrary((current) => current ? {...current, team} : current)} />}
+      {desktop && window.nestDesktop?.platform === "win32" && <WindowControls />}
       {teamLibraryOpen && <TeamLibraryPanel close={() => setTeamLibraryOpen(false)} onLibraryOpened={(lib) => {
         applyLibrary(lib, { reset: true });
         setTeamLibraryOpen(false);

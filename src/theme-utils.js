@@ -7,6 +7,7 @@ export const THEME_PRESETS=[
 THEME_PRESETS.push(
  {id:'midnight',name:'午夜蓝',mode:'dark',colors:{main:'#171D29',sidebar:'#202838',card:'#293346',overlay:'#151B26',accent:'#6DA9FF',text:'#F0F4FA',muted:'#A9B5C8',border:'#465369',hover:'#35425A',selected:'#3C5070'}},
  {id:'paper-light',name:'纸白',mode:'light',colors:{main:'#F5F6F8',sidebar:'#E9ECF1',card:'#FFFFFF',overlay:'#F0F2F6',accent:'#2563EB',text:'#111827',muted:'#374151',border:'#B8C0CC',hover:'#E0E6F0',selected:'#D4E1FB'}},
+ {id:'soft-orange',name:'柔光橙（浅色卡片）',mode:'light',colors:{main:'#F2F3F7',sidebar:'#FFFFFF',card:'#FFFFFF',overlay:'#F6F7FB',accent:'#FF8A4C',text:'#1F2333',muted:'#8A90A3',border:'#E3E6EE',hover:'#F1F3F8',selected:'#FFEBDD'}},
  {id:'graphite-violet',name:'石墨紫（简洁专业）',mode:'dark',colors:{main:'#121214',sidebar:'#17171A',card:'#1C1C20',overlay:'#1A1A1E',accent:'#8B7CF6',text:'#ECECEF',muted:'#9A9AA3',border:'#34343C',hover:'#25252B',selected:'#2B2850'}}
 );
 export const THEME_EVENT='nest-theme-change';
@@ -17,7 +18,19 @@ export function normalizeTheme(value){
 }
 export function saveTheme(value){const theme=normalizeTheme(value);globalThis.localStorage?.setItem(THEME_STORAGE_KEY,JSON.stringify(theme));return theme;}
 export function previewTheme(value){const theme=normalizeTheme(value);globalThis.dispatchEvent?.(new CustomEvent(THEME_EVENT,{detail:theme}));return theme;}
-export const DEFAULT_THEME={mode:'dark',preset:'mineradio-glass',colors:{...THEME_PRESETS[0].colors},schemaVersion:7};
+// 新用户默认用“柔光橙”配色：浅色、橙色强调。新界面（soft-ui.css）对所有主题都生效，主题只决定颜色。
+export const SOFT_UI_PRESET='soft-orange';
+// 新界面按钮上的文字：强调色上尽量用白字（柔光风格），白字对比度不到 3 时换成深色字。
+export function onAccentText(color){return contrastRatio(color,'#FFFFFF')>=3?'#FFFFFF':readableText(color)}
+// 新界面的“选中”色：柔光橙配色用参考图里的浅蓝，其他主题直接用自己的强调色。
+// 柔光橙的橙色和浅蓝按钮按参考图固定用白字（对比度略低于 3，是设计上的取舍）。
+const SOFT_SELECT={color:'#6FA8F5',strong:'#3B78D8'};
+export function softUiColors(theme){
+  const c=theme.colors,orange=theme.preset===SOFT_UI_PRESET;
+  const select=orange?SOFT_SELECT.color:c.accent;
+  return {'--soft-accent-text':orange?'#FFFFFF':onAccentText(c.accent),'--soft-select':select,'--soft-select-text':orange?'#FFFFFF':onAccentText(select),'--soft-select-strong':orange?SOFT_SELECT.strong:`color-mix(in srgb,${select} 72%,${c.text})`};
+}
+export const DEFAULT_THEME={mode:'light',preset:SOFT_UI_PRESET,colors:{...THEME_PRESETS.find(p=>p.id===SOFT_UI_PRESET).colors},schemaVersion:7};
 
 export function normalizeHex(value,fallback='#000000'){
   let text=String(value||'').trim().replace(/^#/,'');
@@ -35,7 +48,11 @@ export function contrastRatio(a,b){const x=luminance(a),y=luminance(b);return (M
 export function readableText(background){return contrastRatio(background,'#FFFFFF')>=contrastRatio(background,'#09111C')?'#FFFFFF':'#09111C'}
 export function themeStyle(theme,resolvedMode='dark'){
   const c=theme.colors;
-  return {'--accent':c.accent,'--accent-text':readableText(c.accent),'--bg-main':c.main,'--bg-sidebar':c.sidebar,'--titlebar-bg':c.sidebar,'--bg-card':c.card,'--bg-overlay':c.overlay,'--text-primary':c.text,'--text-secondary':c.muted,'--ui-border':`color-mix(in srgb,${c.border} 20%,color-mix(in srgb,${c.text} 9%,${c.main}))`,'--theme-border':c.border,'--hover-bg':c.hover,'--selected-bg':c.selected,colorScheme:resolvedMode};
+  return {'--accent':c.accent,'--accent-text':readableText(c.accent),'--bg-main':c.main,'--bg-sidebar':c.sidebar,'--titlebar-bg':c.sidebar,'--bg-card':c.card,'--bg-overlay':c.overlay,'--text-primary':c.text,'--text-secondary':c.muted,'--ui-border':`color-mix(in srgb,${c.border} 20%,color-mix(in srgb,${c.text} 9%,${c.main}))`,'--theme-border':c.border,'--hover-bg':c.hover,'--selected-bg':c.selected,
+    // 团队素材库面板用的是这三个变量；以前没有定义，浅色主题下它会退回到写死的深色。
+    '--bg-primary':c.card,'--bg-secondary':c.overlay,'--border-subtle':`color-mix(in srgb,${c.border} 60%,transparent)`,
+    ...softUiColors(theme),
+    colorScheme:resolvedMode};
 }
 export function loadTheme(){
   const theme={...DEFAULT_THEME,colors:{...DEFAULT_THEME.colors}};

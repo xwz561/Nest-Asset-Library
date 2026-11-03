@@ -169,7 +169,7 @@ test('the Electron title bar opens with the Eagle graphite background', () => {
   const path = require('node:path');
   const main = require('./source-tree.cjs').readSource(path.join(__dirname, '../electron/main.cjs'), 'utf8');
   assert.match(main, /backgroundColor:\s*'#393A3D'/);
-  assert.match(main, /titleBarOverlay:[\s\S]*?color:'#00000000',symbolColor:'#F1F1F1'/);
+  assert.match(main, /titleBarOverlay:undefined,/);
 });
 
  test('new saved themes survive reload and invalid values safely normalize',async()=>{

@@ -144,11 +144,12 @@ test('AI Director entry embeds the designated prank video and plays it in the ap
   assert.doesNotMatch(main, /director:start|ensureDirectorGateway|director-workbench/);
 });
 
-test('Windows uses native caption controls and reserves their titlebar space', () => {
+test('Windows draws its own caption controls and reserves their titlebar space', () => {
   assert.match(main, /titleBarStyle: process\.platform===['"]win32['"]\?['"]hidden['"]/);
-  assert.match(main, /titleBarOverlay:process\.platform===['"]win32['"]\?\{color:['"]#00000000['"],symbolColor:['"]#F1F1F1['"],height:44\}/);
-  assert.doesNotMatch(renderer, /className="window-controls"/);
-  assert.match(main, /win\.setTitleBarOverlay\(\{color:colors\.background,symbolColor:colors\.symbols,height:44\}\)/);
+  // 2026-11-03: Windows hides the native caption buttons; the page draws WindowControls.
+  assert.match(main, /titleBarOverlay:undefined,/);
+  assert.match(renderer, /<WindowControls \/>/);
+  assert.match(main, /win\.webContents\.send\('app:window-state'/);
   assert.match(styles, /\.detail-open main>header\{padding-right:154px\}/);
 });
 

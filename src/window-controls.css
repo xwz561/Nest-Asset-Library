@@ -1,0 +1,33 @@
+/* Windows 右上角的窗口按钮（WindowControls）。所有主题共用这一套基础样式；
+   柔光橙主题在 soft-ui.css 里再改成圆角方块。按钮在弹窗之上，弹窗打开时也能关窗口。
+   浅色主题会用 !important 强制按钮文字颜色，所以这里的图标颜色也带 !important。 */
+.window-controls {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 9000;
+  display: flex;
+  height: 44px;
+  -webkit-app-region: no-drag;
+}
+.window-control {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary, #c9ccd2) !important;
+  cursor: default;
+  transition: background-color .12s ease, color .12s ease;
+}
+.window-control:hover { background: color-mix(in srgb, var(--text-primary, #ffffff) 11%, transparent); color: var(--text-primary, #ffffff) !important; }
+.window-control:active { background: color-mix(in srgb, var(--text-primary, #ffffff) 17%, transparent); }
+.window-control.close:hover { background: #e5484d; color: #ffffff !important; }
+.window-control.close:active { background: #c93b40; color: #ffffff !important; }
+.window-control:focus-visible { outline: 2px solid var(--accent, #2f8cff); outline-offset: -2px; }
+/* 旧版自定义标题栏留下的 .window-controls{background:var(--titlebar-bg)} 会在弹窗打开时露出一块色块；容器本身保持透明 */
+.app .window-controls { background: transparent !important; box-shadow: none !important; }
