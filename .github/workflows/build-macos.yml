@@ -1,0 +1,72 @@
+name: Build macOS installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag that receives the macOS installers
+        required: true
+        default: v3.0.29
+  push:
+    branches:
+      - codex/macos-3.0.29
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: macOS x64 and Apple silicon
+    runs-on: macos-14
+    timeout-minutes: 30
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag || 'v3.0.29' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test source
+        shell: bash
+        run: |
+          for test_file in test/*.test.cjs; do
+            set +e
+            output="$(node --test "$test_file" 2>&1)"
+            status=$?
+            set -e
+            printf '%s\n' "$output"
+            if [ "$status" -ne 0 ]; then
+              failure="$(printf '%s\n' "$output" | grep -m1 '^not ok' || true)"
+              echo "::error title=macOS source test failed::$test_file ${failure:-unknown test failure}"
+              exit "$status"
+            fi
+          done
+
+      - name: Build renderer
+        run: npm run build
+
+      - name: Package DMG and ZIP for both architectures
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          NEST_PACKAGE_OUTPUT: release-${{ env.RELEASE_TAG }}-macos
+        run: npm run package:mac
+
+      - name: Upload macOS installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: 小旺仔素材库-${{ env.RELEASE_TAG }}-macOS
+          path: release-${{ env.RELEASE_TAG }}-macos/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload installers to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: release-${{ env.RELEASE_TAG }}-macos/*

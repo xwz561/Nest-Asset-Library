@@ -1,0 +1,97 @@
+{
+  "name": "nest-asset-library",
+  "private": true,
+  "version": "3.0.29",
+  "description": "小旺仔本地素材资源库",
+  "author": {
+    "name": "xwz"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "node --test test/*.test.cjs",
+    "package": "npm run package:win",
+    "package:win": "node scripts/package-windows-setup.cjs",
+    "package:mac": "node scripts/package-macos-app.cjs"
+  },
+  "build": {
+    "productName": "小旺仔素材库",
+    "artifactName": "${productName}-${version}-Setup.${ext}",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "browser-extension/**/*",
+      "build/**/*",
+      "package.json",
+      "!folder-installer-*{,/**/*}",
+      "!folder-portable-*{,/**/*}",
+      "!director-*-output{,/**/*}",
+      "!internal-drag-qa-output{,/**/*}",
+      "!qa-*{,/**/*}",
+      "!portable-test-output{,/**/*}"
+    ],
+    "extraResources": [
+      {
+        "from": "browser-extension",
+        "to": "browser-extension"
+      },
+      {
+        "from": "build/desktop-shortcut-icon.ico",
+        "to": "desktop-shortcut-icon.ico"
+      }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "include": "build/desktop-shortcut-icon.nsh",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeader": "build/installerHeader.bmp"
+    },
+    "win": {
+      "icon": "build/desktop-shortcut-icon.ico"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "NestAssetLibrary-${version}-macOS-${arch}.${ext}",
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png"
+    }
+  },
+  "type": "module",
+  "main": "electron/main.cjs",
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "dotenv": "^17.4.2",
+    "ffmpeg-static": "^5.3.0",
+    "lucide-react": "latest",
+    "mammoth": "^1.12.2",
+    "openai": "^7.8.0",
+    "pdf-parse": "^2.4.5",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "vite": "latest",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "electron": "^44.3.0",
+    "electron-builder": "^26.15.3"
+  }
+}
