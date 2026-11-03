@@ -6,7 +6,8 @@
 
 ## 当前状态
 
-- 2026-11-03 Mac 问题修复（未提交、未打 Mac 包，只在 Windows 上验证/模拟）：
+- 2026-11-03 用户在 Mac 上实测运行 54 的包：菜单栏小图标、磁盘卡片"磁盘 (Dramabox_HZ)"、logo 都已正常。新问题：工具集打不开，原因是 4 个工具都是 Windows .exe，按钮只在 Windows 上可用。已改（未提交、未打包）：Mac 上按钮可点；Mineradio 已安装时 `shell.openPath` 打开 `/Applications` 或 `~/Applications` 下的 `Mineradio.app`，未安装时打开官方 Mac 版下载页 `github.com/XxHuberrr/Mineradio-paused/releases`；其余三张卡片置灰，显示"仅 Windows 可用"。测试 522 条：500 通过、22 失败（旧失败）。
+- 2026-11-03 Mac 问题修复：已提交 `0eb8bd1` 并推送（fast-forward）。Actions 运行 54（41607774003）全部步骤成功，产物在 Actions artifacts，保留 14 天，版本仍为 3.0.56：x64 DMG 357,529,367 / x64 ZIP 351,476,022 / arm64 DMG 353,189,110 / arm64 ZIP 347,190,000 字节。还没下载到本地（下载需要登录 GitHub），也还没在真 Mac 上复测。
   - 菜单栏被一长条图片占满：托盘图标直接用了 1254px 的 `build/icon.png`，macOS 菜单栏不会自动缩小。`background-tray.cjs` 的 `trayIcon()` 在 Mac 上缩到 18px 并附带 36px Retina 版本，Linux 缩到 22px，Windows 不变。已用真实的 nativeImage 验证。
   - "这个资源库已移动或不可用"（用户点了团队素材库）：加入团队库会先改写 `.nest-library.json`（临时文件 + rename），紧接着检查文件是否存在；NAS/SMB 上 Mac 会短暂看不到这个文件。`openKnownLibrary` 改为异步，通过 `library-index-wait.cjs` 最多等约 2 秒，4 个入口都改成 await，错误信息里带路径。已在开发版模拟 SMB 延迟，团队库能正常连上。
   - 磁盘卡片"本地磁盘 (—)"、总是统计系统盘：新增 `disk-info.cjs`，Mac 上按素材库目录或 `/Volumes/卷名` 统计并显示名字。
@@ -26,4 +27,4 @@
 
 ## 下一步
 
-- 提交 Mac 修复，然后用云端 Mac 重新打 3.0.56 后续版本，在真 Mac 上复测。
+- 提交工具集改动并重新打 Mac 包（推送就会触发运行 55），然后在 Mac 上复测工具集和团队素材库。

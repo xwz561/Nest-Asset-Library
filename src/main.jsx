@@ -1726,7 +1726,7 @@ function App() {
               : "请选择需要导入的文件夹";
   const toolbarButtonRenderers = {
     chat: () => <LanChat selectedIds={selectedIds.length ? selectedIds : (selected ? [selected.id] : [])} />,
-    "friend-tools": () => desktop && <Button className="top-pill friend-tools-button" data-tour="friend-tools" title="友商工具集" aria-label="打开友商工具集" disabled={window.nestDesktop.platform !== "win32"} onClick={() => { setFriendToolError(""); setFriendToolsOpen(true); }}><Wrench size={14} /><span>友商工具集</span></Button>,
+    "friend-tools": () => desktop && <Button className="top-pill friend-tools-button" data-tour="friend-tools" title="友商工具集" aria-label="打开友商工具集" disabled={!["win32", "darwin"].includes(window.nestDesktop.platform)} onClick={() => { setFriendToolError(""); setFriendToolsOpen(true); }}><Wrench size={14} /><span>友商工具集</span></Button>,
     "lan-signals": () => desktop && <Button className={`top-pill lan-signals-button${lanSignalsOpen ? " on" : ""}`} data-tour="lan-signals" title="局域网信号和表情" aria-label="打开局域网信号" aria-pressed={lanSignalsOpen} onClick={async () => { const result = await window.nestDesktop.openLanSignals(); if (result?.error) showMessage(result.error); else setLanSignalsOpen(true); }}><Radio size={14} /><span>局域网信号</span>{lanFriends.some(peer => peer.unread) && <b className="lan-badge">{Math.min(99, lanFriends.reduce((total, peer) => total + (peer.unread || 0), 0))}</b>}</Button>,
     calendar: () => desktop && <Button className="top-pill calendar-header-button" title="打开老黄历" aria-label="打开老黄历" onClick={async () => { const result = await window.nestDesktop.openCalendar(); if (result?.error) showMessage(`打开日历失败：${result.error}`); }}><CalendarDays size={14} /><span>日历</span></Button>,
     director: () => <Button className="top-pill director-prank-button" title="不要点这个按钮" onClick={playDirectorPrank}><Clapperboard size={14} /><span>AI导演</span></Button>,
@@ -2976,6 +2976,7 @@ function App() {
       )}
       {friendToolsOpen && (
         <FriendToolsDialog
+          platform={window.nestDesktop?.platform}
           close={() => { if (!friendToolBusy) setFriendToolsOpen(false); }}
           busy={friendToolBusy}
           error={friendToolError}
@@ -3037,7 +3038,7 @@ function App() {
               if (result?.error) setFriendToolError(result.error);
               else {
                 setFriendToolsOpen(false);
-                showMessage("已启动 Mineradio", 2500);
+                showMessage(result?.downloadPage ? "已打开 Mineradio Mac 版下载页，安装到“应用程序”后再点一次即可启动" : "已启动 Mineradio", result?.downloadPage ? 5000 : 2500);
               }
             } catch (error) {
               setFriendToolError(error.message || "Mineradio 启动失败");

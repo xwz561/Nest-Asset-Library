@@ -1,8 +1,17 @@
-function registerFriendToolsHandlers({ ipcMain, BrowserWindow, petMainWindows, app, path, fs, spawn, shell, runtimeState, electronDirectory }) {
+function registerFriendToolsHandlers({ ipcMain, BrowserWindow, petMainWindows, app, path, fs, spawn, shell, runtimeState, electronDirectory, platform = process.platform, homeDirectory = require('os').homedir() }) {
+// Mineradio 有官方 Mac 版（作者已把仓库改名为 Mineradio-paused）。Mac 上不打包它：已安装就直接打开，没装就打开下载页。
+const MINERADIO_MAC_DOWNLOAD='https://github.com/XxHuberrr/Mineradio-paused/releases';
+const openMacMineradio=async()=>{
+  const installed=['/Applications/Mineradio.app',path.join(homeDirectory,'Applications','Mineradio.app')].find(candidate=>fs.existsSync(candidate));
+  if(installed){const failure=await shell.openPath(installed);return failure?{error:`Mineradio 启动失败：${failure}`}:{ok:true,launched:installed};}
+  await shell.openExternal(MINERADIO_MAC_DOWNLOAD);
+  return{ok:true,downloadPage:MINERADIO_MAC_DOWNLOAD};
+};
 ipcMain.handle('friend-tools:open-mineradio', async event => {
   const parent=BrowserWindow.fromWebContents(event.sender);
   if(!parent||!petMainWindows.has(parent))return{error:'友商工具集只能从素材库主窗口打开'};
-  if(process.platform!=='win32')return{error:'Mineradio 便携版目前仅支持 Windows x64'};
+  if(platform==='darwin')return openMacMineradio();
+  if(platform!=='win32')return{error:'Mineradio 便携版目前仅支持 Windows x64'};
   const toolDir=app.isPackaged
     ? path.join(process.resourcesPath,'friend-tools','mineradio')
     : path.join(app.getAppPath(),'build','friend-tools','mineradio');
