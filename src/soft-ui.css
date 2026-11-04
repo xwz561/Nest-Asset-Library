@@ -97,7 +97,7 @@ body.soft-ui-body.soft-ui-dark {
 }
 .app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-fixed-controls,
 .app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-scroll-content,
-.app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-fixed-footer {
+.app.soft-ui.ready-ui.ui-refresh > aside > [data-soft-card="disk"] {
   grid-column: 2;
   position: relative;
   z-index: 1;
@@ -107,7 +107,18 @@ body.soft-ui-body.soft-ui-dark {
 }
 .app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-fixed-controls { grid-row: 1; padding: 14px 12px 0 !important; }
 .app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-scroll-content { grid-row: 2; min-height: 0; overflow-y: auto; padding: 4px 4px 8px !important; }
-.app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-fixed-footer { grid-row: 3; padding: 8px 12px 12px !important; }
+.app.soft-ui.ready-ui.ui-refresh > aside > [data-soft-card="disk"] { grid-row: 3; padding: 8px 12px 12px; }
+/* 磁盘卡片在侧栏里和浮起来时都一样：去掉旧主题给底栏的固定定位、底色和分隔线 */
+.app.soft-ui.ready-ui.ui-refresh [data-soft-card="disk"] .sidebar-fixed-footer {
+  position: static !important;
+  inset: auto !important;
+  width: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  pointer-events: auto !important;
+}
 
 .app.soft-ui.ready-ui.ui-refresh .soft-rail {
   grid-column: 1;
@@ -128,7 +139,7 @@ html[data-platform=darwin] .app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-f
 .app.soft-ui.ready-ui.ui-refresh .soft-rail-logo img { display: block; width: 38px; height: 38px; border-radius: 13px; object-fit: cover; box-shadow: var(--soft-shadow-sm); }
 .app.soft-ui.ready-ui.ui-refresh .soft-rail-group { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .app.soft-ui.ready-ui.ui-refresh .soft-rail-group + .soft-rail-group { padding-top: 16px; border-top: 1px solid var(--soft-line); }
-.app.soft-ui.ready-ui.ui-refresh .soft-rail-bottom { margin-top: auto; }
+.app.soft-ui.ready-ui.ui-refresh .soft-rail-bottom { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: auto; }
 .app.soft-ui.ready-ui.ui-refresh .soft-rail .soft-rail-item {
   display: grid;
   place-items: center;
@@ -156,14 +167,16 @@ html[data-platform=darwin] .app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-f
 /* 窗口较矮时收紧图标栏，避免底部回收站按钮被裁掉（窗口最小高度 560） */
 @media (max-height: 820px) {
   .app.soft-ui.ready-ui.ui-refresh .soft-rail { gap: 12px; }
-  .app.soft-ui.ready-ui.ui-refresh .soft-rail-group { gap: 6px; }
+  .app.soft-ui.ready-ui.ui-refresh .soft-rail-group,
+  .app.soft-ui.ready-ui.ui-refresh .soft-rail-bottom { gap: 6px; }
   .app.soft-ui.ready-ui.ui-refresh .soft-rail-group + .soft-rail-group { padding-top: 12px; }
   .app.soft-ui.ready-ui.ui-refresh .soft-rail .soft-rail-item { width: 38px !important; min-width: 38px !important; height: 38px !important; border-radius: 12px !important; }
 }
 @media (max-height: 680px) {
   .app.soft-ui.ready-ui.ui-refresh .soft-rail { gap: 8px; padding: 10px 0; }
   .app.soft-ui.ready-ui.ui-refresh .soft-rail-logo img { width: 32px; height: 32px; border-radius: 11px; }
-  .app.soft-ui.ready-ui.ui-refresh .soft-rail-group { gap: 4px; }
+  .app.soft-ui.ready-ui.ui-refresh .soft-rail-group,
+  .app.soft-ui.ready-ui.ui-refresh .soft-rail-bottom { gap: 4px; }
   .app.soft-ui.ready-ui.ui-refresh .soft-rail-group + .soft-rail-group { padding-top: 8px; }
   .app.soft-ui.ready-ui.ui-refresh .soft-rail .soft-rail-item { width: 34px !important; min-width: 34px !important; height: 34px !important; border-radius: 10px !important; }
 }
@@ -229,6 +242,9 @@ html[data-platform=darwin] .app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-f
   color: var(--soft-blue-strong) !important;
   box-shadow: inset 3px 0 0 var(--soft-blue) !important;
 }
+
+/* 标签行文字靠左（按钮默认把内容居中，旧样式的 text-align 对它不起作用） */
+.app.soft-ui.ready-ui.ui-refresh .tag-entry .tag-filter { justify-content: flex-start !important; }
 
 /* 底部磁盘卡片 */
 .app.soft-ui.ready-ui.ui-refresh .sidebar-disk {
@@ -721,3 +737,184 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header .to
 /* 侧栏橙色“导入素材”按钮：旧的 mineradio 规则选择器更长，这里同样加上 .eagle-ui 才能盖过它 */
 .app.soft-ui.ready-ui.ui-refresh.eagle-ui .import-actions .import-action.primary,
 .app.soft-ui.ready-ui.ui-refresh.eagle-ui .import-actions .import-action.primary:hover { box-shadow: var(--soft-btn-shadow-primary) !important; }
+
+/* ---------- 侧栏卡片自由摆放（components/soft-card.jsx、card-layout.js） --------
+   平时卡片锁定。打开图标栏底部的"编辑布局"开关（.soft-layout-editing）后，
+   资源库、导入、文件夹、标签、磁盘五张卡片整张都能抓住拖到窗口任意位置，底部出现
+   "一键重置 / 取消 / 保存"操作栏。浮动卡片在素材区上面（层级 76：高于顶栏和素材，
+   低于详情面板 80、右键菜单 95 和各种弹窗）。五张都拖走后侧栏白卡收起，只留图标栏。 */
+.app.soft-ui.ready-ui.ui-refresh .soft-card-slot { position: relative; }
+.app.soft-ui.ready-ui.ui-refresh .soft-card-grip {
+  position: absolute;
+  z-index: 190;
+  top: 0;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 14px;
+  border-radius: 99px;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  touch-action: none;
+}
+.app.soft-ui.ready-ui.ui-refresh .soft-card-grip::before {
+  content: "";
+  width: 28px;
+  height: 4px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--soft-blue) 70%, transparent);
+  transition: width .16s ease, background .16s ease;
+}
+.app.soft-ui.ready-ui.ui-refresh .soft-card-grip:hover::before,
+.app.soft-ui.ready-ui.ui-refresh .soft-card-grip:focus-visible::before { width: 36px; background: var(--soft-blue); }
+.app.soft-ui.ready-ui.ui-refresh .soft-card-grip:focus-visible { outline: 2px solid color-mix(in srgb, var(--soft-blue) 45%, transparent); outline-offset: 1px; }
+/* 编辑布局时：卡片描一圈虚线、整张能抓，里面的按钮和文件夹暂不响应（免得拖的时候误点） */
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-card-slot {
+  border-radius: var(--soft-radius-md);
+  outline: 1.5px dashed color-mix(in srgb, var(--soft-blue) 60%, transparent);
+  outline-offset: 2px;
+  cursor: grab;
+  user-select: none;
+}
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-card-slot > :not(.soft-card-grip),
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-float-body { pointer-events: none; }
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-card-slot:hover { outline-color: var(--soft-blue); }
+/* 磁盘卡片贴着侧栏底边，虚线框收到内边距里，免得被侧栏裁掉 */
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing > aside > [data-soft-card="disk"] { outline-offset: -5px; border-radius: calc(var(--soft-radius-md) + 6px); }
+
+.app.soft-ui.ready-ui.ui-refresh .soft-float-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 76;
+  pointer-events: none;
+}
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 18px 12px 12px;
+  border-radius: var(--soft-radius);
+  background: var(--soft-card);
+  box-shadow: var(--soft-shadow-lg), 0 0 0 1px var(--soft-hairline);
+  color: var(--soft-text);
+  overflow: hidden;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+  transition: box-shadow .18s ease;
+}
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card > .soft-card-grip { top: 9px; }
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card.dragging { box-shadow: var(--soft-shadow-dialog), 0 0 0 1px var(--soft-hairline); }
+.app.soft-ui.ready-ui.ui-refresh .soft-float-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.app.soft-ui.ready-ui.ui-refresh .soft-float-resize {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  touch-action: none;
+  background:
+    linear-gradient(135deg, transparent 0 46%, color-mix(in srgb, var(--soft-text) 28%, transparent) 46% 56%, transparent 56% 70%, color-mix(in srgb, var(--soft-text) 28%, transparent) 70% 80%, transparent 80%);
+}
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-float-card {
+  box-shadow: var(--soft-shadow-lg), 0 0 0 2px color-mix(in srgb, var(--soft-blue) 60%, transparent);
+  cursor: grab;
+  user-select: none;
+}
+/* 浮起来以后卡片自己就是白卡，里面不再套一层底色 */
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card .import-actions { margin: 0 !important; padding: 0 !important; background: transparent !important; box-shadow: none !important; }
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card .brand { min-height: 0 !important; margin: 0 !important; padding: 0 2px !important; }
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card .nav-title { margin-top: 0 !important; }
+
+/* 拖动时：整页显示抓手光标、不选中文字，iframe 不吃掉指针 */
+body.soft-ui-body.soft-card-dragging,
+body.soft-ui-body.soft-card-dragging * { cursor: grabbing !important; user-select: none !important; }
+body.soft-ui-body.soft-card-resizing,
+body.soft-ui-body.soft-card-resizing * { cursor: nwse-resize !important; user-select: none !important; }
+body.soft-ui-body.soft-card-dragging iframe,
+body.soft-ui-body.soft-card-resizing iframe { pointer-events: none !important; }
+
+/* 拖到侧栏上方时提示"松手放回" */
+.app.soft-ui.ready-ui.ui-refresh > aside:first-child::before { transition: background .16s ease, box-shadow .16s ease; }
+.app.soft-ui.ready-ui.ui-refresh > aside.soft-dock-target:first-child::before { background: var(--soft-blue-tint); box-shadow: var(--soft-shadow), 0 0 0 2px var(--soft-blue); }
+.app.soft-ui.ready-ui.ui-refresh.soft-panel-empty > aside.soft-dock-target .soft-rail { box-shadow: var(--soft-shadow), 0 0 0 2px var(--soft-blue); }
+
+/* 编辑布局时窗口底部的操作栏：一键重置 / 取消 / 保存 */
+.app.soft-ui.ready-ui.ui-refresh .soft-layout-bar {
+  position: fixed;
+  z-index: 78;
+  left: 50%;
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 32px);
+  padding: 8px 8px 8px 16px;
+  border-radius: 99px;
+  background: var(--soft-card);
+  box-shadow: var(--soft-shadow-dialog), 0 0 0 1px var(--soft-hairline);
+  color: var(--soft-text);
+  transform: translateX(-50%);
+  -webkit-app-region: no-drag;
+}
+/* 提示文字区固定宽度：文字从"拖动卡片…"变成"有改动还没保存"时，按钮不跟着挪位置 */
+.app.soft-ui.ready-ui.ui-refresh .soft-layout-bar-hint {
+  display: inline-flex;
+  flex: 0 1 300px;
+  align-items: center;
+  gap: 8px;
+  width: 300px;
+  min-width: 0;
+  margin-right: 6px;
+  overflow: hidden;
+  color: var(--soft-muted);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.app.soft-ui.ready-ui.ui-refresh .soft-layout-bar-hint > svg { flex: none; color: var(--soft-blue); }
+.app.soft-ui.ready-ui.ui-refresh .soft-layout-bar .fui-Button {
+  flex: none;
+  min-width: 0 !important;
+  height: 34px;
+  padding: 0 14px !important;
+  gap: 6px;
+  border: 0 !important;
+  border-radius: 99px !important;
+  background: var(--soft-tint) !important;
+  color: var(--soft-text-2) !important;
+  box-shadow: var(--soft-btn-shadow) !important;
+  white-space: nowrap;
+}
+.app.soft-ui.ready-ui.ui-refresh .soft-layout-bar .fui-Button:hover { background: var(--soft-accent-tint) !important; color: var(--soft-text) !important; }
+.app.soft-ui.ready-ui.ui-refresh .soft-layout-bar .soft-layout-save,
+.app.soft-ui.ready-ui.ui-refresh .soft-layout-bar .soft-layout-save:hover {
+  background: linear-gradient(135deg, var(--soft-accent-2), var(--soft-accent)) !important;
+  color: var(--soft-on-accent) !important;
+  box-shadow: var(--soft-btn-shadow-primary) !important;
+}
+
+/* 五张卡片都浮起来了：侧栏白卡收起，素材区变宽 */
+.app.soft-ui.ready-ui.ui-refresh.soft-panel-empty > aside:first-child { grid-template-columns: 60px !important; column-gap: 0 !important; }
+.app.soft-ui.ready-ui.ui-refresh.soft-panel-empty > aside:first-child::before,
+.app.soft-ui.ready-ui.ui-refresh.soft-panel-empty > aside > .sidebar-fixed-controls,
+.app.soft-ui.ready-ui.ui-refresh.soft-panel-empty > aside > .sidebar-scroll-content,
+.app.soft-ui.ready-ui.ui-refresh.soft-panel-empty > .sidebar-resizer { display: none !important; }
+@media (max-width: 1180px) {
+  .app.soft-ui.ready-ui.ui-refresh.soft-panel-empty.detail-open:not(.ai-panel-open),
+  .app.soft-ui.ready-ui.ui-refresh.soft-panel-empty.folder-inspector-open { grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 240px; }
+  .app.soft-ui.ready-ui.ui-refresh.soft-panel-empty.ai-panel-open { grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 330px; }
+}
+
+/* 极简模式只留文件夹；俄罗斯方块全屏时浮动卡片也收起来 */
+.app.soft-ui.ready-ui.ui-refresh.minimal-mode .soft-float-card:not([data-soft-card="folders"]),
+.app.soft-ui.ready-ui.ui-refresh.tetris-mode .soft-float-layer { display: none !important; }

@@ -7,6 +7,7 @@ import { PetSettings } from "../pet-settings.jsx";
 import { ThemePanel, ReleaseNotes } from "./dialogs.jsx";
 import { AutomaticUpdateSettings } from './automatic-update-settings.jsx';
 import { BUILTIN_TOOLBAR_BUTTONS, DEFAULT_TOOLBAR_LAYOUT, normalizeToolbarLayout } from "../toolbar-layout.js";
+import { LAYOUT_CARDS } from "../card-layout.js";
 
 function ToolbarLayoutSettings({ layout, onChange }) {
   const [dragging, setDragging] = useState("");
@@ -43,7 +44,7 @@ function ToolbarLayoutSettings({ layout, onChange }) {
   </section>;
 }
 
-export function AISettings({ initialTab = "通用", close, library, diskInfo, resolvedThemeMode = "dark", checkUpdate, updateInfo, updateChecking, deleteCurrentLibrary, autoUpdate = {}, toolbarLayout, onToolbarLayoutChange }) {
+export function AISettings({ initialTab = "通用", close, library, diskInfo, resolvedThemeMode = "dark", checkUpdate, updateInfo, updateChecking, deleteCurrentLibrary, autoUpdate = {}, toolbarLayout, onToolbarLayoutChange, floatingCardCount = 0, onResetCardLayout }) {
   const [tab, setTab] = useState(initialTab),
     [settingsSearch, setSettingsSearch] = useState(""),
     [value, setValue] = useState(null),
@@ -53,7 +54,7 @@ export function AISettings({ initialTab = "通用", close, library, diskInfo, re
     [saving, setSaving] = useState(false),
     [usage, setUsage] = useState(null);
   const SETTING_TABS = [
-    ["通用", "⚙", "基本信息 启动"],
+    ["通用", "⚙", "基本信息 启动 界面 布局 卡片 拖动 恢复默认"],
     ["主题与配色", "◈", "颜色 主题 模式 外观 预设"],
     ["宠物", "♧", "桌宠 女仆鲸 大小 抛掷 动画"],
     ["快捷键", "⌨", "键盘 操作 快捷"],
@@ -406,6 +407,16 @@ export function AISettings({ initialTab = "通用", close, library, diskInfo, re
                     <div><span>素材数量</span><b>{library?.assets?.length ?? 0} 个</b></div>
                     <div><span>库路径</span><b className="mono">{library?.path || "—"}</b></div>
                     <div><span>界面语言</span><b>简体中文</b></div>
+                  </div>
+                </div>
+                <div className="settings-general-group card-layout-settings">
+                  <h2>界面布局</h2>
+                  <p className="settings-hint">打开图标栏底部的「编辑布局」开关后，侧栏里的{LAYOUT_CARDS.map(({ label }) => label).join("、")}卡片可以拖到窗口任意位置，右下角能拉大小，拖回侧栏或双击放回原处；改好点「保存」。平时卡片是锁定的。位置只记在这台电脑上。</p>
+                  <div className="settings-kv">
+                    <div><span>浮动中的卡片</span><b>{floatingCardCount ? `${floatingCardCount} 张` : "没有，都在侧栏里"}</b></div>
+                  </div>
+                  <div className="settings-actions">
+                    <Button disabled={!floatingCardCount || !onResetCardLayout} onClick={onResetCardLayout}>恢复默认布局</Button>
                   </div>
                 </div>
               </section>

@@ -2,6 +2,7 @@ import { APP_VERSION, TETRIS_ACCESS_CODE, INTERNAL_DRAG, FOLDER_DRAG, isTxtAsset
 import { saveAsset, clearPending, writePending, removeAsset } from "./lib/browser-library.js";
 import { LibrarySwitcherMenu, FolderMark, SortMenu, FilterPopover, FolderContextMenu, BlankContextMenu, AssetContextMenu } from "./components/menus.jsx";
 import { SidebarFooter } from "./components/sidebar-footer.jsx";
+import { SoftCard } from "./components/soft-card.jsx";
 import { Media, Detail, Preview } from "./components/media.jsx";
 import { AIAssistant, AISettings, AIFlowImportDialog } from "./components/lazy-panels.jsx";
 import { AppDialog, TetrisAccessDialog, ExtensionPanel, AboutDialog, UpdatePanel, SupportPanel } from "./components/dialogs.jsx";
@@ -21,6 +22,7 @@ import { usePanelState } from "./hooks/usePanelState.js";
 import { useMessage } from "./hooks/useMessage.js";
 import { useLanFriends } from "./hooks/useLanFriends.js";
 import { useAutoUpdates } from "./hooks/useAutoUpdates.js";
+import { useCardLayout } from "./hooks/useCardLayout.js";
 
 import {bindThumbnailWheel, resizeThumbnail} from './thumbnail-wheel.js';
 import {Button, ReadyUI} from './ready-ui.jsx';
@@ -35,7 +37,7 @@ import { createPortal } from "react-dom";
 import { createRoot } from "react-dom/client";
 
 import { formatImportResultMessage } from "./import-summary.js";
-import { Archive, Box, Bug, CalendarDays, CircleHelp, ChevronDown, Clapperboard, Clock, ExternalLink, FileText, Filter, Folder, FolderOpen, FolderPlus, Grid2X2, Heart, Image as ImageIcon, Import, Infinity as InfinityIcon, LayoutGrid, List, Menu, MoreHorizontal, Music, PanelLeftClose, PanelLeftOpen, Pencil, Play, Plus, Puzzle, Radio, RotateCw, Search, Settings, Sparkles, Star, StickyNote, Tag, Trash2, Users, Video, Wrench, X, Zap } from "lucide-react";
+import { Archive, Box, Bug, CalendarDays, Check, CircleHelp, ChevronDown, Clapperboard, Clock, ExternalLink, FileText, Filter, Folder, FolderOpen, FolderPlus, Grid2X2, Heart, Image as ImageIcon, Import, Infinity as InfinityIcon, LayoutDashboard, LayoutGrid, List, Menu, MoreHorizontal, Music, PanelLeftClose, PanelLeftOpen, Pencil, Play, Plus, Puzzle, Radio, RotateCcw, RotateCw, Search, Settings, Sparkles, Star, StickyNote, Tag, Trash2, Users, Video, Wrench, X, Zap } from "lucide-react";
 import "./styles.css";
 import "./eagle-ui.css";
 import "./ai-assistant.css";
@@ -93,6 +95,8 @@ function App() {
   const { dialogState, setDialogState, theme, setTheme, sortPanel, setSortPanel, filterPanel, setFilterPanel, quickTypes, setQuickTypes, quickFormats, setQuickFormats, contextMenu, setContextMenu, appMenuOpen, setAppMenuOpen, recentLibraries, setRecentLibraries, appMenuPosition, setAppMenuPosition, settingsInitialTab, setSettingsInitialTab, aboutPanel, setAboutPanel, batchRenamePanel, setBatchRenamePanel, extensionPanel, setExtensionPanel, extensionResult, setExtensionResult, extensionBusy, setExtensionBusy, plugins, setPlugins, mcpConfig, setMcpConfig, updateInfo, setUpdateInfo, updatePanel, setUpdatePanel, updateChecking, setUpdateChecking, updateProgress, setUpdateProgress, updateFile, setUpdateFile, updateError, setUpdateError, supportPanel, setSupportPanel, onboardingOpen, setOnboardingOpen, friendToolsOpen, setFriendToolsOpen, friendToolBusy, setFriendToolBusy, friendToolError, setFriendToolError, aiPanel, setAiPanel, aiSettingsPanel, setAiSettingsPanel, aiResultIds, setAiResultIds, activeModule, setActiveModule, directorPrankPlaying, setDirectorPrankPlaying, tetrisPasswordOpen, setTetrisPasswordOpen, tetrisPassword, setTetrisPassword, tetrisPasswordError, setTetrisPasswordError, teamPanel, setTeamPanel, inspectorFrame, setInspectorFrame } = usePanelState();
   const { assets, setAssets, selected, setSelected, query, setQuery, currentTag, setCurrentTag, filter, setFilter, drag, setDrag, ready, setReady, library, setLibrary, activeFolder, setActiveFolder, expandedFolderIds, setExpandedFolderIds, sidebarWidth, setSidebarWidth, sortOrder, setSortOrder, viewMode, setViewMode, selectedIds, setSelectedIds, marquee, setMarquee, dropFolderId, setDropFolderId, virtualRange, setVirtualRange, libraryChoosing, setLibraryChoosing, renamingFolder, setRenamingFolder, activeReferenceBoardId, setActiveReferenceBoardId, diskInfo, setDiskInfo, expandedTags, setExpandedTags, dropTag, setDropTag, assetsRef } = useLibrary({ desktop, showMessage });
   const { previewId, setPreviewId, zoom, setZoom, thumbnailSize, setThumbnailSize, rotation, setRotation, checker, setChecker } = usePreview();
+  // 侧栏卡片可以拖到窗口任意位置（磁盘卡片只在打开了资源库的桌面版里有）
+  const cardLayout = useCardLayout(desktop && library ? ["library", "import", "folders", "tags", "disk"] : ["library", "import", "folders", "tags"]);
 
   useEffect(() => {
     if (!desktop || !window.nestDesktop?.onLanSignalsPanelState) return;
@@ -1765,9 +1769,9 @@ function App() {
   };
   return (
     <div
-      className={`app eagle-ui ready-ui ui-refresh theme-${resolvedThemeMode} soft-ui ${minimalMode ? "minimal-mode" : ""} ${inspectorFrame.ready ? "detail-open" : ""} ${inspectorFrame.lockWidth ? "main-locked" : ""} ${folderInspectorOpen ? "folder-inspector-open" : ""} ${emptyFolderView ? "empty-folder-view" : ""} ${aiPanel ? "ai-panel-open" : ""} ${activeModule === "reference-board" ? "reference-board-mode" : ""} ${activeModule === "tetris" ? "tetris-mode" : ""}`}
+      className={`app eagle-ui ready-ui ui-refresh theme-${resolvedThemeMode} soft-ui ${minimalMode ? "minimal-mode" : ""} ${inspectorFrame.ready ? "detail-open" : ""} ${inspectorFrame.lockWidth ? "main-locked" : ""} ${folderInspectorOpen ? "folder-inspector-open" : ""} ${emptyFolderView ? "empty-folder-view" : ""} ${aiPanel ? "ai-panel-open" : ""} ${activeModule === "reference-board" ? "reference-board-mode" : ""} ${activeModule === "tetris" ? "tetris-mode" : ""} ${cardLayout.panelEmpty ? "soft-panel-empty" : ""} ${cardLayout.editing ? "soft-layout-editing" : ""}`}
       style={{
-        "--sidebar-width": `${sidebarWidth + softRailWidth}px`,
+        "--sidebar-width": `${cardLayout.panelEmpty ? softRailWidth : sidebarWidth + softRailWidth}px`,
         "--inspector-overlay-width": `${inspectorFrame.overlayWidth}px`,
         "--main-lock-width": inspectorFrame.lockWidth ? `${inspectorFrame.lockWidth}px` : "auto",
         ...themeStyle(renderedTheme, resolvedThemeMode),
@@ -1811,7 +1815,7 @@ function App() {
           : (setDrag(false), importFiles(e.dataTransfer.files));
       }}
     >
-      <aside>
+      <aside ref={cardLayout.dockRef}>
         <nav className="soft-rail" aria-label="主导航">
           <div className="soft-rail-logo"><img src={appIcon} alt="" /></div>
           <div className="soft-rail-group">
@@ -1836,10 +1840,21 @@ function App() {
             {desktop && <Button className={`soft-rail-item ${teamPanel ? "active" : ""}`} title="成员与权限" aria-label="成员与权限" disabled={!library} onClick={() => setTeamPanel(true)}><Users size={18} strokeWidth={1.8} /></Button>}
           </div>
           <div className="soft-rail-bottom">
+            <Button
+              className={`soft-rail-item soft-layout-toggle ${cardLayout.editing ? "active" : ""}`}
+              role="switch"
+              aria-checked={cardLayout.editing}
+              title={cardLayout.editing ? "保存布局并退出编辑" : "编辑布局：打开后可以拖动卡片"}
+              aria-label="编辑布局"
+              onClick={cardLayout.editing ? cardLayout.save : cardLayout.startEditing}
+            >
+              <LayoutDashboard size={18} strokeWidth={1.8} />
+            </Button>
             <Button className="soft-rail-item" title={recycleBinLabel} aria-label={recycleBinLabel} onClick={async () => { const result = await window.nestDesktop?.openRecycleBin?.(); if (result?.error) showMessage(`无法打开${recycleBinLabel}：${result.error}`, 3500); }}><Trash2 size={18} strokeWidth={1.8} /></Button>
           </div>
         </nav>
         <div className="sidebar-fixed-controls">
+        <SoftCard id="library" cards={cardLayout}>
         <div className="brand" ref={appMenuRef}>
           <div className="mark">
             <img src={appIcon} alt="" />
@@ -1881,6 +1896,8 @@ function App() {
             document.body,
           )}
         </div>
+        </SoftCard>
+        <SoftCard id="import" cards={cardLayout}>
         <section
           data-tour="import"
           className={`import-actions ${importing ? "busy" : ""} ${importProgress?.phase || ""}`}
@@ -1948,6 +1965,7 @@ function App() {
             </Button>
           )}
         </section>
+        </SoftCard>
         {desktop && library && (
           <Button
             className="new-folder-primary"
@@ -2009,6 +2027,7 @@ function App() {
             <b>{(library?.referenceBoards || []).length}</b>
           </Button>
         </nav>
+        <SoftCard id="folders" cards={cardLayout}>
         <div
           data-tour="folders"
           className={`nav-title folder-root-drop ${dropFolderId === ROOT_FOLDER_DROP ? "drop-target" : ""}`}
@@ -2204,6 +2223,8 @@ function App() {
             </>
           )}
         </FlatTree>
+        </SoftCard>
+        <SoftCard id="tags" cards={cardLayout}>
         <div className="nav-title">
           <span>标签</span>
           <Button
@@ -2252,8 +2273,10 @@ function App() {
             </div>
           ))}
         </div>
+        </SoftCard>
         </div>
         {desktop && library && (
+          <SoftCard id="disk" cards={cardLayout}>
           <SidebarFooter
             info={diskInfo}
             recycleBinName={recycleBinName}
@@ -2265,6 +2288,7 @@ function App() {
               }
             }}
           />
+          </SoftCard>
         )}
       </aside>
       <div
@@ -3077,6 +3101,8 @@ function App() {
           autoUpdate={autoUpdate}
           toolbarLayout={toolbarLayout}
           onToolbarLayoutChange={saveToolbarLayout}
+          floatingCardCount={cardLayout.floatingCount}
+          onResetCardLayout={cardLayout.resetAll}
         />
       )}
       {aboutPanel && <AboutDialog close={() => setAboutPanel(false)} version={APP_VERSION} />}
@@ -3118,6 +3144,18 @@ function App() {
         done={(result) => showMessage(`已转发 ${result.copied} 个素材到「${result.targetName}」`, 4000)}
       />}
       {teamPanel && <TeamPanel library={library} close={() => setTeamPanel(false)} changed={(team) => setLibrary((current) => current ? {...current, team} : current)} />}
+      <div className="soft-float-layer" ref={cardLayout.setLayer} />
+      {cardLayout.editing && (
+        <div className="soft-layout-bar" role="toolbar" aria-label="编辑布局">
+          <span className="soft-layout-bar-hint">
+            <LayoutDashboard size={15} />
+            {cardLayout.dirty ? "有改动还没保存" : "拖动卡片换位置 · 右下角拉大小 · 拖回侧栏放回"}
+          </span>
+          <Button className="soft-layout-reset" onClick={cardLayout.resetDraft} title="卡片全部放回侧栏（保存后生效）"><RotateCcw size={14} /> 一键重置</Button>
+          <Button className="soft-layout-cancel" onClick={cardLayout.cancel} title="放弃这次的改动">取消</Button>
+          <Button className="soft-layout-save" onClick={cardLayout.save}><Check size={14} /> 保存</Button>
+        </div>
+      )}
       {desktop && window.nestDesktop?.platform === "win32" && <WindowControls />}
       {teamLibraryOpen && <TeamLibraryPanel close={() => setTeamLibraryOpen(false)} onLibraryOpened={(lib) => {
         applyLibrary(lib, { reset: true });

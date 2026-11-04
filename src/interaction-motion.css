@@ -78,7 +78,7 @@
   transform: translateY(-6px);
 }
 
-.app.minimal-mode .sidebar-scroll-content > :not(.folder-root-drop):not(.compact-folder-tree),
+.app.minimal-mode .sidebar-scroll-content > :not(.folder-root-drop):not(.compact-folder-tree):not([data-soft-card="folders"]),
 .app.minimal-mode .sidebar-fixed-footer {
   display: none;
 }
