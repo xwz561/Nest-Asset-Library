@@ -12,7 +12,7 @@ test('browser extension declares AI Flow video, two-way folder sync, upload, and
   const page = fs.readFileSync(path.join(extensionRoot, 'aiflow-page.js'), 'utf8');
   const main = require('./source-tree.cjs').readSource(path.join(__dirname, '..', 'electron', 'main.cjs'), 'utf8');
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.version, '1.15.1');
+  assert.equal(manifest.version, '1.16.0');
   for (const entry of manifest.content_scripts) {
     for (const script of entry.js) assert.match(script, /\.js$/, 'Edge content scripts require .js filenames');
   }
@@ -148,8 +148,8 @@ test('browser extension declares AI Flow video, two-way folder sync, upload, and
   assert.match(page, /页面配色/);
   assert.match(page, /data-nest-workbench-drag/);
   assert.match(page, /nestWorkbenchDrag/);
-  assert.match(page, /data-nest-workbench-theme/);
-  assert.match(page, /nest-aiflow-workbench-theme/);
+  assert.doesNotMatch(page, /data-nest-workbench-theme/, '延长工作台不再自带配色，跟随页面配色（DEC-005）');
+  assert.doesNotMatch(page, /nest-aiflow-workbench-theme/);
   assert.match(page, /nestWorkbenchDisabled/);
   assert.match(page, /KeyboardEvent\('keydown', \{ key: 'Escape'/);
   assert.match(page, /injectAIFlowFocusLayoutToggle/);

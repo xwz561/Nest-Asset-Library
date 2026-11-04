@@ -1,10 +1,11 @@
 import { SORT_OPTIONS, FILTER_TYPES, FILTER_FORMATS, folderIcon, FOLDER_ICONS, FOLDER_COLORS } from "../lib/app-config.js";
 import { Button, ReadyUI } from "../ready-ui.jsx";
-import { Check, FolderOpen, Plus, RotateCw, Link2, Search, X, Folder, MoreHorizontal, Eye, Tag, StickyNote, Archive, Copy, Pencil, Import, ClipboardCopy, Download, Trash2, ChevronDown, List, LayoutGrid, Send, Share2 } from "lucide-react";
+import { Check, FolderOpen, Plus, RotateCw, Link2, Search, X, Folder, MoreHorizontal, Eye, Tag, StickyNote, Archive, Copy, Pencil, Import, ClipboardCopy, Download, Trash2, ChevronDown, List, LayoutGrid, Send, Share2, Palette } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { LIBRARY_MENU_ACTIONS } from "../app-menu.js";
 import { createPortal } from "react-dom";
 import { folderExpansionState } from "../folder-tree.js";
+import { AssetColorPicker } from "./asset-color-picker.jsx";
 
 export function SortMenu({ value, choose }) {
   return (
@@ -230,6 +231,11 @@ export function AssetContextMenu({ menu, menuRef, submenuRef, folders, friends =
           <span>{label}</span>
         </Button>
       ))}
+      {!readOnly && actions.color && <div className="asset-menu-colors">
+        <Palette size={16} />
+        <span>颜色</span>
+        <AssetColorPicker value={menu.asset.labelColor || ""} onChange={(labelColor) => run(() => actions.color(labelColor))} />
+      </div>}
       <div className="menu-separator" />
       {actions.sendToFriend && <Button aria-haspopup="menu" aria-expanded={sending} onMouseEnter={event => { anchorMove(event); setMoving(false); setSending(true); }} onClick={event => { anchorMove(event); setMoving(false); setSending(value => !value); }}>
         <Send size={16} /><span>发送给好友</span><b>›</b>

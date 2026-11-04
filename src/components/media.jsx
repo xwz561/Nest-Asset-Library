@@ -5,6 +5,7 @@ import { FileText, Star, X, Palette, Folder, Tag, Plus, Info, MapPin, ChevronDow
 import { describeFile } from "../file-manager-adapter.cjs";
 import { assetFormat, assetExtension, fmt, isTextEditableAsset, isExternalEditableAsset } from "../lib/app-config.js";
 import { waveformCache } from "../waveform-cache.js";
+import { AssetColorPicker } from "./asset-color-picker.jsx";
 import { audioPreviewManager } from "../audio-preview-manager.js";
 import { subscribeAssetAudio } from "../audio-asset-subscription.js";
 import { ReadyAudioPreview, ReadyVideoPreview } from "../ready-media.jsx";
@@ -171,6 +172,10 @@ export function Detail({
               ★
             </Button>
           ))}
+        </div>
+        <div className="detail-color-mark">
+          <span>颜色标记</span>
+          <AssetColorPicker value={asset.labelColor || ""} disabled={!canEdit} onChange={(labelColor) => patch(asset.id, { labelColor })} />
         </div>
         {isDocument && <DocumentReader asset={asset}/>} 
         {!isDocument && <><label><Palette size={15} /> 主色板</label><AssetPalette asset={asset} /></>}

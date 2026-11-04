@@ -52,3 +52,23 @@
 - 证据：CDP 查 computed style 命中 `header` 规则；改成 `div` 后底色透明、`app-region: none`、关闭按钮贴右边。`test/usage-demo.test.cjs` 有防回归检查。
 - 边界：只在 `.app` 外层新界面里验证过。
 - 复审条件：把全局 `header` 规则收窄到主窗口顶栏之后可以撤销这条。
+
+### LES-005：AI Flow 页面上的浮窗要顶住「页面配色」的通用规则
+
+- 日期：2026-11-04
+- 状态：已验证（仿 AI Flow 页面）
+- 场景：扩展自己的「页面配色」用 `body[data-nest-aiflow-theme] :is(header, section, aside, button, select, [class*="card"], [class*="tab"], [data-active="true"] …)` 加 `!important` 刷整页颜色，也刷到扩展自己插进去的浮窗上；用户截图里延长工作台标题折行、"关闭"变竖排、配色发乱就是这么来的。
+- 做法：浮窗元素只用 div / button / span；样式全部以窗口 ID 开头并加 `!important`（ID 优先级压过这些规则）；class 名统一 `nx-` 前缀，避开 card / tab / panel / item / list / icon / header / select / active / option / box / bar / pill / tag / toggle / menu 这些词。拖动、缩放写在行内的 left / top / width / height 不能在样式表里加 `!important`。
+- 证据：离屏 Electron 打开仿 AI Flow 页面（故意写了霸道的 button / select 样式），樱粉、深海蓝两套配色下标题单行、按钮 32×32、两个窗口并排。
+- 边界：只验证了仿页面，真 AI Flow 的样式可能还有别的写法。
+- 复审条件：真 AI Flow 上发现还有被刷掉的地方。
+
+### LES-006：真 AI Flow 的延长弹窗和素材选择器长什么样
+
+- 日期：2026-11-04
+- 状态：已验证（真 AI Flow，http://10.128.30.22:8080/）
+- 场景：在内置浏览器里打开任务卡片的"延长"，读真实结构。
+- 结论：弹窗视频是普通地址 `/videos/<任务 id>.mp4`（能直接复制给预览）；方向是 `input[name=sd25ExtDir]`（back / front），秒数 4–30，提示词 `#sd25RepairInput`；`@ 素材` 是 `#sd25RefAdd`，打开后有 120 个 `[data-refpick]`，缩略图就是原文件（图片每张 2–4 MB、`loading="lazy"`），视频 `preload="none"` 所以在 AI Flow 里也一直是黑的，网格自带 `max-height: 150px` 的小滚动框。原生弹窗还有视频标注工具（`sd25-mark-color` 色点、◯ ▭ ↗ ✎）。
+- 做法：副本里图片保持懒加载，视频滚到眼前才取第一帧（`#t=0.1`），放开那个 150px 小滚动框。内置浏览器会拦截页面加载本机地址（`ERR_BLOCKED_BY_CLIENT`），所以真页面上只能贴样式和结构检查，完整脚本在离屏 Electron 仿页面里跑。
+- 边界：AI Flow 版本 v272.612；改版后要重看。
+- 复审条件：AI Flow 升级或延长弹窗结构变化。

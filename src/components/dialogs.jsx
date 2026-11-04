@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "../ready-ui.jsx";
 import { X, ChevronDown, Trash2, Puzzle, Download, Heart, Infinity as InfinityIcon } from "lucide-react";
-import { FOLDER_ICONS, FOLDER_COLORS, fmt, APP_VERSION, CURRENT_RELEASE_NOTES } from "../lib/app-config.js";
+import { FOLDER_ICONS, FOLDER_COLORS, fmt, APP_VERSION, EXTENSION_VERSION, CURRENT_RELEASE_NOTES } from "../lib/app-config.js";
 import appIcon from "../../build/icon.png";
 import { ThemeSettings } from "../theme-settings.jsx";
 import communitySupportAvatar from "../assets/community-support-avatar.png";
@@ -150,7 +150,8 @@ export function ExtensionPanel({ busy, result, install, uninstall, plugins, mcpC
           </Button>
         </div>
         <p>网页采集器用于浏览器导入；本地插件默认关闭并按清单授权；MCP 默认只读。</p>
-        <h3 className="extension-section-title">网页采集器</h3>
+        <h3 className="extension-section-title">网页采集器{EXTENSION_VERSION && <small className="extension-version"> v{EXTENSION_VERSION}</small>}</h3>
+        {EXTENSION_VERSION && <small className="extension-version-hint">安装包里带的是 v{EXTENSION_VERSION}。素材库更新后点一次下面的“安装”，再在浏览器扩展页点“重新加载”，就换成新版。</small>}
         <div className="browser-choices">
           <Button disabled={busy} onClick={() => install("chrome")}>
             <b className="browser-logo chrome-logo">●</b>
@@ -182,7 +183,7 @@ export function ExtensionPanel({ busy, result, install, uninstall, plugins, mcpC
         )}
         {result?.ok && result.mode !== "uninstall" && (
           <div className="extension-result success">
-            <strong>扩展已准备好</strong>
+            <strong>扩展已准备好{EXTENSION_VERSION ? `（v${EXTENSION_VERSION}）` : ""}</strong>
             <span>本地扩展目录和 Edge 扩展页均已自动打开；1. 在浏览器中打开“开发者模式”</span>
             <span>
               2. 点击“加载已解压的扩展程序”，再选择下方已复制到剪贴板的目录

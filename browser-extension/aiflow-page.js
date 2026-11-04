@@ -29,7 +29,6 @@
   const VIDEO_EXTEND_WORKBENCH_ID = 'nest-aiflow-video-extend-workbench';
   const VIDEO_EXTEND_WORKBENCH_STYLE_ID = 'nest-aiflow-video-extend-workbench-style';
   const VIDEO_EXTEND_WORKBENCH_RETURN_ID = 'nest-aiflow-video-extend-return';
-  const VIDEO_EXTEND_WORKBENCH_THEME_KEY = 'nest-aiflow-workbench-theme';
   const AIFLOW_THEME_SWITCHER_ID = 'nest-aiflow-theme-switcher';
   const AIFLOW_THEME_STYLE_ID = 'nest-aiflow-theme-style';
   const AIFLOW_THEME_KEY = 'nest-aiflow-theme';
@@ -40,6 +39,8 @@
   // A long-poll wake-up makes imports immediate; this remains the recovery poll.
   const LIVE_SYNC_INTERVAL_MS = 3 * 1000;
   let pendingTaskId = '';
+  // 最近一次点过的 AI Flow 任务卡片：延长弹窗里的视频接不上时，用这张卡片的视频文件做预览
+  let lastVideoExtendTaskId = '';
   let liveSyncTimer = null;
   let referenceUploadOfflineUntil = 0;
   let contextRecoveryScheduled = false;
@@ -448,16 +449,58 @@
     return insertVideoExtendReferenceToken(editor, token, selection);
   }
 
+  // AI Flow 原生素材选择器在侧边素材库里的只读副本。抄过来的缩略图常常是黑的：
+  // 懒加载图片还没地址、视频没解出首帧、画布复制出来是空白。按原件逐个补上。
+  // 真 AI Flow 上看到：缩略图就是原文件（图片每张 2–4 MB），视频 preload="none" 所以一直是黑的；
+  // 一个项目上百个素材，所以图片保持懒加载、视频滚到眼前才去取第一帧（data-nest-lazy-src）。
+  function copyNativePickerMedia(original, copy) {
+    const originals = original.querySelectorAll('img, video, canvas');
+    const copies = copy.querySelectorAll('img, video, canvas');
+    originals.forEach((node, index) => {
+      const twin = copies[index];
+      if (!twin || twin.tagName !== node.tagName) return;
+      if (node instanceof HTMLImageElement && twin instanceof HTMLImageElement) {
+        const src = node.currentSrc || node.src || node.getAttribute('data-src') || node.getAttribute('data-original') || '';
+        if (src && twin.getAttribute('src') !== src) twin.setAttribute('src', src);
+        twin.loading = 'lazy';
+      } else if (node instanceof HTMLVideoElement && twin instanceof HTMLVideoElement) {
+        const src = node.currentSrc || node.src || node.querySelector('source')?.src || '';
+        twin.muted = true;
+        twin.preload = 'metadata';
+        twin.removeAttribute('autoplay');
+        if (node.poster) twin.poster = node.poster;
+        twin.removeAttribute('src');
+        if (src && !src.startsWith('blob:')) twin.dataset.nestLazySrc = src.includes('#') ? src : `${src}#t=0.1`;
+      } else if (node instanceof HTMLCanvasElement && twin instanceof HTMLCanvasElement) {
+        try {
+          const image = document.createElement('img');
+          image.src = node.toDataURL('image/png');
+          image.className = twin.className;
+          image.style.cssText = twin.style.cssText;
+          image.style.objectFit = 'cover';
+          twin.replaceWith(image);
+        } catch { /* 跨域画布读不出像素，保留原样 */ }
+      }
+    });
+  }
+
   function mountNativeVideoExtendPicker(panel, dialog) {
     const slot = panel.querySelector('[data-nest-native-picker]');
     const sourceButton = dialog.querySelector('#sd25RefAdd')
       || [...dialog.querySelectorAll('button')].find(button => /^@?素材$/.test(String(button.textContent || '').trim()));
     if (!slot || !sourceButton) return;
+    const depth = node => {
+      let count = 0;
+      for (let current = node; current && current !== dialog; current = current.parentElement) count += 1;
+      return count;
+    };
+    // 素材格子一样多时取最里层的那一层：外层还带着"@素材"按钮和说明文字，抄过来只会占地方
     const findPicker = () => [...dialog.querySelectorAll('div, section')]
       .filter(node => node.querySelector('[data-refpick]') && node.querySelector('input'))
-      .sort((left, right) => right.querySelectorAll('[data-refpick]').length - left.querySelectorAll('[data-refpick]').length)[0];
+      .sort((left, right) => right.querySelectorAll('[data-refpick]').length - left.querySelectorAll('[data-refpick]').length || depth(right) - depth(left))[0];
     let nativePickerObserver = null;
     let nativePickerRefreshTimer = null;
+    let lazyVideoObserver = null;
     const scheduleNativePickerSync = () => {
       if (nativePickerRefreshTimer) clearTimeout(nativePickerRefreshTimer);
       nativePickerRefreshTimer = setTimeout(() => {
@@ -469,6 +512,7 @@
     };
     const syncNativePicker = nativePicker => {
       const copy = nativePicker.cloneNode(true);
+      copyNativePickerMedia(nativePicker, copy);
       copy.removeAttribute('id');
       copy.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
       copy.querySelectorAll('input').forEach(input => {
@@ -489,9 +533,29 @@
         if (id) nativePicker.querySelector(`[data-refpick="${CSS.escape(id)}"]`)?.click();
       });
       slot.replaceChildren(copy);
+      lazyVideoObserver?.disconnect();
+      lazyVideoObserver = new IntersectionObserver(entries => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const video = entry.target;
+          lazyVideoObserver.unobserve(video);
+          if (video.dataset.nestLazySrc) video.src = video.dataset.nestLazySrc;
+        }
+      }, { root: slot, rootMargin: '120px' });
+      copy.querySelectorAll('video[data-nest-lazy-src]').forEach(video => lazyVideoObserver.observe(video));
+      requestAnimationFrame(() => {
+        for (const node of [copy, ...copy.querySelectorAll('*')]) {
+          const overflowY = getComputedStyle(node).overflowY;
+          if (/(auto|scroll)/.test(overflowY) && node.scrollHeight > node.clientHeight + 4) {
+            node.style.setProperty('max-height', 'none', 'important');
+            node.style.setProperty('overflow-y', 'visible', 'important');
+          }
+        }
+      });
       nativePickerObserver?.disconnect();
       nativePickerObserver = new MutationObserver(scheduleNativePickerSync);
-      nativePickerObserver.observe(nativePicker, { childList: true, subtree: true, characterData: true });
+      // 懒加载的缩略图是后来才改 src 的，也要跟着重抄
+      nativePickerObserver.observe(nativePicker, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['src', 'poster', 'data-src'] });
     };
     const render = () => {
       sourceButton.click();
@@ -509,59 +573,82 @@
     editor.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
+  const FOLDER_GLYPH = '<svg class="nx-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h3.6a2 2 0 0 1 1.4.6L12 6h6.5A2.5 2.5 0 0 1 21 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>';
+
   function injectVideoExtendLibraryPanel() {
     const editor = [...document.querySelectorAll('textarea')].find(isVideoExtendPrompt);
     const dialog = editor && videoExtendContainer(editor);
     const existing = document.getElementById(VIDEO_EXTEND_LIBRARY_PANEL_ID);
     if (!editor || !dialog) { existing?.remove(); return; }
     if (existing) return;
-    const panel = document.createElement('aside');
+    ensureVideoExtendWorkbenchStyle();
+    // 用 div 不用 aside/section：AI Flow 的"页面配色"会给所有 aside/section 强行刷底色
+    const panel = document.createElement('div');
     panel.id = VIDEO_EXTEND_LIBRARY_PANEL_ID;
-    panel.style.cssText = 'position:fixed;z-index:2147483646;width:360px;min-width:260px;max-width:calc(100vw - 24px);min-height:260px;max-height:calc(100vh - 24px);height:min(760px,calc(100vh - 24px));resize:both;overflow:hidden;display:flex;flex-direction:column;background:#191713;border:1px solid #9b7b3a;border-radius:10px;box-shadow:0 18px 50px #000b;color:#eee;font:12px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-label', '视频延长素材库');
     const rect = dialog.getBoundingClientRect();
     panel.style.left = `${rect.right + 14 + 300 <= window.innerWidth ? rect.right + 14 : Math.max(12, rect.left - 314)}px`;
     panel.style.top = `${Math.max(12, Math.min(rect.top, window.innerHeight - 300))}px`;
-    panel.innerHTML = '<header data-nest-library-drag style="display:flex;align-items:center;gap:7px;padding:10px 12px;border-bottom:1px solid #5a4827;cursor:move"><button type="button" data-nest-library-back title="返回上级文件夹" style="border:1px solid #796033;border-radius:5px;background:#292218;color:#e7d4a4;padding:3px 7px;cursor:pointer">←</button><b data-nest-library-title style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">视频延长素材库</b><button type="button" data-nest-library-refresh title="刷新素材" style="border:1px solid #796033;border-radius:5px;background:#292218;color:#e7d4a4;padding:3px 7px;cursor:pointer">刷新</button></header><div style="padding:7px 10px;color:#bfae82;border-bottom:1px solid #392e1b">点击素材即刻写入提示词光标处；拖动标题栏，右下角可缩放</div><details open style="border-bottom:1px solid #5a4827"><summary style="padding:8px 10px;cursor:pointer;color:#f0dfac;font-weight:600">AI Flow 原生素材</summary><div data-nest-native-picker style="max-height:230px;overflow:auto;padding:0 8px 8px">正在读取 AI Flow 原生素材…</div></details><div data-nest-assets style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));align-content:start;gap:8px;padding:9px;overflow:auto;min-height:120px;flex:1">读取素材中…</div>';
+    panel.innerHTML = '<div class="nx-head" data-nest-library-drag><button type="button" class="nx-btn nx-round" data-nest-library-back title="返回上级文件夹" aria-label="返回上级文件夹">←</button><div class="nx-title"><b data-nest-library-title>视频延长素材库</b><small>小旺仔素材库 · AI Flow 素材</small></div><button type="button" class="nx-btn" data-nest-library-refresh title="刷新素材">刷新</button></div><div class="nx-tip">点击素材即刻写入提示词光标处；拖动标题栏，右下角可缩放</div><div class="nx-scroll"><div class="nx-group" data-nest-library-group="native"><button type="button" class="nx-group-head" data-nest-library-group-toggle aria-expanded="true"><b>AI Flow 原生素材</b><span>收起</span></button><div class="nx-native" data-nest-native-picker>正在读取 AI Flow 原生素材…</div></div><div class="nx-group" data-nest-library-group="local"><div class="nx-group-head"><b>小旺仔素材库</b><span data-nest-library-path>全部</span></div><div class="nx-grid" data-nest-assets><div class="nx-empty">读取素材中…</div></div></div></div>';
     const list = panel.querySelector('[data-nest-assets]');
     const title = panel.querySelector('[data-nest-library-title]');
+    const pathLabel = panel.querySelector('[data-nest-library-path]');
     const backButton = panel.querySelector('[data-nest-library-back]');
     const refreshButton = panel.querySelector('[data-nest-library-refresh]');
+    const nativeGroup = panel.querySelector('[data-nest-library-group="native"]');
+    const nativeToggle = panel.querySelector('[data-nest-library-group-toggle]');
+    nativeToggle?.addEventListener('click', () => {
+      const collapsed = nativeGroup?.dataset.collapsed !== 'true';
+      if (nativeGroup) nativeGroup.dataset.collapsed = String(collapsed);
+      nativeToggle.setAttribute('aria-expanded', String(!collapsed));
+      const hint = nativeToggle.querySelector('span');
+      if (hint) hint.textContent = collapsed ? '展开' : '收起';
+    });
     let currentFolderId = '';
     let parentFolderId = null;
+    const showNote = text => {
+      if (!list) return;
+      const note = document.createElement('div');
+      note.className = 'nx-empty';
+      note.textContent = text;
+      list.replaceChildren(note);
+    };
     const render = result => {
       if (!list) return;
       list.replaceChildren();
-      if (!result?.ok) { list.textContent = result?.error || '素材库读取失败'; return; }
+      if (!result?.ok) { showNote(result?.error || '素材库读取失败'); return; }
       if (title) title.textContent = result.folderId ? `素材库 / ${result.folderName || '文件夹'}` : '视频延长素材库';
+      if (pathLabel) pathLabel.textContent = result.folderId ? (result.folderName || '文件夹') : '全部';
       parentFolderId = result.parentId || null;
       if (backButton instanceof HTMLButtonElement) backButton.disabled = !result.folderId;
       for (const folder of result.folders || []) {
         const button = document.createElement('button');
         button.type = 'button'; button.dataset.nestLibraryFolder = folder.id;
+        button.className = 'nx-btn nx-folder';
         button.title = `打开文件夹：${folder.name}`;
-        button.style.cssText = 'grid-column:1/-1;display:flex;align-items:center;gap:7px;min-width:0;border:1px solid #6c572b;border-radius:6px;background:#292218;color:#f0dfac;padding:7px;text-align:left;cursor:pointer';
-        const icon = document.createElement('span'); icon.textContent = '📁';
-        const label = document.createElement('span'); label.textContent = folder.name; label.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
-        button.append(icon, label); button.addEventListener('click', () => load(folder.id)); list.appendChild(button);
+        button.innerHTML = FOLDER_GLYPH;
+        const label = document.createElement('span'); label.textContent = folder.name;
+        button.append(label); button.addEventListener('click', () => load(folder.id)); list.appendChild(button);
       }
-      if (!result.folders?.length && !result.assets?.length) { list.textContent = '这个文件夹暂无可展示的媒体'; return; }
+      if (!result.folders?.length && !result.assets?.length) { showNote('这个文件夹暂无可展示的媒体'); return; }
       for (const asset of result.assets) {
         const card = document.createElement('button');
         card.type = 'button'; card.dataset.nestLibraryAsset = asset.id;
+        card.className = 'nx-btn nx-tile';
         card.title = asset.name;
-        card.style.cssText = 'min-width:0;border:0;padding:0;background:transparent;color:#ddd;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;cursor:pointer';
         if (asset.thumbnail) {
           const image = document.createElement('img');
-          image.src = asset.thumbnail; image.alt = asset.name;
-          image.style.cssText = 'display:block;width:100%;aspect-ratio:4/3;object-fit:contain;background:#17130d;border-radius:5px;border:1px solid #51442d;margin-bottom:3px';
+          image.src = asset.thumbnail; image.alt = asset.name; image.loading = 'lazy';
+          image.className = 'nx-thumb';
           card.appendChild(image);
         } else {
-          const icon = document.createElement('div');
-          icon.textContent = String(asset.type || '').startsWith('video/') ? '视频' : '音频';
-          icon.style.cssText = 'display:grid;place-items:center;aspect-ratio:1;background:#292218;border:1px solid #51442d;border-radius:5px;color:#d8b667;margin-bottom:3px';
-          card.appendChild(icon);
+          const placeholder = document.createElement('div');
+          placeholder.textContent = String(asset.type || '').startsWith('video/') ? '视频' : '音频';
+          placeholder.className = 'nx-thumb nx-kind';
+          card.appendChild(placeholder);
         }
-        const label = document.createElement('span'); label.textContent = asset.name; label.style.cssText = 'display:block;white-space:normal;overflow-wrap:anywhere;line-height:1.25'; card.appendChild(label);
+        const label = document.createElement('span'); label.textContent = asset.name; label.className = 'nx-name'; card.appendChild(label);
         card.addEventListener('click', () => {
           const projectId = currentProjectId();
           if (!projectId) { card.title = '未识别当前 AI Flow 项目'; return; }
@@ -629,44 +716,191 @@
     const dragHandle = panel.querySelector('[data-nest-library-drag]');
     dragHandle?.addEventListener('pointerdown', event => {
       if (event.target instanceof Element && event.target.closest('button')) return;
+      panel.dataset.nestMoved = 'true';
       const start = { x: event.clientX, y: event.clientY, left: panel.offsetLeft, top: panel.offsetTop };
       const move = moveEvent => { panel.style.left = `${Math.max(4, Math.min(window.innerWidth - 80, start.left + moveEvent.clientX - start.x))}px`; panel.style.top = `${Math.max(4, Math.min(window.innerHeight - 50, start.top + moveEvent.clientY - start.y))}px`; };
       const end = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); };
       window.addEventListener('pointermove', move); window.addEventListener('pointerup', end, { once: true });
     });
     document.body.appendChild(panel); mountNativeVideoExtendPicker(panel, dialog); load();
+    requestAnimationFrame(arrangeVideoExtendWindows);
+  }
+
+  // 两个浮窗第一次出现时并排放在屏幕中间：工作台在左、素材库在右，顶边对齐、素材库和工作台一样高。
+  // 屏幕放不下就让素材库靠右叠在工作台上。用户拖过哪个窗口，就不再替他摆那个。
+  function arrangeVideoExtendWindows() {
+    const workbench = document.getElementById(VIDEO_EXTEND_WORKBENCH_ID);
+    const library = document.getElementById(VIDEO_EXTEND_LIBRARY_PANEL_ID);
+    if (!workbench || !library || workbench.style.display === 'none' || workbench.dataset.nestArranged === 'true') return;
+    const gap = 14, margin = 14;
+    const width = workbench.offsetWidth, height = workbench.offsetHeight, libraryWidth = library.offsetWidth;
+    const top = Math.max(margin, Math.round((window.innerHeight - height) / 2));
+    const together = width + gap + libraryWidth + margin * 2 <= window.innerWidth;
+    const left = Math.max(margin, Math.round(together ? (window.innerWidth - width - gap - libraryWidth) / 2 : (window.innerWidth - width) / 2));
+    if (workbench.dataset.nestMoved !== 'true') {
+      workbench.style.transform = 'none';
+      workbench.style.left = `${left}px`;
+      workbench.style.top = `${top}px`;
+    }
+    if (library.dataset.nestMoved !== 'true') {
+      library.style.left = `${Math.max(margin, Math.min(window.innerWidth - libraryWidth - margin, left + width + gap))}px`;
+      library.style.top = `${top}px`;
+      library.style.height = `${Math.max(360, Math.min(height, window.innerHeight - top - margin))}px`;
+    }
+    workbench.dataset.nestArranged = 'true';
   }
 
   function ensureVideoExtendWorkbenchStyle() {
     if (document.getElementById(VIDEO_EXTEND_WORKBENCH_STYLE_ID)) return;
+    const W = `#${VIDEO_EXTEND_WORKBENCH_ID}`, L = `#${VIDEO_EXTEND_LIBRARY_PANEL_ID}`, P = '#nest-aiflow-people-find-replace', R = `#${VIDEO_EXTEND_WORKBENCH_RETURN_ID}`;
     const style = document.createElement('style');
     style.id = VIDEO_EXTEND_WORKBENCH_STYLE_ID;
+    // 两个浮窗按小旺仔素材库新界面的造型：大圆角窗口、圆角分区、胶囊按钮；颜色跟着 AI Flow「页面配色」（--nest-theme-*）。
+    // AI Flow 自己的样式和「页面配色」都有很多带 !important 的通用规则（button、header、section、aside、
+    // class 里带 card / tab / panel / item 的元素……），所以这里一律以窗口 ID 开头并加 !important，
+    // 元素只用 div / button，class 名也避开那些关键词，免得被刷掉。
     style.textContent = `
       .nest-aiflow-video-extend-native-hidden { opacity: 0 !important; pointer-events: none !important; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} { position:fixed; z-index:2147483645; left:50%; top:50%; width:min(760px,calc(100vw - 28px)); max-height:calc(100vh - 28px); transform:translate(-50%,-50%); overflow:auto; border:1px solid #75603a; border-radius:13px; background:#171510; box-shadow:0 28px 88px #000d; color:#f2eee4; font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} * { box-sizing:border-box; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} header { display:flex; align-items:center; gap:10px; padding:13px 16px; border-bottom:1px solid #4c4028; background:linear-gradient(100deg,#241e12,#171510); cursor:move; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} h2 { margin:0; font-size:16px; color:#f7e6ae; } #${VIDEO_EXTEND_WORKBENCH_ID} header small { color:#b6a98b; margin-right:auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} button { border:1px solid #80693d; border-radius:6px; background:#2a2418; color:#f3dda0; padding:7px 10px; cursor:pointer; font:inherit; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} select { border:1px solid #80693d; border-radius:6px; background:#2a2418; color:#f3dda0; padding:6px; font:inherit; cursor:pointer; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} button:hover:not(:disabled) { background:#4a3b1d; } #${VIDEO_EXTEND_WORKBENCH_ID} button:disabled { opacity:.55; cursor:wait; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} [data-nest-workbench-direction][data-active="true"] { background:#8a743f; border-color:#e2c473; color:#161209; box-shadow:0 0 0 2px #c79f4740; font-weight:700; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} .nest-workbench-body { display:grid; grid-template-columns:minmax(270px,1fr) minmax(300px,1.15fr); gap:14px; padding:14px; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} .nest-workbench-preview { display:grid; place-items:center; min-height:270px; border:1px solid #40351f; border-radius:9px; background:#080807; overflow:hidden; } #${VIDEO_EXTEND_WORKBENCH_ID} video { display:block; width:100%; max-height:420px; object-fit:contain; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} label { display:block; color:#cbbf9c; font-size:11px; margin:0 0 5px; } #${VIDEO_EXTEND_WORKBENCH_ID} textarea { width:100%; min-height:190px; max-height:calc(100vh - 250px); resize:vertical; border:1px solid #655231; border-radius:8px; background:#25211a; color:#f3f0e7; padding:11px 12px; font:14px/1.6 inherit; outline:none; } #${VIDEO_EXTEND_WORKBENCH_ID} textarea:focus { border-color:#cfaa58; box-shadow:0 0 0 2px #c79f4730; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} input[type=number] { width:76px; border:1px solid #655231; border-radius:6px; background:#25211a; color:#f3f0e7; padding:7px; } #${VIDEO_EXTEND_WORKBENCH_ID} .nest-workbench-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:10px 0; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} .nest-workbench-chips { display:flex; flex-wrap:wrap; gap:6px; min-height:32px; padding:7px; border:1px solid #40351f; border-radius:7px; background:#201d17; color:#d8c99c; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} .nest-workbench-chip { display:inline-flex; align-items:center; min-width:0; max-width:100%; border-radius:14px; background:#39301d; font-size:11px; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} .nest-workbench-chip [data-nest-workbench-reference-insert] { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border:0; border-radius:14px 0 0 14px; background:transparent; color:inherit; padding:3px 5px 3px 7px; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} .nest-workbench-chip [data-nest-workbench-reference-remove] { border:0; border-left:1px solid #80693d; border-radius:0 14px 14px 0; background:transparent; color:inherit; padding:3px 7px; font-weight:700; line-height:1; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} .nest-workbench-chip [data-nest-workbench-reference-remove]:hover { background:#6d312d; color:#fff; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} .nest-workbench-prompt-head { display:flex; align-items:center; gap:8px; margin-top:10px; } #${VIDEO_EXTEND_WORKBENCH_ID} .nest-workbench-prompt-head label { margin:0 auto 0 0; } #${VIDEO_EXTEND_WORKBENCH_ID} [data-nest-workbench-count] { color:#96855d; font-size:11px; } #${VIDEO_EXTEND_WORKBENCH_ID} [data-nest-workbench-clear] { padding:3px 7px; font-size:11px; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} [data-nest-workbench-reference-hints] { display:flex; flex-wrap:wrap; gap:5px; min-height:20px; padding-top:6px; color:#c9b06c; font-size:11px; }
-      #${VIDEO_EXTEND_WORKBENCH_ID} footer { display:flex; gap:9px; padding:12px 14px; border-top:1px solid #4c4028; } #${VIDEO_EXTEND_WORKBENCH_ID} [data-nest-workbench-submit] { flex:1; background:#8a743f; color:#161209; font-weight:700; }
-      #${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="ocean"] { border-color:#397fa3; background:#101b24; } #${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="ocean"] header { border-color:#284c60; background:linear-gradient(100deg,#102b3b,#101b24); } #${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="ocean"] button,#${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="ocean"] select { border-color:#367ca2; background:#173246; color:#bdeaff; } #${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="ocean"] [data-nest-workbench-submit],#${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="ocean"] [data-nest-workbench-direction][data-active="true"] { background:#3b91bc; color:#07161d; }
-      #${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="forest"] { border-color:#3b8a65; background:#112119; } #${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="forest"] header { border-color:#285b43; background:linear-gradient(100deg,#163523,#112119); } #${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="forest"] button,#${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="forest"] select { border-color:#438c68; background:#193827; color:#c9f5d6; } #${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="forest"] [data-nest-workbench-submit],#${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="forest"] [data-nest-workbench-direction][data-active="true"] { background:#4d9b70; color:#08160d; }
-      #${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="violet"] { border-color:#8666ab; background:#1d1628; } #${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="violet"] header { border-color:#593f74; background:linear-gradient(100deg,#31203f,#1d1628); } #${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="violet"] button,#${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="violet"] select { border-color:#8967ae; background:#38274b; color:#e8d6ff; } #${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="violet"] [data-nest-workbench-submit],#${VIDEO_EXTEND_WORKBENCH_ID}[data-theme="violet"] [data-nest-workbench-direction][data-active="true"] { background:#9670c0; color:#160d1f; }
-      @media (max-width:720px) { #${VIDEO_EXTEND_WORKBENCH_ID} .nest-workbench-body { grid-template-columns:1fr; } #${VIDEO_EXTEND_WORKBENCH_ID} .nest-workbench-preview { min-height:180px; } }
+      ${W}, ${L}, ${P}, ${R} {
+        --nx-bg: var(--nest-theme-overlay, #141a23);
+        --nx-raise: var(--nest-theme-surface, #1c2430);
+        --nx-field: var(--nest-theme-field, #0e131a);
+        --nx-line: color-mix(in srgb, var(--nest-theme-border, #2d3a4c) 75%, transparent);
+        --nx-text: var(--nest-theme-text, #e6edf7);
+        --nx-muted: var(--nest-theme-muted, #8f9cb0);
+        --nx-accent: var(--nest-theme-accent, #2f7dff);
+        --nx-primary: var(--nest-theme-primary, var(--nx-accent));
+        --nx-on-primary: var(--nest-theme-primary-text, #ffffff);
+        --nx-soft: color-mix(in srgb, var(--nx-text) 7%, transparent);
+        --nx-soft-hover: color-mix(in srgb, var(--nx-text) 13%, transparent);
+        --nx-tint: color-mix(in srgb, var(--nx-accent) 16%, transparent);
+        --nx-danger: #ff6b6b;
+        --nx-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      ${W}, ${L} {
+        position: fixed !important; z-index: 2147483645 !important;
+        display: flex !important; flex-direction: column !important;
+        box-sizing: border-box !important; margin: 0 !important; padding: 0 !important;
+        border: 1px solid var(--nx-line) !important; border-radius: 22px !important;
+        background: var(--nx-bg) !important; color: var(--nx-text) !important;
+        box-shadow: 0 32px 90px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .04) !important;
+        font: 13px/1.45 var(--nx-font) !important; letter-spacing: normal !important; text-align: left !important;
+        overflow: hidden !important;
+      }
+      ${W} { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(820px, calc(100vw - 28px)); max-height: calc(100vh - 28px); }
+      ${L} { z-index: 2147483646 !important; width: 340px; height: min(640px, calc(100vh - 24px)); min-width: 260px !important; max-width: calc(100vw - 24px) !important; min-height: 260px !important; max-height: calc(100vh - 24px) !important; resize:both !important; }
+      ${W} *, ${P} *, ${L} :is(.nx-head, .nx-tip, .nx-scroll, .nx-group, .nx-group-head, .nx-grid, .nx-grid *) { box-sizing: border-box !important; letter-spacing: normal !important; text-transform: none !important; text-shadow: none !important; }
+
+      /* 标题栏 */
+      :is(${W}, ${L}) .nx-head { display: flex !important; align-items: center !important; gap: 10px !important; flex: none !important; margin: 0 !important; padding: 14px 14px 10px 16px !important; border: 0 !important; background: transparent !important; cursor: move !important; user-select: none !important; }
+      :is(${W}, ${L}) .nx-mark { flex: none !important; display: grid !important; place-items: center !important; width: 34px !important; height: 34px !important; border-radius: 12px !important; background: linear-gradient(135deg, color-mix(in srgb, var(--nx-primary) 70%, #fff), var(--nx-primary)) !important; color: var(--nx-on-primary) !important; font-size: 13px !important; font-weight: 800 !important; }
+      :is(${W}, ${L}) .nx-title { flex: 1 1 auto !important; display: grid !important; gap: 1px !important; min-width: 0 !important; margin: 0 !important; }
+      :is(${W}, ${L}) .nx-title b { display: block !important; overflow: hidden !important; color: var(--nx-text) !important; font-size: 15px !important; font-weight: 750 !important; line-height: 1.3 !important; white-space: nowrap !important; text-overflow: ellipsis !important; }
+      :is(${W}, ${L}) .nx-ver { margin-left: 8px !important; padding: 1px 7px !important; border-radius: 999px !important; background: var(--nx-soft) !important; color: var(--nx-muted) !important; font-size: 10px !important; font-weight: 650 !important; vertical-align: 2px !important; }
+      :is(${W}, ${L}) .nx-title small { display: block !important; overflow: hidden !important; color: var(--nx-muted) !important; font-size: 11px !important; line-height: 1.4 !important; white-space: nowrap !important; text-overflow: ellipsis !important; }
+
+      /* 按钮：胶囊形；主按钮用主题主色渐变 */
+      :is(${W}, ${L}, ${P}) .nx-btn, ${R} {
+        display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important;
+        flex: none !important; float: none !important; width: auto !important; min-width: 0 !important; max-width: none !important; height: auto !important; min-height: 32px !important;
+        margin: 0 !important; padding: 7px 14px !important;
+        border: 0 !important; border-radius: 999px !important;
+        background: var(--nx-soft) !important; color: var(--nx-text) !important;
+        box-shadow: none !important; outline: none !important;
+        font: 650 12px/1.2 var(--nx-font) !important; white-space: nowrap !important; text-decoration: none !important;
+        cursor: pointer !important; transition: background-color .15s ease, color .15s ease, transform .15s ease, box-shadow .15s ease !important;
+      }
+      :is(${W}, ${L}, ${P}) .nx-btn:hover:not(:disabled) { background: var(--nx-soft-hover) !important; color: var(--nx-text) !important; }
+      :is(${W}, ${L}, ${P}) .nx-btn:focus-visible { box-shadow: 0 0 0 2px var(--nx-accent) !important; }
+      :is(${W}, ${L}, ${P}) .nx-btn:disabled { opacity: .5 !important; cursor: default !important; }
+      :is(${W}, ${L}, ${P}) .nx-round { width: 32px !important; height: 32px !important; padding: 0 !important; color: var(--nx-muted) !important; font-size: 17px !important; line-height: 1 !important; }
+      :is(${W}, ${L}, ${P}) .nx-mini { min-height: 24px !important; padding: 3px 10px !important; font-size: 11px !important; }
+      :is(${W}, ${L}, ${P}) .nx-ghost { background: transparent !important; color: var(--nx-muted) !important; box-shadow: inset 0 0 0 1px var(--nx-line) !important; }
+      :is(${W}, ${L}, ${P}) .nx-ghost:hover:not(:disabled) { background: var(--nx-soft) !important; color: var(--nx-text) !important; }
+      :is(${W}, ${L}, ${P}) .nx-go { background: linear-gradient(135deg, color-mix(in srgb, var(--nx-primary) 78%, #fff), var(--nx-primary)) !important; color: var(--nx-on-primary) !important; box-shadow: 0 10px 24px color-mix(in srgb, var(--nx-primary) 32%, transparent) !important; }
+      :is(${W}, ${L}, ${P}) .nx-go:hover:not(:disabled) { background: var(--nx-primary) !important; color: var(--nx-on-primary) !important; transform: translateY(-1px) !important; }
+      ${R} { position: fixed !important; right: 20px !important; bottom: 20px !important; z-index: 2147483647 !important; min-height: 40px !important; padding: 10px 18px !important; background: var(--nx-primary) !important; color: var(--nx-on-primary) !important; box-shadow: 0 12px 30px rgba(0, 0, 0, .45) !important; font-size: 13px !important; }
+      ${R}:hover { background: var(--nx-primary) !important; color: var(--nx-on-primary) !important; transform: translateY(-1px) !important; }
+
+      /* 延长工作台 */
+      ${W} .nx-body { display: grid !important; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr) !important; gap: 16px !important; flex: 1 1 auto !important; min-height: 0 !important; margin: 0 !important; padding: 2px 16px 14px !important; overflow: auto !important; border: 0 !important; background: transparent !important; }
+      ${W} .nx-col { display: flex !important; flex-direction: column !important; gap: 14px !important; min-width: 0 !important; min-height: 0 !important; margin: 0 !important; }
+      ${W} .nx-preview { position: relative !important; display: grid !important; place-items: center !important; flex: 1 1 auto !important; min-height: 260px !important; max-height: min(60vh, 540px) !important; margin: 0 !important; overflow: hidden !important; border: 0 !important; border-radius: 16px !important; background: #000 !important; color: var(--nx-muted) !important; font-size: 12px !important; }
+      ${W} .nx-preview video { display: block !important; width: 100% !important; height: 100% !important; max-height: min(60vh, 540px) !important; margin: 0 !important; border: 0 !important; border-radius: 0 !important; background: #000 !important; object-fit: contain !important; }
+      ${W} .nx-preview .nx-empty { max-width: 260px !important; padding: 20px !important; text-align: center !important; line-height: 1.6 !important; }
+      ${W} .nx-field { display: grid !important; gap: 7px !important; min-width: 0 !important; margin: 0 !important; }
+      ${W} .nx-label { display: block !important; margin: 0 !important; color: var(--nx-muted) !important; font-size: 12px !important; font-weight: 650 !important; }
+      ${W} .nx-dirs { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 4px !important; margin: 0 !important; padding: 4px !important; border-radius: 999px !important; background: var(--nx-field) !important; }
+      ${W} .nx-dirs .nx-btn { min-height: 34px !important; padding: 6px 10px !important; background: transparent !important; color: var(--nx-muted) !important; }
+      ${W} .nx-dirs .nx-btn small { margin: 0 0 0 4px !important; color: inherit !important; font-size: 11px !important; font-weight: 500 !important; opacity: .78 !important; }
+      ${W} .nx-dirs .nx-btn:hover:not(:disabled) { background: var(--nx-soft) !important; color: var(--nx-text) !important; }
+      ${W} .nx-dirs .nx-btn[data-active="true"] { background: var(--nx-primary) !important; color: var(--nx-on-primary) !important; box-shadow: 0 6px 16px color-mix(in srgb, var(--nx-primary) 30%, transparent) !important; }
+      ${W} .nx-row { display: flex !important; flex-wrap: wrap !important; align-items: flex-end !important; gap: 10px 12px !important; margin: 0 !important; }
+      ${W} .nx-row > .nx-btn { margin-left: auto !important; min-height: 38px !important; background: var(--nx-tint) !important; color: var(--nx-text) !important; }
+      ${W} .nx-stepper { display: inline-flex !important; align-items: center !important; gap: 2px !important; height: 38px !important; margin: 0 !important; padding: 3px !important; border-radius: 999px !important; background: var(--nx-field) !important; }
+      ${W} .nx-stepper .nx-btn { width: 32px !important; height: 32px !important; padding: 0 !important; background: transparent !important; font-size: 16px !important; }
+      ${W} .nx-stepper .nx-btn:hover:not(:disabled) { background: var(--nx-soft) !important; }
+      ${W} .nx-stepper input { width: 40px !important; height: 32px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; outline: none !important; color: var(--nx-text) !important; font: 750 15px/1 var(--nx-font) !important; text-align: center !important; appearance: textfield !important; -moz-appearance: textfield !important; }
+      ${W} .nx-stepper input::-webkit-inner-spin-button, ${W} .nx-stepper input::-webkit-outer-spin-button { margin: 0 !important; -webkit-appearance: none !important; }
+      ${W} .nx-unit { padding: 0 10px 0 2px !important; color: var(--nx-muted) !important; font-size: 12px !important; }
+      ${W} .nx-chips { display: flex !important; flex-wrap: wrap !important; align-items: center !important; gap: 6px !important; min-height: 42px !important; margin: 0 !important; padding: 7px 10px !important; border: 0 !important; border-radius: 14px !important; background: var(--nx-field) !important; color: var(--nx-muted) !important; font-size: 12px !important; line-height: 1.5 !important; }
+      ${W} .nx-ref { display: inline-flex !important; align-items: center !important; min-width: 0 !important; max-width: 100% !important; margin: 0 !important; border-radius: 999px !important; background: var(--nx-tint) !important; color: var(--nx-text) !important; }
+      ${W} .nx-ref .nx-btn { display: block !important; min-height: 26px !important; max-width: 230px !important; padding: 5px 4px 5px 11px !important; overflow: hidden !important; background: transparent !important; color: var(--nx-text) !important; font-size: 12px !important; font-weight: 600 !important; text-overflow: ellipsis !important; }
+      ${W} .nx-ref .nx-btn:hover:not(:disabled) { background: transparent !important; color: var(--nx-accent) !important; }
+      ${W} .nx-ref .nx-btn[data-nest-workbench-reference-remove] { padding: 5px 11px 5px 4px !important; color: var(--nx-muted) !important; font-size: 14px !important; line-height: 1 !important; }
+      ${W} .nx-ref .nx-btn[data-nest-workbench-reference-remove]:hover:not(:disabled) { color: var(--nx-danger) !important; }
+      ${W} .nx-grow { flex: 1 1 auto !important; }
+      ${W} .nx-prompt-head { display: flex !important; align-items: center !important; gap: 8px !important; margin: 0 !important; }
+      ${W} .nx-prompt-head .nx-label { margin-right: auto !important; }
+      ${W} [data-nest-workbench-count] { color: var(--nx-muted) !important; font-size: 11px !important; font-variant-numeric: tabular-nums !important; }
+      ${W} .nx-prompt-wrap { position: relative !important; margin: 0 !important; }
+      ${W} textarea[data-nest-workbench-prompt] { display: block !important; width: 100% !important; min-height: 180px !important; max-height: calc(100vh - 230px) !important; margin: 0 !important; padding: 12px 14px !important; resize: vertical !important; border: 1px solid transparent !important; border-radius: 14px !important; background: var(--nx-field) !important; color: var(--nx-text) !important; box-shadow: none !important; outline: none !important; font: 14px/1.65 var(--nx-font) !important; caret-color: var(--nx-accent) !important; }
+      ${W} textarea[data-nest-workbench-prompt]:focus { border-color: var(--nx-accent) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--nx-accent) 20%, transparent) !important; }
+      ${W} textarea[data-nest-workbench-prompt]::placeholder { color: var(--nx-muted) !important; opacity: .8 !important; }
+      ${W} [data-nest-workbench-reference-hints] { min-height: 16px !important; margin: 0 !important; color: var(--nx-muted) !important; font-size: 11px !important; }
+      ${W} .nx-foot { display: flex !important; align-items: center !important; gap: 10px !important; flex: none !important; margin: 0 !important; padding: 12px 16px 16px !important; border: 0 !important; border-top: 1px solid var(--nx-line) !important; background: transparent !important; }
+      ${W} .nx-foot .nx-btn { min-height: 42px !important; padding: 8px 18px !important; }
+      ${W} .nx-foot .nx-go { flex: 1 1 auto !important; font-size: 14px !important; font-weight: 750 !important; }
+
+      /* 视频延长素材库 */
+      ${L} .nx-tip { flex: none !important; margin: 0 14px 10px !important; padding: 8px 12px !important; border-radius: 12px !important; background: var(--nx-tint) !important; color: var(--nx-text) !important; font-size: 12px !important; line-height: 1.5 !important; }
+      ${L} .nx-scroll { display: flex !important; flex-direction: column !important; gap: 10px !important; flex: 1 1 auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 12px 14px !important; overflow: auto !important; background: transparent !important; }
+      ${L} .nx-group { flex: none !important; margin: 0 !important; padding: 10px !important; border: 0 !important; border-radius: 16px !important; background: var(--nx-raise) !important; color: var(--nx-text) !important; }
+      ${L} .nx-group-head { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 8px !important; width: 100% !important; min-height: 0 !important; margin: 0 0 8px !important; padding: 2px 4px !important; border: 0 !important; border-radius: 8px !important; background: transparent !important; color: var(--nx-text) !important; box-shadow: none !important; font: inherit !important; text-align: left !important; cursor: default !important; }
+      ${L} button.nx-group-head { cursor: pointer !important; }
+      ${L} .nx-group-head b { color: var(--nx-text) !important; font-size: 12px !important; font-weight: 750 !important; }
+      ${L} .nx-group-head span { min-width: 0 !important; overflow: hidden !important; color: var(--nx-muted) !important; font-size: 11px !important; white-space: nowrap !important; text-overflow: ellipsis !important; }
+      ${L} .nx-group[data-collapsed="true"] .nx-native { display: none !important; }
+      ${L} .nx-group[data-collapsed="true"] .nx-group-head { margin-bottom: 0 !important; }
+      ${L} .nx-native { max-height: 340px !important; overflow: auto !important; color: var(--nx-muted) !important; font-size: 12px !important; }
+      ${L} .nx-native :is(img, video) { object-fit: cover !important; }
+      ${L} .nx-grid { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)) !important; align-content: start !important; gap: 8px !important; margin: 0 !important; }
+      ${L} .nx-folder { grid-column: 1 / -1 !important; justify-content: flex-start !important; gap: 8px !important; width: 100% !important; min-height: 36px !important; padding: 7px 12px !important; border-radius: 12px !important; background: var(--nx-soft) !important; text-align: left !important; }
+      ${L} .nx-folder .nx-glyph { flex: none !important; width: 16px !important; height: 16px !important; color: var(--nx-accent) !important; fill: currentColor !important; }
+      ${L} .nx-folder span { min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+      ${L} .nx-tile { display: flex !important; flex-direction: column !important; align-items: stretch !important; justify-content: flex-start !important; gap: 5px !important; width: 100% !important; padding: 5px !important; border-radius: 12px !important; background: transparent !important; text-align: left !important; white-space: normal !important; }
+      ${L} .nx-tile:hover:not(:disabled) { background: var(--nx-soft) !important; }
+      ${L} .nx-thumb { display: block !important; width: 100% !important; aspect-ratio: 4 / 3 !important; margin: 0 !important; border: 0 !important; border-radius: 9px !important; background: var(--nx-field) !important; object-fit: contain !important; }
+      ${L} .nx-kind { display: grid !important; place-items: center !important; color: var(--nx-accent) !important; font-size: 12px !important; font-weight: 700 !important; }
+      ${L} .nx-name { display: -webkit-box !important; overflow: hidden !important; -webkit-box-orient: vertical !important; -webkit-line-clamp: 2 !important; color: var(--nx-text) !important; font-size: 11px !important; font-weight: 500 !important; line-height: 1.35 !important; overflow-wrap: anywhere !important; }
+      :is(${W}, ${L}) .nx-empty { grid-column: 1 / -1 !important; padding: 10px 4px !important; color: var(--nx-muted) !important; font-size: 12px !important; }
+
+      /* 人物查找和替换 */
+      ${P} { position: absolute !important; inset: 12px !important; z-index: 20 !important; display: grid !important; align-content: start !important; gap: 10px !important; min-height: 270px !important; margin: 0 !important; padding: 18px !important; overflow: auto !important; border: 1px solid var(--nx-line) !important; border-radius: 18px !important; background: var(--nx-bg) !important; color: var(--nx-text) !important; box-shadow: 0 20px 60px rgba(0, 0, 0, .5) !important; font: 13px/1.45 var(--nx-font) !important; }
+      body > ${P} { position: fixed !important; inset: auto !important; top: 80px !important; right: 24px !important; width: min(380px, calc(100vw - 32px)) !important; z-index: 2147483647 !important; }
+      ${P} .nx-people-head { display: flex !important; align-items: center !important; gap: 8px !important; }
+      ${P} .nx-people-head b { color: var(--nx-text) !important; font-size: 15px !important; font-weight: 750 !important; }
+      ${P} [data-nest-person-position] { margin-right: auto !important; color: var(--nx-muted) !important; font-size: 12px !important; }
+      ${P} [data-nest-person-status] { min-height: 18px !important; color: var(--nx-accent) !important; font-size: 12px !important; }
+      ${P} .nx-people-field { display: grid !important; gap: 6px !important; margin: 0 !important; color: var(--nx-muted) !important; font-size: 12px !important; font-weight: 650 !important; }
+      ${P} .nx-people-field :is(input, select) { width: 100% !important; height: 38px !important; margin: 0 !important; padding: 0 12px !important; border: 1px solid transparent !important; border-radius: 12px !important; background: var(--nx-field) !important; color: var(--nx-text) !important; box-shadow: none !important; outline: none !important; font: 500 13px/1.2 var(--nx-font) !important; }
+      ${P} .nx-people-field :is(input, select):focus { border-color: var(--nx-accent) !important; }
+      ${P} .nx-people-actions { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; margin-top: 4px !important; }
+
+      @media (max-width: 760px) {
+        ${W} .nx-body { grid-template-columns: minmax(0, 1fr) !important; }
+        ${W} .nx-preview { min-height: 180px !important; }
+      }
     `;
     (document.head || document.documentElement).appendChild(style);
   }
@@ -710,6 +944,27 @@
     }
   }
 
+  // 工作台里预览用的视频地址，按顺序试：AI Flow 弹窗里的视频（普通地址）→ 刚才点「延长」的那张任务卡片的
+  // 视频文件 → 弹窗里的 blob 地址。blob 往往是只能接一次的视频流，第二个播放器接不上，就是以前黑屏的原因。
+  function videoExtendPreviewSources(dialog) {
+    const video = dialog?.querySelector('video');
+    const direct = [], streams = [];
+    for (const value of [video?.currentSrc, video?.src, video?.querySelector('source')?.src]) {
+      const text = String(value || '').trim();
+      if (!text) continue;
+      (text.startsWith('blob:') ? streams : direct).push(text);
+    }
+    const fromTask = lastVideoExtendTaskId ? [videoUrl(lastVideoExtendTaskId)] : [];
+    return { sources: [...new Set([...direct, ...fromTask, ...streams])], poster: String(video?.poster || '') };
+  }
+
+  function videoExtendSourceName(src) {
+    try {
+      const name = decodeURIComponent(new URL(src, location.href).pathname.split('/').pop() || '');
+      return name && !src.startsWith('blob:') ? name : '';
+    } catch { return ''; }
+  }
+
   function injectVideoExtendWorkbench() {
     const editor = [...document.querySelectorAll('textarea')].find(isVideoExtendPrompt);
     const dialog = editor && videoExtendContainer(editor);
@@ -730,11 +985,11 @@
       // which can lock up the page in a render loop.
       dialog.querySelector('[data-nest-workbench-return]')?.remove();
       if (!document.getElementById(VIDEO_EXTEND_WORKBENCH_RETURN_ID)) {
+        ensureVideoExtendWorkbenchStyle();
         const back = document.createElement('button');
         back.id = VIDEO_EXTEND_WORKBENCH_RETURN_ID;
         back.type = 'button'; back.textContent = '返回小旺仔工作台';
         back.title = '切回小旺仔自定义视频延长窗口';
-        back.style.cssText = 'position:fixed;z-index:2147483647;right:20px;bottom:20px;border:1px solid #8a6d39;border-radius:7px;background:#2a2217;color:#f3dba0;padding:8px 11px;cursor:pointer;box-shadow:0 6px 20px #0009';
         back.addEventListener('click', () => {
           delete dialog.dataset.nestWorkbenchDisabled;
           back.remove();
@@ -747,31 +1002,64 @@
     document.getElementById(VIDEO_EXTEND_WORKBENCH_RETURN_ID)?.remove();
     ensureVideoExtendWorkbenchStyle();
     dialog.classList.add('nest-aiflow-video-extend-native-hidden');
-    const video = dialog.querySelector('video');
-    const source = String(video?.currentSrc || video?.src || '');
     const seconds = dialog.querySelector('input[type=number]');
-    const workbench = document.createElement('section');
+    // 用 div 不用 section/header：AI Flow 的"页面配色"会给所有 section/header 强行刷底色
+    const workbench = document.createElement('div');
     workbench.id = VIDEO_EXTEND_WORKBENCH_ID;
-    workbench.innerHTML = `<header data-nest-workbench-drag><div><h2>小旺仔延长工作台</h2><small data-nest-workbench-source>AI Flow 视频延长</small></div><select data-nest-workbench-theme title="切换主题配色"><option value="amber">琥珀</option><option value="ocean">海洋</option><option value="forest">森林</option><option value="violet">紫罗兰</option></select><button type="button" data-nest-workbench-close>关闭</button></header><div class="nest-workbench-body"><div class="nest-workbench-preview">${source ? `<video controls src="${source.replace(/"/g, '&quot;')}"></video>` : '<span>正在读取视频预览…</span>'}</div><div><label>延长方向</label><div class="nest-workbench-row"><button type="button" data-nest-workbench-direction="end">向后延长（接结尾）</button><button type="button" data-nest-workbench-direction="start">向前延长（补开头）</button></div><div class="nest-workbench-row"><label style="margin:0">延长秒数</label><input type="number" min="4" max="30" data-nest-workbench-seconds><button type="button" data-nest-workbench-match>自动匹配人物</button></div><label>延长参考素材</label><div class="nest-workbench-chips" data-nest-workbench-chips>暂无参考素材</div><div class="nest-workbench-prompt-head"><label>延长提示词</label><span data-nest-workbench-count>0</span><button type="button" data-nest-workbench-clear>清空</button></div><textarea data-nest-workbench-prompt placeholder="写接着做什么，例如人物转身走向门口；可直接输入 @图片1、@视频1 等引用…"></textarea><div data-nest-workbench-reference-hints></div></div></div><footer><button type="button" data-nest-workbench-native>打开 AI Flow 原窗口</button><button type="button" data-nest-workbench-submit>提交延长</button></footer>`;
+    workbench.setAttribute('role', 'dialog');
+    workbench.setAttribute('aria-label', '小旺仔延长工作台');
+    workbench.innerHTML = `<div class="nx-head" data-nest-workbench-drag><span class="nx-mark" aria-hidden="true">▶</span><div class="nx-title"><b>小旺仔延长工作台<span class="nx-ver"></span></b><small data-nest-workbench-source>AI Flow 视频延长</small></div><button type="button" class="nx-btn nx-round" data-nest-workbench-close title="关闭（AI Flow 的延长窗口一起关闭）" aria-label="关闭">×</button></div><div class="nx-body"><div class="nx-col"><div class="nx-preview" data-nest-workbench-preview><div class="nx-empty">正在读取视频预览…</div></div></div><div class="nx-col"><div class="nx-field"><span class="nx-label">延长方向</span><div class="nx-dirs" role="group" aria-label="延长方向"><button type="button" class="nx-btn" data-nest-workbench-direction="end">向后延长<small>接结尾</small></button><button type="button" class="nx-btn" data-nest-workbench-direction="start">向前延长<small>补开头</small></button></div></div><div class="nx-row"><div class="nx-field"><span class="nx-label">延长秒数</span><div class="nx-stepper"><button type="button" class="nx-btn" data-nest-workbench-seconds-step="-1" aria-label="少 1 秒">−</button><input type="number" data-nest-workbench-seconds aria-label="延长秒数"><button type="button" class="nx-btn" data-nest-workbench-seconds-step="1" aria-label="多 1 秒">+</button><span class="nx-unit">秒</span></div></div><button type="button" class="nx-btn" data-nest-workbench-match title="识别提示词里的人物，替换成对应的 @图片 引用">自动匹配人物</button></div><div class="nx-field"><span class="nx-label">延长参考素材</span><div class="nx-chips" data-nest-workbench-chips>暂无参考素材</div></div><div class="nx-field nx-grow"><div class="nx-prompt-head"><span class="nx-label">延长提示词</span><span data-nest-workbench-count>0</span><button type="button" class="nx-btn nx-mini" data-nest-workbench-clear>清空</button></div><div class="nx-prompt-wrap"><textarea data-nest-workbench-prompt placeholder="写接着做什么，例如人物转身走向门口；可直接输入 @图片1、@视频1 等引用…"></textarea></div><div data-nest-workbench-reference-hints></div></div></div></div><div class="nx-foot"><button type="button" class="nx-btn nx-ghost" data-nest-workbench-native>打开 AI Flow 原窗口</button><button type="button" class="nx-btn nx-go" data-nest-workbench-submit>提交延长</button></div>`;
     const prompt = workbench.querySelector('[data-nest-workbench-prompt]');
     const secondsInput = workbench.querySelector('[data-nest-workbench-seconds]');
     const chips = workbench.querySelector('[data-nest-workbench-chips]');
     const promptCount = workbench.querySelector('[data-nest-workbench-count]');
     const referenceHints = workbench.querySelector('[data-nest-workbench-reference-hints]');
-    const themeSelect = workbench.querySelector('[data-nest-workbench-theme]');
-    let savedTheme = 'amber';
-    try { savedTheme = localStorage.getItem(VIDEO_EXTEND_WORKBENCH_THEME_KEY) || 'amber'; } catch {}
-    if (!['amber', 'ocean', 'forest', 'violet'].includes(savedTheme)) savedTheme = 'amber';
-    workbench.dataset.theme = savedTheme;
-    if (themeSelect instanceof HTMLSelectElement) {
-      themeSelect.value = savedTheme;
-      themeSelect.addEventListener('change', () => { workbench.dataset.theme = themeSelect.value; try { localStorage.setItem(VIDEO_EXTEND_WORKBENCH_THEME_KEY, themeSelect.value); } catch {} });
+    const preview = workbench.querySelector('[data-nest-workbench-preview]');
+    const sourceLabel = workbench.querySelector('[data-nest-workbench-source]');
+    const versionLabel = workbench.querySelector('.nx-ver');
+    try { const version = chrome.runtime.getManifest?.()?.version; if (versionLabel && version) versionLabel.textContent = `v${version}`; } catch { /* 扩展刚重新加载时读不到，留空 */ }
+    if (secondsInput instanceof HTMLInputElement) {
+      secondsInput.min = String(Number(seconds?.min) || 4);
+      secondsInput.max = String(Number(seconds?.max) || 30);
+      secondsInput.step = String(Number(seconds?.step) || 1);
     }
+    let previewKey = null;
+    const showPreview = (sources, poster, index) => {
+      if (!(preview instanceof HTMLElement)) return;
+      const src = sources[index];
+      if (!src) {
+        const note = document.createElement('div');
+        note.className = 'nx-empty';
+        note.textContent = sources.length ? '视频预览没能加载，可以点「打开 AI Flow 原窗口」查看原视频。' : '正在读取视频预览…';
+        preview.replaceChildren(note);
+        return;
+      }
+      const video = document.createElement('video');
+      video.controls = true; video.playsInline = true; video.preload = 'metadata';
+      if (poster) video.poster = poster;
+      video.addEventListener('error', () => { if (video.isConnected) showPreview(sources, poster, index + 1); }, { once: true });
+      video.addEventListener('loadedmetadata', () => {
+        if (workbench.dataset.nestMoved === 'true') return;
+        delete workbench.dataset.nestArranged;
+        requestAnimationFrame(arrangeVideoExtendWindows);
+      }, { once: true });
+      video.src = src;
+      preview.replaceChildren(video);
+      const name = videoExtendSourceName(src);
+      if (sourceLabel) sourceLabel.textContent = name ? `AI Flow 视频延长 · ${name}` : 'AI Flow 视频延长';
+    };
+    const renderPreview = () => {
+      const { sources, poster } = videoExtendPreviewSources(dialog);
+      const key = `${sources.join('|')}#${poster}`;
+      if (key === previewKey) return;
+      previewKey = key;
+      showPreview(sources, poster, 0);
+    };
     const resizeWorkbenchPrompt = (force = false) => {
       if (!(prompt instanceof HTMLTextAreaElement)) return;
       if (force || prompt.dataset.nestManualResize !== 'true') {
         prompt.style.height = 'auto';
-        prompt.style.height = `${Math.min(window.innerHeight - 250, Math.max(190, prompt.scrollHeight))}px`;
+        prompt.style.height = `${Math.min(window.innerHeight - 250, Math.max(180, prompt.scrollHeight))}px`;
       }
       if (promptCount) { const limit = Number(editor.maxLength); promptCount.textContent = `${prompt.value.length}${limit > 0 ? ` / ${limit}` : ''}`; }
       if (referenceHints) {
@@ -780,6 +1068,8 @@
         if (tags.length) referenceHints.textContent = `已在提示词中引用：${tags.join(' · ')}`;
       }
     };
+    // 参考素材条每 300ms 对一次；内容没变就不重画，免得鼠标悬停、点击被打断
+    let chipsKey = null;
     const sync = () => {
       // Do not assign the same value on every timer tick: assigning textarea
       // value resets its scrollTop and throws the reader back to the top.
@@ -796,8 +1086,8 @@
       }
       if (secondsInput instanceof HTMLInputElement && document.activeElement !== secondsInput) secondsInput.value = String(seconds?.value || 5);
       syncVideoExtendDirectionButtons(workbench, dialog);
+      renderPreview();
       if (chips) {
-        chips.replaceChildren();
         // Keep AI Flow's actual token. Its chip list can be displayed in a
         // different order from the token numbers, so never renumber by index.
         const referenceItems = nativeVideoExtendReferences(dialog);
@@ -806,22 +1096,28 @@
           const token = `@${match[1]}${match[2]}`;
           if (!knownTokens.has(token)) { knownTokens.add(token); referenceItems.push({ token, filename: '' }); }
         }
-        if (!referenceItems.length) chips.textContent = '暂无参考素材；从右侧小旺仔素材库点击素材即可加入。';
         referenceItems.sort((left, right) => left.token.localeCompare(right.token, 'zh-CN', { numeric: true }));
+        const nextChipsKey = referenceItems.map(item => `${item.token}:${item.filename}`).join('|');
+        if (nextChipsKey === chipsKey) return;
+        chipsKey = nextChipsKey;
+        chips.replaceChildren();
+        if (!referenceItems.length) chips.textContent = '暂无参考素材；从右侧小旺仔素材库点击素材即可加入。';
         for (const { token, filename } of referenceItems) {
           const chip = document.createElement('span');
-          chip.className = 'nest-workbench-chip';
+          chip.className = 'nx-ref';
           chip.dataset.nestWorkbenchReferenceToken = token;
           const insert = document.createElement('button');
-          insert.type = 'button'; insert.dataset.nestWorkbenchReferenceInsert = token;
-          insert.textContent = filename ? `${token} · ${filename}` : token;
+          insert.type = 'button'; insert.className = 'nx-btn'; insert.dataset.nestWorkbenchReferenceInsert = token;
+          // AI Flow 的参考条里带着自己的删除按钮（×），文件名后面会多一个 ×，显示时去掉
+          const shownName = String(filename || '').replace(/[×✕✖]+$/, '').trim();
+          insert.textContent = shownName ? `${token} · ${shownName}` : token;
           insert.title = `点击在当前光标插入 ${token}`;
           insert.addEventListener('click', () => {
             if (!(prompt instanceof HTMLTextAreaElement)) return;
             insertVideoExtendReferenceToken(prompt, token, { start: prompt.selectionStart, end: prompt.selectionEnd });
           });
           const remove = document.createElement('button');
-          remove.type = 'button'; remove.dataset.nestWorkbenchReferenceRemove = token;
+          remove.type = 'button'; remove.className = 'nx-btn'; remove.dataset.nestWorkbenchReferenceRemove = token;
           remove.textContent = '×'; remove.title = `删除参考素材 ${token}`; remove.setAttribute('aria-label', `删除参考素材 ${token}`);
           remove.addEventListener('click', () => {
             if (!(prompt instanceof HTMLTextAreaElement)) return;
@@ -837,6 +1133,7 @@
             removeVideoExtendReferenceToken(editor, token);
             prompt.value = editor.value;
             resizeWorkbenchPrompt();
+            chipsKey = null;
             setTimeout(sync, 160);
           });
           chip.append(insert, remove); chips.appendChild(chip);
@@ -864,6 +1161,13 @@
     });
     workbench.querySelector('[data-nest-workbench-clear]')?.addEventListener('click', () => { if (prompt instanceof HTMLTextAreaElement) { prompt.value = ''; prompt.dispatchEvent(new Event('input', { bubbles: true })); prompt.focus(); } });
     secondsInput?.addEventListener('input', () => { if (seconds) { seconds.value = secondsInput.value; seconds.dispatchEvent(new Event('input', { bubbles: true })); seconds.dispatchEvent(new Event('change', { bubbles: true })); } });
+    for (const stepButton of workbench.querySelectorAll('[data-nest-workbench-seconds-step]')) stepButton.addEventListener('click', () => {
+      if (!(secondsInput instanceof HTMLInputElement)) return;
+      const min = Number(secondsInput.min) || 4, max = Number(secondsInput.max) || 30, step = Number(secondsInput.step) || 1;
+      const current = Number(secondsInput.value) || Number(seconds?.value) || 5;
+      secondsInput.value = String(Math.max(min, Math.min(max, current + step * Number(stepButton.dataset.nestWorkbenchSecondsStep))));
+      secondsInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
     workbench.querySelector('[data-nest-workbench-match]')?.addEventListener('click', event => startVideoExtendPeopleFindReplace(dialog, editor, workbench, event.currentTarget));
     for (const button of workbench.querySelectorAll('[data-nest-workbench-direction]')) button.addEventListener('click', () => {
       const native = nativeVideoExtendDirectionInput(dialog, button.dataset.nestWorkbenchDirection);
@@ -924,7 +1228,6 @@
       back.id = VIDEO_EXTEND_WORKBENCH_RETURN_ID;
       back.type = 'button'; back.textContent = '返回小旺仔工作台';
       back.title = '切回小旺仔自定义视频延长窗口';
-      back.style.cssText = 'position:fixed;z-index:2147483647;right:20px;bottom:20px;border:1px solid #8a6d39;border-radius:7px;background:#2a2217;color:#f3dba0;padding:8px 11px;cursor:pointer;box-shadow:0 6px 20px #0009';
       back.addEventListener('click', () => {
         delete dialog.dataset.nestWorkbenchDisabled;
         dialog.classList.add('nest-aiflow-video-extend-native-hidden');
@@ -940,6 +1243,7 @@
       if (event.target instanceof Element && event.target.closest('button, select')) return;
       const box = workbench.getBoundingClientRect();
       const start = { x: event.clientX, y: event.clientY, left: box.left, top: box.top };
+      workbench.dataset.nestMoved = 'true';
       workbench.style.transform = 'none';
       const move = moveEvent => {
         const maxLeft = Math.max(4, window.innerWidth - workbench.offsetWidth - 4);
@@ -952,6 +1256,7 @@
       window.addEventListener('pointerup', end, { once: true });
     });
     document.body.appendChild(workbench); sync(); resizeWorkbenchPrompt();
+    requestAnimationFrame(arrangeVideoExtendWindows);
     const timer = setInterval(() => { if (!workbench.isConnected || !dialog.isConnected) { clearInterval(timer); return; } if (workbench.style.display === 'none' || dialog.dataset.nestWorkbenchDisabled === 'true') return; sync(); }, 300);
   }
 
@@ -1035,12 +1340,11 @@
       return { name, token, replacement: token ? `${token} ${name}` : '' };
     });
     if (!rows.length) return;
-    const panel = document.createElement('section');
+    ensureVideoExtendWorkbenchStyle();
+    // 用 div 不用 section：AI Flow 的"页面配色"会给所有 section 强行刷底色
+    const panel = document.createElement('div');
     panel.id = 'nest-aiflow-people-find-replace'; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', '人物查找和替换');
-    panel.style.cssText = 'position:absolute;z-index:20;inset:12px;min-height:270px;padding:16px;border:1px solid #9d6b95;border-radius:10px;background:#25121f;color:#fff2fa;box-shadow:0 16px 52px #000d;font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:grid;align-content:start;gap:10px';
-    panel.innerHTML = '<div style="display:flex;align-items:center;gap:8px"><strong style="font-size:16px">人物查找和替换</strong><span data-nest-person-position style="opacity:.7"></span><button type="button" data-nest-person-close style="margin-left:auto">关闭</button></div><div data-nest-person-status style="min-height:18px;color:#f5c6d9"></div><label>查找<input data-nest-person-find readonly></label><label>替换为<input data-nest-person-replace placeholder="请选择图片参考"></label><label>使用参考图<select data-nest-person-reference><option value="">选择 @图片引用</option></select></label><div style="display:flex;flex-wrap:wrap;gap:7px"><button type="button" data-nest-person-prev>上一个</button><button type="button" data-nest-person-next>下一个</button><button type="button" data-nest-person-replace-one>替换当前</button><button type="button" data-nest-person-replace-all>全部替换</button></div>';
-    for (const control of panel.querySelectorAll('input,select,button')) control.style.cssText += ';width:100%;border:1px solid #9d6b95;border-radius:6px;background:#170b14;color:#fff2fa;padding:7px;font:inherit';
-    for (const control of panel.querySelectorAll('button')) control.style.cssText += ';width:auto;cursor:pointer;background:#4f2544';
+    panel.innerHTML = '<div class="nx-people-head"><b>人物查找和替换</b><span data-nest-person-position></span><button type="button" class="nx-btn nx-round" data-nest-person-close aria-label="关闭" title="关闭">×</button></div><div data-nest-person-status></div><label class="nx-people-field"><span>查找</span><input data-nest-person-find readonly></label><label class="nx-people-field"><span>替换为</span><input data-nest-person-replace placeholder="请选择图片参考"></label><label class="nx-people-field"><span>使用参考图</span><select data-nest-person-reference><option value="">选择 @图片引用</option></select></label><div class="nx-people-actions"><button type="button" class="nx-btn" data-nest-person-prev>上一个</button><button type="button" class="nx-btn" data-nest-person-next>下一个</button><button type="button" class="nx-btn" data-nest-person-replace-one>替换当前</button><button type="button" class="nx-btn nx-go" data-nest-person-replace-all>全部替换</button></div>';
     const findInput = panel.querySelector('[data-nest-person-find]'); const replaceInput = panel.querySelector('[data-nest-person-replace]');
     const referenceSelect = panel.querySelector('[data-nest-person-reference]'); const position = panel.querySelector('[data-nest-person-position]'); const status = panel.querySelector('[data-nest-person-status]');
     let index = 0;
@@ -2019,6 +2323,13 @@
     liveSyncTimer = setInterval(requestLiveSync, LIVE_SYNC_INTERVAL_MS);
     setTimeout(requestLiveSync, 500);
   }
+
+  document.addEventListener('click', event => {
+    const card = AI_FLOW_DOM?.taskFromTarget?.(event.target)
+      || (event.target instanceof Element ? event.target.closest('.task-card[data-taskid]') : null);
+    const taskId = String(AI_FLOW_DOM?.taskId?.(card) || card?.dataset?.taskid || '').trim();
+    if (taskId) lastVideoExtendTaskId = taskId;
+  }, true);
 
   document.addEventListener('contextmenu', event => {
     const card = AI_FLOW_DOM?.taskFromTarget?.(event.target)

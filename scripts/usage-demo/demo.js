@@ -148,7 +148,7 @@ const cards = ASSETS.map((a) => {
 // 覆盖层：工具集弹层、详情面板、预览、编辑条、文件夹分栏、提示
 const toolsPop = make("card", winEl, `<b style="font-size:13px">友商工具集</b><div class="tiles" style="display:flex;gap:10px;margin-top:12px"></div>`);
 css(toolsPop, { left: "640px", top: "80px", width: "372px", height: "128px", padding: "14px", boxSizing: "border-box", zIndex: 20, transformOrigin: "70% 0" });
-const TOOLS = [["Mineradio 音乐", "#ff7ab8"], ["红果桌面版", "#ff8a4c"], ["深度视频转换", "#6fa8f5"]];
+const TOOLS = [["深度视频转换", "#6fa8f5"], ["macOS 指针管家", "#ff8a4c"]];
 const toolTiles = TOOLS.map(([name, c]) => { const el = document.createElement("div"); el.innerHTML = `<i style="display:block;width:30px;height:30px;border-radius:10px;background:${c};margin-bottom:8px"></i>${name}`; css(el, { width: "106px", height: "70px", padding: "10px", boxSizing: "border-box", borderRadius: "12px", background: COLORS.tint, fontSize: "11px", fontWeight: 600 }); toolsPop.querySelector(".tiles").appendChild(el); return el; });
 const detail = make("card", winEl);
 css(detail, { top: "12px", width: "238px", height: "546px", zIndex: 15, padding: "16px", boxSizing: "border-box" });
@@ -409,7 +409,7 @@ export function renderAt(t) {
   });
 
   // 提示泡泡：导入完成、启动工具、布局已保存
-  const toastText = t >= A("import") + 5.0 && t < A("import") + 7.6 ? "已导入 8 个素材" : t >= A("layout") + 8.9 && t < A("layout") + 10 ? "布局已保存" : t >= A("friend-tools") + 3.4 && t < A("friend-tools") + 4.9 ? "正在启动 Mineradio 音乐…" : "";
+  const toastText = t >= A("import") + 5.0 && t < A("import") + 7.6 ? "已导入 8 个素材" : t >= A("layout") + 8.9 && t < A("layout") + 10 ? "布局已保存" : t >= A("friend-tools") + 3.4 && t < A("friend-tools") + 4.9 ? "正在启动深度视频转换器…" : "";
   const toastShow = toastText ? Math.min(1, win(t, ...(toastText.startsWith("已导入") ? [A("import") + 5.0, A("import") + 7.6] : toastText.startsWith("布局") ? [A("layout") + 8.9, A("layout") + 10] : [A("friend-tools") + 3.4, A("friend-tools") + 4.9]), 0.3)) : 0;
   toast.innerHTML = `<span style="display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#41c79a;color:#fff;font-size:12px;margin-right:8px">✓</span>${toastText}`;
   const tp = toStage(520, 26, w);

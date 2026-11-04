@@ -45,8 +45,6 @@
   "extension:prepare",
   "friend-tools:open-cursor-picker",
   "friend-tools:open-depth-video-converter",
-  "friend-tools:open-hongguo",
-  "friend-tools:open-mineradio",
   "library:add-folder",
   "library:add-tag",
   "library:batch-delete",

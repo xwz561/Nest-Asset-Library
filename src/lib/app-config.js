@@ -4,6 +4,10 @@ import { describeFile } from "../file-manager-adapter.cjs";
 export const APP_VERSION =
   typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "3.0.4";
 
+// 随安装包附带的网页采集器版本（来自 browser-extension/manifest.json）
+export const EXTENSION_VERSION =
+  typeof __EXTENSION_VERSION__ !== "undefined" ? __EXTENSION_VERSION__ : "";
+
 export const TEXT_EDITABLE_EXTENSIONS = new Set(["txt", "md", "markdown", "fountain"]);
 
 export const isTxtAsset = (asset) => /\.txt$/i.test(String(asset?.originalName || asset?.file || ""));
@@ -29,13 +33,23 @@ export const CURRENT_RELEASE_NOTES = [
   },
   {
     type: "新增",
+    title: "演示方法与素材标记",
+    items: ["顶栏「演示方法」打开操作演示视频，旁边列出新手教程的每一步，点哪一步就跳到视频对应位置。", "素材可以标颜色（右键菜单或详情面板），卡片边缘显示这个颜色；卡片名字下面显示备注。", "文件夹详情点素材区空白处即可收起。"],
+  },
+  {
+    type: "新增",
     title: "后台更新与局域网好友",
     items: ["后台自动检查并下载新版，各电脑可在更新设置关闭；当前用户 Windows 安装版在托盘退出或下次启动时安装。", "点击在线电脑可私聊、传文件和修改头像，素材右键可直接发送给好友。", "收到文件自动放入接收文件中的发送者文件夹并加入素材列表；未打开素材库时先缓存，选库后手动导入。"],
   },
   {
     type: "新增",
     title: "友商工具集",
-    items: ["新增 Mineradio 2.2.0 音乐播放器，点击即可使用，无需另行安装。", "工具集包含红果桌面版、深度视频转换器和 macOS 指针管家。", "深度视频转换器启动时自动识别随包 ONNX 模型，也可手动更换。"],
+    items: ["工具集现在包含深度视频转换器和 macOS 指针管家；红果桌面版和 Mineradio 已移除。", "深度视频转换器启动时自动识别随包 ONNX 模型，也可手动更换。"],
+  },
+  {
+    type: "优化",
+    title: "AI Flow 视频延长",
+    items: ["网页采集器升级到 1.16.0：更新素材库后，在「扩展」面板点一次“安装”，再在浏览器扩展页点“重新加载”。", "网页采集器里的延长工作台和延长素材库重新设计，颜色跟随 AI Flow 页面配色。", "修复视频预览黑屏、AI Flow 原生素材缩略图发黑、标题和按钮被挤成竖排的问题；秒数可以直接点 −/+ 调整。"],
   },
   {
     type: "优化",

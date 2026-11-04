@@ -7,7 +7,6 @@ a version 3 saved copy of the untouched blue default migrates to Eagle graphite
 an untouched legacy blue preset migrates to the reference graphite theme
 asset folder picker is a separate fixed flyout and detail view hides the overlapping feedback chip
 avatar and nickname updates sync via peer profiles while legacy peers stay visible
-browser extension declares AI Flow video, two-way folder sync, upload, and manual web-asset links behind the paired bridge
 closing the desktop app cancels only unfinished AI Flow transfers and makes reference polling quiet
 delete integration keeps the indexed asset and exposes a restore reconciliation path
 direct text is private, retries are idempotent, unread counts and history survive restart
@@ -20,5 +19,4 @@ read receipts remain queued while the sender is offline and deliver on return
 reading a private message returns a durable read receipt to the sender
 sidebar category filters use the graphite navigation icons without changing filter behavior
 small audio waveform uses a high-contrast blue-gray on its navy card
-sync console popup is packaged with a message-only control surface
 waveform uses the shared audio and destroys once on cleanup

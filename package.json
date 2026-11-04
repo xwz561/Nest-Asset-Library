@@ -88,24 +88,12 @@
           "to": "configure-lan-firewall.ps1"
         },
         {
-          "from": "build/friend-tools/hongguo-1.0.13-windows-x86_64-setup.exe",
-          "to": "friend-tools/hongguo-1.0.13-windows-x86_64-setup.exe"
-        },
-        {
-          "from": "build/friend-tools/HONGGUO-THIRD-PARTY-NOTICE.txt",
-          "to": "third-party/HONGGUO-THIRD-PARTY-NOTICE.txt"
-        },
-        {
           "from": "build/friend-tools/DepthVideoConverterV2.exe",
           "to": "friend-tools/depth-video-converter/DepthVideoConverterV2.exe"
         },
         {
           "from": "build/friend-tools/depth-anything-v2-small-quantized.onnx",
           "to": "friend-tools/depth-video-converter/depth-anything-v2-small-quantized.onnx"
-        },
-        {
-          "from": "build/friend-tools/mineradio",
-          "to": "friend-tools/mineradio"
         }
       ]
     },

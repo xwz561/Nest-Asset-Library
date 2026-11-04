@@ -377,3 +377,10 @@
   readStatus();
   window.setInterval(() => readStatus(true), 1200);
 })();
+
+// 标题下显示网页采集器版本号，方便核对浏览器里装的是不是新版
+{
+  const versionLabel = document.getElementById('extension-version');
+  const version = globalThis.chrome?.runtime?.getManifest?.()?.version;
+  if (versionLabel && version) versionLabel.textContent = `v${version}`;
+}

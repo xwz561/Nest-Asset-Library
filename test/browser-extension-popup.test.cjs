@@ -11,7 +11,7 @@ test('sync console popup is packaged with a message-only control surface', () =>
   const script = fs.readFileSync(path.join(extensionRoot, 'popup.js'), 'utf8');
   const css = fs.readFileSync(path.join(extensionRoot, 'popup.css'), 'utf8');
 
-  assert.equal(manifest.version, '1.15.1');
+  assert.equal(manifest.version, '1.16.0');
   assert.deepEqual(manifest.action, {
     default_title: '小旺仔同步控制台',
     default_popup: 'popup.html',

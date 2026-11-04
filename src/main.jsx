@@ -55,6 +55,7 @@ import appIcon from "../build/icon.png";
 
 import { OnboardingTour } from "./onboarding-tour.jsx";
 import { UsageDemoDialog } from "./components/usage-demo-dialog.jsx";
+import { assetColor } from "./asset-colors.js";
 
 import "./pet-settings.css";
 import "./mineradio-theme.css";
@@ -220,6 +221,7 @@ function App() {
     desktopTimers = useRef(new Map()),
     desktopChanges = useRef(new Map()),
     marqueeStart = useRef(null),
+    marqueeMoved = useRef(false),
     marqueeBase = useRef(new Set()),
     lastSelectedId = useRef(null),
     sidebarResizing = useRef(false),
@@ -708,7 +710,10 @@ function App() {
     () => summarizeFolderAssets(currentFolder?.id, library?.folders || [], assets),
     [currentFolder?.id, library?.folders, assets],
   );
-  const folderInspectorOpen = Boolean(!minimalMode && currentFolder && !selected && !aiPanel && activeModule === "library");
+  // 文件夹详情：点素材区空白处收起，重新打开文件夹（或换文件夹）时再出现
+  const [folderInspectorHidden, setFolderInspectorHidden] = React.useState(false);
+  useEffect(() => { setFolderInspectorHidden(false); }, [activeFolder]);
+  const folderInspectorOpen = Boolean(!minimalMode && currentFolder && !selected && !aiPanel && activeModule === "library" && !folderInspectorHidden);
   const hiddenFilterActive = Boolean(aiResultIds || quickTypes.length || quickFormats.length);
   const emptyFolderView = activeModule === "library" && filter === "全部素材" && !query && !currentTag && !hiddenFilterActive && shown.length === 0 && contentFolders.length === 0;
   const treePositions = useMemo(() => folderPositions(orderedFolders), [orderedFolders]);
@@ -720,6 +725,7 @@ function App() {
     setQuery("");
     setCurrentTag(null);
     setActiveFolder(folder.id);
+    setFolderInspectorHidden(false);
     setSelected(null);
     setSelectedIds([]);
   };
@@ -1479,6 +1485,7 @@ function App() {
   const endMarquee = (event) => {
     const start = marqueeStart.current;
     if (!start) return;
+    marqueeMoved.current = start.moved;
     if (!start.moved) {
       setSelectedIds([]);
       setSelected(null);
@@ -2341,6 +2348,14 @@ function App() {
         className={`view-${viewMode}`}
         style={{"--thumbnail-size": `${thumbnailSize ?? (viewMode === "compact" ? 145 : 190)}px`}}
         onScroll={(e) => updateVirtualRange(e.currentTarget)}
+        onClick={(event) => {
+          // 点素材区空白处：收起文件夹详情（素材详情由框选逻辑取消选中）；框选拖动后的那次点击不算
+          if (marqueeMoved.current) { marqueeMoved.current = false; return; }
+          const target = event.target instanceof Element ? event.target : null;
+          if (!target || (target !== event.currentTarget && !target.closest(".masonry, .empty-library-state"))) return;
+          if (target.closest("article, button, input, textarea, select, a, label")) return;
+          setFolderInspectorHidden(true);
+        }}
         onContextMenu={(event) => {
           if (!desktop || !canEdit || activeModule !== "library") return;
           const target = event.target instanceof Element ? event.target : null;
@@ -2617,7 +2632,8 @@ function App() {
                   setDropFolderId(undefined);
                   setDrag(false);
                 }}
-                className={`${selected?.id === a.id ? "selected" : ""} ${selectedIdSet.has(a.id) ? "multi-selected" : ""}`}
+                className={`${selected?.id === a.id ? "selected" : ""} ${selectedIdSet.has(a.id) ? "multi-selected" : ""} ${assetColor(a.labelColor) ? "has-color-mark" : ""}`}
+                style={assetColor(a.labelColor) ? { "--asset-mark": assetColor(a.labelColor).value } : undefined}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -2689,6 +2705,7 @@ function App() {
                 </div>
                   <div className="meta" title="拖动名称可移动到内部文件夹">
                     <strong title={a.name}>{a.name}</strong>
+                    {a.note?.trim() && <p className="asset-note" title={a.note.trim()}>{a.note.trim()}</p>}
                     <div>
                       {(() => {
                         const pendingUpload = pendingAIFlowUploadsByAssetId.get(String(a.id));
@@ -2959,6 +2976,11 @@ function App() {
               },
               tag: () => contextTag(contextMenu.asset),
               note: () => contextNote(contextMenu.asset),
+              // 右键的素材在多选里时，颜色一起标给所有选中的素材
+              color: (labelColor) => {
+                if (selectedIdSet.has(contextMenu.asset.id) && selectedIds.length > 1) void batchUpdate({ labelColor });
+                else patch(contextMenu.asset.id, { labelColor });
+              },
               move: (folderId) => contextMove(contextMenu.asset, folderId),
               duplicate: () => duplicateAssetAction(contextMenu.asset.id),
               rename: () => contextRename(contextMenu.asset),
@@ -3060,24 +3082,6 @@ function App() {
               setFriendToolBusy(false);
             }
           }}
-          launchHongguo={async () => {
-            setFriendToolBusy(true);
-            setFriendToolError("");
-            try {
-              const result = await window.nestDesktop.openHongguo();
-              if (result?.error) setFriendToolError(result.error);
-              else {
-                setFriendToolsOpen(false);
-                showMessage(result?.mode === "installer"
-                  ? "已打开红果桌面版安装程序，安装完成后可从工具集启动。"
-                  : "已启动红果桌面版", 4500);
-              }
-            } catch (error) {
-              setFriendToolError(error.message || "红果桌面版启动失败");
-            } finally {
-              setFriendToolBusy(false);
-            }
-          }}
           launchDepthVideoConverter={async () => {
             setFriendToolBusy(true);
             setFriendToolError("");
@@ -3090,22 +3094,6 @@ function App() {
               }
             } catch (error) {
               setFriendToolError(error.message || "深度视频转换器启动失败");
-            } finally {
-              setFriendToolBusy(false);
-            }
-          }}
-          launchMineradio={async () => {
-            setFriendToolBusy(true);
-            setFriendToolError("");
-            try {
-              const result = await window.nestDesktop.openMineradio();
-              if (result?.error) setFriendToolError(result.error);
-              else {
-                setFriendToolsOpen(false);
-                showMessage(result?.downloadPage ? "已打开 Mineradio Mac 版下载页，安装到“应用程序”后再点一次即可启动" : "已启动 Mineradio", result?.downloadPage ? 5000 : 2500);
-              }
-            } catch (error) {
-              setFriendToolError(error.message || "Mineradio 启动失败");
             } finally {
               setFriendToolBusy(false);
             }
