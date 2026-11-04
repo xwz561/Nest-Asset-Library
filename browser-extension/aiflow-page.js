@@ -1277,7 +1277,8 @@
       ensurePromptHighlightStyles();
       attachPromptHighlighter(editor);
       requestAnimationFrame(() => promptHighlighters.get(editor)?.refreshValue());
-      workbench.style.display = 'none';
+      // 样式表里给浮窗写了 display: flex !important（防 AI Flow 样式），所以隐藏也要带 important，否则藏不住
+      workbench.style.setProperty('display', 'none', 'important');
       document.getElementById(VIDEO_EXTEND_WORKBENCH_RETURN_ID)?.remove();
       const back = document.createElement('button');
       back.id = VIDEO_EXTEND_WORKBENCH_RETURN_ID;
@@ -1286,7 +1287,7 @@
       back.addEventListener('click', () => {
         delete dialog.dataset.nestWorkbenchDisabled;
         dialog.classList.add('nest-aiflow-video-extend-native-hidden');
-        workbench.style.display = '';
+        workbench.style.removeProperty('display');
         pageMutationObserver?.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
         ensureLiveSyncTimer();
         back.remove();

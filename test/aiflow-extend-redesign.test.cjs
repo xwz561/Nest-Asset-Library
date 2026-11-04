@@ -60,6 +60,13 @@ test('AI Flow 原生素材副本：取最里层，补上懒加载图片、视频
   assert.match(media, /node\.toDataURL\('image\/png'\)/);
 });
 
+test('点"打开 AI Flow 原窗口"时工作台真的藏起来（样式表里 display 带 !important，隐藏也要带）', () => {
+  const nativeSwitch = between("workbench.querySelector('[data-nest-workbench-native]')", 'const nestWorkbenchDrag');
+  assert.match(nativeSwitch, /workbench\.style\.setProperty\('display', 'none', 'important'\);/);
+  assert.match(nativeSwitch, /workbench\.style\.removeProperty\('display'\);/);
+  assert.doesNotMatch(nativeSwitch, /workbench\.style\.display = 'none'/);
+});
+
 test('工作台：秒数 −/+、参考条内容不变不重画、两个窗口并排摆放', () => {
   const workbench = between('function injectVideoExtendWorkbench()', 'function extractVideoExtendStoryboardNames');
   assert.match(workbench, /data-nest-workbench-seconds-step="-1"/);

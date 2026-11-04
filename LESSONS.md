@@ -58,7 +58,7 @@
 - 日期：2026-11-04
 - 状态：已验证（仿 AI Flow 页面）
 - 场景：扩展自己的「页面配色」用 `body[data-nest-aiflow-theme] :is(header, section, aside, button, select, [class*="card"], [class*="tab"], [data-active="true"] …)` 加 `!important` 刷整页颜色，也刷到扩展自己插进去的浮窗上；用户截图里延长工作台标题折行、"关闭"变竖排、配色发乱就是这么来的。
-- 做法：浮窗元素只用 div / button / span；样式全部以窗口 ID 开头并加 `!important`（ID 优先级压过这些规则）；class 名统一 `nx-` 前缀，避开 card / tab / panel / item / list / icon / header / select / active / option / box / bar / pill / tag / toggle / menu 这些词。拖动、缩放写在行内的 left / top / width / height 不能在样式表里加 `!important`。
+- 做法：浮窗元素只用 div / button / span；样式全部以窗口 ID 开头并加 `!important`（ID 优先级压过这些规则）；class 名统一 `nx-` 前缀，避开 card / tab / panel / item / list / icon / header / select / active / option / box / bar / pill / tag / toggle / menu 这些词。拖动、缩放写在行内的 left / top / width / height 不能在样式表里加 `!important`。反过来，样式表里 `display` 带了 `!important`，代码里隐藏浮窗也得用 `style.setProperty('display', 'none', 'important')`，只写 `style.display = 'none'` 藏不住（1.16.1 的"打开 AI Flow 原窗口"就是这么坏的）。
 - 证据：离屏 Electron 打开仿 AI Flow 页面（故意写了霸道的 button / select 样式），樱粉、深海蓝两套配色下标题单行、按钮 32×32、两个窗口并排。
 - 边界：只验证了仿页面，真 AI Flow 的样式可能还有别的写法。
 - 复审条件：真 AI Flow 上发现还有被刷掉的地方。

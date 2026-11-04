@@ -12,7 +12,7 @@ test('browser extension declares AI Flow video, two-way folder sync, upload, and
   const page = fs.readFileSync(path.join(extensionRoot, 'aiflow-page.js'), 'utf8');
   const main = require('./source-tree.cjs').readSource(path.join(__dirname, '..', 'electron', 'main.cjs'), 'utf8');
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.version, '1.16.1');
+  assert.equal(manifest.version, '1.16.2');
   for (const entry of manifest.content_scripts) {
     for (const script of entry.js) assert.match(script, /\.js$/, 'Edge content scripts require .js filenames');
   }
