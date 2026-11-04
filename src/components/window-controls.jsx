@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 
-// Windows 右上角的最小化 / 最大化（还原）/ 关闭按钮。
-// 以前用的是系统画的标题栏按钮（titleBarOverlay），图标改不了；现在由页面自己画，
-// 图标是下面这几个 12×12 的 SVG：圆头线条、1.3px 描边、方块带小圆角。
+// Windows 的关闭 / 最小化 / 最大化（还原）按钮：页面自己画，样子和位置都照 macOS——
+// 左上角红、黄、绿三个小圆点，顺序是关闭、最小化、最大化，鼠标移上去显示图标。
 // macOS 用系统的红绿灯按钮，不渲染这个组件。
 
 const Icon = ({ children }) => (
@@ -32,14 +31,14 @@ export function WindowControls() {
   };
   return (
     <div className="window-controls" role="group" aria-label="窗口控制">
+      <button type="button" className="window-control close" title="关闭" aria-label="关闭" onClick={() => control("close")}>
+        {WINDOW_ICONS.close}
+      </button>
       <button type="button" className="window-control minimize" title="最小化" aria-label="最小化" onClick={() => control("minimize")}>
         {WINDOW_ICONS.minimize}
       </button>
       <button type="button" className="window-control maximize" title={maximized ? "还原" : "最大化"} aria-label={maximized ? "还原" : "最大化"} onClick={() => control("maximize")}>
         {maximized ? WINDOW_ICONS.restore : WINDOW_ICONS.maximize}
-      </button>
-      <button type="button" className="window-control close" title="关闭" aria-label="关闭" onClick={() => control("close")}>
-        {WINDOW_ICONS.close}
       </button>
     </div>
   );

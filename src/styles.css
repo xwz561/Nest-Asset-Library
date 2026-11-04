@@ -214,9 +214,7 @@ main{padding-bottom:72px}
 }
 
 /* AI 导演入口现在只播放本地恶搞短片。 */
-.director-prank-button{background:linear-gradient(135deg,#ff4fa8,#8d49ff)!important;color:#fff!important;border-color:#ff91c9!important;box-shadow:0 0 18px #ff4fa855}
-.director-prank-overlay{position:fixed;z-index:500;inset:0;background:#000;display:grid;place-items:center}
-.director-prank-overlay video{display:block;width:100vw;height:100vh;object-fit:contain;background:#16051d}
+.usage-demo-button{background:linear-gradient(135deg,#ff4fa8,#8d49ff)!important;color:#fff!important;border-color:#ff91c9!important;box-shadow:0 0 18px #ff4fa855}
 
 /* Local, offline game module. The original MIT notice remains in public/tetris. */
 .app.tetris-mode{grid-template-columns:minmax(0,1fr)}

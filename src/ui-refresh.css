@@ -777,7 +777,7 @@ html[data-platform="win32"] .team-library-preview > header {
   --rf-btn-surface: linear-gradient(180deg, rgba(255, 255, 255, .075), rgba(255, 255, 255, .018));
 }
 /* Dark themes: lift plain buttons slightly off the page so the shadow and top edge read. */
-.app.ui-refresh.theme-dark :is(.top-pill, .view-actions > button, .view-actions .popover-anchor > button, .content-folders > button, .detail-actions > button, .batch-bar button):not(:disabled):not(.primary):not(.on):not(.director-prank-button) {
+.app.ui-refresh.theme-dark :is(.top-pill, .view-actions > button, .view-actions .popover-anchor > button, .content-folders > button, .detail-actions > button, .batch-bar button):not(:disabled):not(.primary):not(.on):not(.usage-demo-button) {
   background-image: var(--rf-btn-surface);
 }
 .app.ui-refresh.theme-light {

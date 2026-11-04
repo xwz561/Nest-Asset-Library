@@ -12,7 +12,8 @@
     "test": "node --test test/*.test.cjs",
     "package": "npm run package:win",
     "package:win": "node scripts/build-lan-signal-hook.cjs && node scripts/package-windows-setup.cjs",
-    "package:mac": "node scripts/package-macos-app.cjs"
+    "package:mac": "node scripts/package-macos-app.cjs",
+    "render:usage-demo": "electron scripts/usage-demo/render.cjs"
   },
   "build": {
     "productName": "小旺仔素材库",

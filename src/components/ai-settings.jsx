@@ -411,7 +411,7 @@ export function AISettings({ initialTab = "通用", close, library, diskInfo, re
                 </div>
                 <div className="settings-general-group card-layout-settings">
                   <h2>界面布局</h2>
-                  <p className="settings-hint">打开图标栏底部的「编辑布局」开关后，侧栏里的{LAYOUT_CARDS.map(({ label }) => label).join("、")}卡片可以拖到窗口任意位置，右下角能拉大小，拖回侧栏或双击放回原处；改好点「保存」。平时卡片是锁定的。位置只记在这台电脑上。</p>
+                  <p className="settings-hint">打开图标栏底部的「编辑布局」开关后，{LAYOUT_CARDS.map(({ label }) => label).join("、")}都可以拖到窗口任意位置，右下角能拉大小；拖到左右边缘变竖排、拖到顶部或底部变横排，贴边的卡片会让素材区让位；卡片之间互相挤开、不会重叠；双击放回原处，侧栏里的小卡片也能拖回侧栏面板。编辑时打开「疯狂模式」，卡片还能拖出窗口放到桌面上。改好点「保存」。平时卡片是锁定的。位置只记在这台电脑上。</p>
                   <div className="settings-kv">
                     <div><span>浮动中的卡片</span><b>{floatingCardCount ? `${floatingCardCount} 张` : "没有，都在侧栏里"}</b></div>
                   </div>

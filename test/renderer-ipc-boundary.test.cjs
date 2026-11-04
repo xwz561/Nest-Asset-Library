@@ -124,22 +124,12 @@ test('AI Flow account login keeps a persistent local browser session without sto
   assert.match(renderer, /登录状态会保存在本机，素材库不会保存你的密码/);
 });
 
-test('AI Director entry embeds the designated prank video and plays it in the app fullscreen', () => {
-  const video = path.join(root, 'src', 'assets', 'director-prank.mp4');
-  assert.ok(fs.statSync(video).size > 40 * 1024 * 1024);
-  assert.match(renderer, /import directorPrankVideo from "\.\/assets\/director-prank\.mp4"/);
-  assert.match(renderer, /const playDirectorPrank = \(\) => \{/);
-  assert.match(renderer, /setDirectorPrankPlaying\(true\)/);
-  assert.match(renderer, /void window\.nestDesktop\?\.setFullscreen\(true\)/);
-  assert.match(renderer, /src=\{directorPrankVideo\}/);
-  assert.match(renderer, /onEnded=\{closeDirectorPrank\}/);
-  assert.match(renderer, /directorPrankEscCount\.current \+= 1/);
-  assert.match(renderer, /directorPrankEscCount\.current >= 2/);
-  assert.doesNotMatch(renderer, /再按一次 Esc 返回素材库/);
-  assert.doesNotMatch(renderer, /director-prank-close/);
-  assert.match(renderer, /void window\.nestDesktop\?\.setFullscreen\(false\)/);
+test('the old AI Director slot now opens the windowed usage demo instead of a fullscreen prank', () => {
+  assert.doesNotMatch(renderer, /director-prank|directorPrank|DirectorPrank/);
+  assert.doesNotMatch(renderer, /setFullscreen\(true\)/);
+  assert.match(renderer, /director: \(\) => <Button className="top-pill usage-demo-button" data-tour="demo"[^\n]*onClick=\{openUsageDemo\}[^\n]*<span>演示方法<\/span>/);
+  assert.doesNotMatch(styles, /director-prank-overlay/);
   assert.match(preload, /setFullscreen: enabled => ipcRenderer\.invoke\('app:set-fullscreen', Boolean\(enabled\)\)/);
-  assert.match(main, /ipcMain\.handle\('app:set-fullscreen'/);
   assert.doesNotMatch(renderer, /openDirectorWorkbench|directorLoading|directorError|directorUrl|director-module/);
   assert.doesNotMatch(main, /director:start|ensureDirectorGateway|director-workbench/);
 });

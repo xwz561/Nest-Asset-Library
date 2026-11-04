@@ -3,6 +3,8 @@ import { saveAsset, clearPending, writePending, removeAsset } from "./lib/browse
 import { LibrarySwitcherMenu, FolderMark, SortMenu, FilterPopover, FolderContextMenu, BlankContextMenu, AssetContextMenu } from "./components/menus.jsx";
 import { SidebarFooter } from "./components/sidebar-footer.jsx";
 import { SoftCard } from "./components/soft-card.jsx";
+import { ErrorBoundary } from "./components/error-boundary.jsx";
+import { FolderColumns } from "./components/folder-columns.jsx";
 import { Media, Detail, Preview } from "./components/media.jsx";
 import { AIAssistant, AISettings, AIFlowImportDialog } from "./components/lazy-panels.jsx";
 import { AppDialog, TetrisAccessDialog, ExtensionPanel, AboutDialog, UpdatePanel, SupportPanel } from "./components/dialogs.jsx";
@@ -23,6 +25,7 @@ import { useMessage } from "./hooks/useMessage.js";
 import { useLanFriends } from "./hooks/useLanFriends.js";
 import { useAutoUpdates } from "./hooks/useAutoUpdates.js";
 import { useCardLayout } from "./hooks/useCardLayout.js";
+import { dockInsets as computeDockInsets } from "./card-layout.js";
 
 import {bindThumbnailWheel, resizeThumbnail} from './thumbnail-wheel.js';
 import {Button, ReadyUI} from './ready-ui.jsx';
@@ -37,7 +40,7 @@ import { createPortal } from "react-dom";
 import { createRoot } from "react-dom/client";
 
 import { formatImportResultMessage } from "./import-summary.js";
-import { Archive, Box, Bug, CalendarDays, Check, CircleHelp, ChevronDown, Clapperboard, Clock, ExternalLink, FileText, Filter, Folder, FolderOpen, FolderPlus, Grid2X2, Heart, Image as ImageIcon, Import, Infinity as InfinityIcon, LayoutDashboard, LayoutGrid, List, Menu, MoreHorizontal, Music, PanelLeftClose, PanelLeftOpen, Pencil, Play, Plus, Puzzle, Radio, RotateCcw, RotateCw, Search, Settings, Sparkles, Star, StickyNote, Tag, Trash2, Users, Video, Wrench, X, Zap } from "lucide-react";
+import { Archive, Box, Bug, CalendarDays, Check, CircleHelp, ChevronDown, CirclePlay, Clock, ExternalLink, FileText, Filter, Folder, FolderOpen, FolderPlus, Grid2X2, Heart, Image as ImageIcon, Import, Infinity as InfinityIcon, LayoutDashboard, LayoutGrid, List, Menu, MoreHorizontal, Music, PanelLeftClose, PanelLeftOpen, Pencil, Play, Plus, Puzzle, Radio, RotateCcw, RotateCw, Search, Settings, Sparkles, Star, StickyNote, Tag, Trash2, Users, Video, Wrench, X, Zap } from "lucide-react";
 import "./styles.css";
 import "./eagle-ui.css";
 import "./ai-assistant.css";
@@ -51,6 +54,7 @@ import ReferenceBoard from "./reference-board.jsx";
 import appIcon from "../build/icon.png";
 
 import { OnboardingTour } from "./onboarding-tour.jsx";
+import { UsageDemoDialog } from "./components/usage-demo-dialog.jsx";
 
 import "./pet-settings.css";
 import "./mineradio-theme.css";
@@ -64,7 +68,6 @@ import "./window-controls.css";
 import "./soft-ui.css";
 import "./soft-ui-panels.css";
 import { waitForViewportShift } from "./lib/viewport-settle.js";
-import directorPrankVideo from "./assets/director-prank.mp4";
 
 import { buildFolderRows, defaultExpandedFolderIds, expandableFolderIds, formatFolderBytes, summarizeFolderAssets, toggleExpandedFolder, toggleExpandedFolderScope } from "./folder-tree.js";
 
@@ -92,11 +95,51 @@ function App() {
   const { message, showMessage, clearMessageAfter } = useMessage();
   const lanFriends = useLanFriends();
   const autoUpdate = useAutoUpdates();
-  const { dialogState, setDialogState, theme, setTheme, sortPanel, setSortPanel, filterPanel, setFilterPanel, quickTypes, setQuickTypes, quickFormats, setQuickFormats, contextMenu, setContextMenu, appMenuOpen, setAppMenuOpen, recentLibraries, setRecentLibraries, appMenuPosition, setAppMenuPosition, settingsInitialTab, setSettingsInitialTab, aboutPanel, setAboutPanel, batchRenamePanel, setBatchRenamePanel, extensionPanel, setExtensionPanel, extensionResult, setExtensionResult, extensionBusy, setExtensionBusy, plugins, setPlugins, mcpConfig, setMcpConfig, updateInfo, setUpdateInfo, updatePanel, setUpdatePanel, updateChecking, setUpdateChecking, updateProgress, setUpdateProgress, updateFile, setUpdateFile, updateError, setUpdateError, supportPanel, setSupportPanel, onboardingOpen, setOnboardingOpen, friendToolsOpen, setFriendToolsOpen, friendToolBusy, setFriendToolBusy, friendToolError, setFriendToolError, aiPanel, setAiPanel, aiSettingsPanel, setAiSettingsPanel, aiResultIds, setAiResultIds, activeModule, setActiveModule, directorPrankPlaying, setDirectorPrankPlaying, tetrisPasswordOpen, setTetrisPasswordOpen, tetrisPassword, setTetrisPassword, tetrisPasswordError, setTetrisPasswordError, teamPanel, setTeamPanel, inspectorFrame, setInspectorFrame } = usePanelState();
+  const { dialogState, setDialogState, theme, setTheme, sortPanel, setSortPanel, filterPanel, setFilterPanel, quickTypes, setQuickTypes, quickFormats, setQuickFormats, contextMenu, setContextMenu, appMenuOpen, setAppMenuOpen, recentLibraries, setRecentLibraries, appMenuPosition, setAppMenuPosition, settingsInitialTab, setSettingsInitialTab, aboutPanel, setAboutPanel, batchRenamePanel, setBatchRenamePanel, extensionPanel, setExtensionPanel, extensionResult, setExtensionResult, extensionBusy, setExtensionBusy, plugins, setPlugins, mcpConfig, setMcpConfig, updateInfo, setUpdateInfo, updatePanel, setUpdatePanel, updateChecking, setUpdateChecking, updateProgress, setUpdateProgress, updateFile, setUpdateFile, updateError, setUpdateError, supportPanel, setSupportPanel, onboardingOpen, setOnboardingOpen, friendToolsOpen, setFriendToolsOpen, friendToolBusy, setFriendToolBusy, friendToolError, setFriendToolError, aiPanel, setAiPanel, aiSettingsPanel, setAiSettingsPanel, aiResultIds, setAiResultIds, activeModule, setActiveModule, usageDemoOpen, setUsageDemoOpen, tetrisPasswordOpen, setTetrisPasswordOpen, tetrisPassword, setTetrisPassword, tetrisPasswordError, setTetrisPasswordError, teamPanel, setTeamPanel, inspectorFrame, setInspectorFrame } = usePanelState();
   const { assets, setAssets, selected, setSelected, query, setQuery, currentTag, setCurrentTag, filter, setFilter, drag, setDrag, ready, setReady, library, setLibrary, activeFolder, setActiveFolder, expandedFolderIds, setExpandedFolderIds, sidebarWidth, setSidebarWidth, sortOrder, setSortOrder, viewMode, setViewMode, selectedIds, setSelectedIds, marquee, setMarquee, dropFolderId, setDropFolderId, virtualRange, setVirtualRange, libraryChoosing, setLibraryChoosing, renamingFolder, setRenamingFolder, activeReferenceBoardId, setActiveReferenceBoardId, diskInfo, setDiskInfo, expandedTags, setExpandedTags, dropTag, setDropTag, assetsRef } = useLibrary({ desktop, showMessage });
   const { previewId, setPreviewId, zoom, setZoom, thumbnailSize, setThumbnailSize, rotation, setRotation, checker, setChecker } = usePreview();
-  // 侧栏卡片可以拖到窗口任意位置（磁盘卡片只在打开了资源库的桌面版里有）
-  const cardLayout = useCardLayout(desktop && library ? ["library", "import", "folders", "tags", "disk"] : ["library", "import", "folders", "tags"]);
+  // 界面卡片可以拖到窗口任意位置（磁盘卡片只在打开了资源库的桌面版里有）
+  const cardLayout = useCardLayout(["rail", "panel", "library", "import", "folders", "tags", ...(desktop && library ? ["disk"] : []), "header", "toolbar"]);
+  // 图标栏占的宽度：只加在显示宽度上；拖动调整侧栏时要先减掉，否则保存下来的宽度会越拖越大
+  const softRailWidth = 76;
+  // 侧栏面板里的小卡片都拖走后，平时把空面板藏起来；编辑布局时留着当"拖回这里"的位置
+  const sidePanelHidden = cardLayout.panelEmpty && !cardLayout.editing;
+  const sidePanelDocked = !cardLayout.panelOut && !sidePanelHidden;
+  // 左侧这一列的宽度：图标栏 76（含左边距），侧栏面板 sidebarWidth；图标栏浮走时只留 4px 余量
+  const asideWidth = (cardLayout.railOut ? 0 : softRailWidth) + (sidePanelDocked ? sidebarWidth + (cardLayout.railOut ? 4 : 0) : 0);
+  const layoutClasses = [
+    cardLayout.railOut && "soft-rail-out",
+    cardLayout.panelOut && "soft-panel-out",
+    sidePanelHidden && "soft-panel-hidden",
+    cardLayout.panelEmpty && "soft-panel-vacant",
+    asideWidth !== sidebarWidth + softRailWidth && "soft-aside-slim",
+    !asideWidth && "soft-aside-empty",
+    (cardLayout.headerOut || cardLayout.toolbarOut) && "soft-main-free",
+    cardLayout.headerOut && "soft-header-out",
+    cardLayout.editing && "soft-layout-editing",
+  ].filter(Boolean).join(" ");
+  // 浮动卡片占住窗口四周（贴边的按贴的那条边，没贴边的按最近的边）：量出各占多宽，整个界面往里收，谁也不盖住谁
+  const [dockInsets, setDockInsets] = React.useState(null);
+  useLayoutEffect(() => {
+    const docked = Object.entries(cardLayout.layout);
+    if (!docked.length) {
+      setDockInsets(null);
+      return undefined;
+    }
+    const elements = docked.map(([id, card]) => ({ edge: card.e, el: document.querySelector(`[data-soft-card="${id}"]`) }));
+    const measure = () => {
+      const next = computeDockInsets(elements.map(({ edge, el }) => ({ edge, rect: el?.getBoundingClientRect() })), { width: window.innerWidth, height: window.innerHeight }, { width: asideWidth });
+      setDockInsets((current) => (current && ["top", "right", "bottom", "left"].every((side) => current[side] === next[side]) ? current : next));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    for (const { el } of elements) if (el) observer.observe(el);
+    return () => observer.disconnect();
+  }, [cardLayout.layout, cardLayout.viewport, asideWidth]);
+  const docked = Boolean(dockInsets && (dockInsets.top || dockInsets.right || dockInsets.bottom || dockInsets.left));
+  // 扣掉贴边卡片后剩下的高度，用来收紧图标栏（和窗口变矮时一样）
+  const layoutHeight = cardLayout.viewport.height - (dockInsets?.top || 0) - (dockInsets?.bottom || 0);
+  const heightClass = docked && layoutHeight < 680 ? "soft-short soft-shorter" : docked && layoutHeight < 820 ? "soft-short" : "";
 
   useEffect(() => {
     if (!desktop || !window.nestDesktop?.onLanSignalsPanelState) return;
@@ -115,9 +158,6 @@ function App() {
 
   const supportWelcomeKey = `nest-support-welcome-${APP_VERSION}`;
 
-  const directorPrankVideoRef = useRef(null);
-  const directorPrankEscCount = useRef(0);
-
   const canEdit = !desktop || ["owner", "admin", "editor"].includes(library?.currentMember?.role);
   const allTags = useMemo(() => [...new Set([...(library?.tags || []), ...assets.flatMap(asset => asset.tags || [])])], [library?.tags, assets]);
   const tagRows = useMemo(() => buildTagTree(allTags, expandedTags), [allTags, expandedTags]);
@@ -125,8 +165,6 @@ function App() {
   const resolvedThemeMode = theme.mode;
   const renderedTheme = theme;
   // 新界面（左侧图标栏、问候卡片、圆角卡片，样式在 soft-ui.css）对所有主题生效；切换主题只换颜色，不换布局。
-  // 图标栏占的宽度：只加在显示宽度上；拖动调整侧栏时要先减掉，否则保存下来的宽度会越拖越大
-  const softRailWidth = 76;
   const recycleBinLabel = window.nestDesktop?.platform === "darwin" ? "废纸篓" : "回收站";
   // 资源库切换菜单挂在 <body> 上，不在 .app 里；给 body 加个标记让 soft-ui.css 也能管到它（深色主题另加 soft-ui-dark）
   useEffect(() => {
@@ -563,38 +601,11 @@ function App() {
     }
     setAiPanel(true);
   };
-  const closeDirectorPrank = () => {
-    directorPrankVideoRef.current?.pause();
-    setDirectorPrankPlaying(false);
-    directorPrankEscCount.current = 0;
-    void window.nestDesktop?.setFullscreen(false);
-  };
-  const playDirectorPrank = () => {
-    setSelected(null);
+  // 「演示方法」：在窗口里放操作演示视频，旁边列出新手教程的每一步（不全屏）
+  const openUsageDemo = () => {
     setAiPanel(false);
-    directorPrankEscCount.current = 0;
-    setDirectorPrankPlaying(true);
-    void window.nestDesktop?.setFullscreen(true);
+    setUsageDemoOpen(true);
   };
-  useEffect(() => {
-    if (!directorPrankPlaying) return;
-    const video = directorPrankVideoRef.current;
-    if (video) {
-      video.currentTime = 0;
-      void video.play().catch(() => showMessage("恶搞短片没有开始播放"));
-    }
-    const closeOnEscape = (event) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      event.stopPropagation();
-      directorPrankEscCount.current += 1;
-      if (directorPrankEscCount.current >= 2) {
-        closeDirectorPrank();
-      }
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [directorPrankPlaying]);
   useEffect(() => {
     setVirtualRange({ start: 0, end: 200, before: 0, after: 0 });
     requestAnimationFrame(() => updateVirtualRange());
@@ -1486,7 +1497,7 @@ function App() {
   };
   const moveSidebarResize = (event) => {
     if (sidebarResizing.current)
-      setSidebarWidth(clampSidebarWidth(event.clientX - softRailWidth));
+      setSidebarWidth(clampSidebarWidth(event.clientX - (cardLayout.railOut ? 4 : softRailWidth)));
   };
   const endSidebarResize = (event) => {
     if (!sidebarResizing.current) return;
@@ -1494,7 +1505,7 @@ function App() {
     if (event.currentTarget.hasPointerCapture(event.pointerId))
       event.currentTarget.releasePointerCapture(event.pointerId);
     document.body.classList.remove("resizing-sidebar");
-    const width = clampSidebarWidth(event.clientX - softRailWidth);
+    const width = clampSidebarWidth(event.clientX - (cardLayout.railOut ? 4 : softRailWidth));
     setSidebarWidth(width);
     localStorage.setItem(SIDEBAR_WIDTH_KEY, String(width));
   };
@@ -1758,7 +1769,7 @@ function App() {
     "friend-tools": () => desktop && <Button className="top-pill friend-tools-button" data-tour="friend-tools" title="友商工具集" aria-label="打开友商工具集" disabled={!["win32", "darwin"].includes(window.nestDesktop.platform)} onClick={() => { setFriendToolError(""); setFriendToolsOpen(true); }}><Wrench size={14} /><span>友商工具集</span></Button>,
     "lan-signals": () => desktop && <Button className={`top-pill lan-signals-button${lanSignalsOpen ? " on" : ""}`} data-tour="lan-signals" title="局域网信号和表情" aria-label="打开局域网信号" aria-pressed={lanSignalsOpen} onClick={async () => { const result = await window.nestDesktop.openLanSignals(); if (result?.error) showMessage(result.error); else setLanSignalsOpen(true); }}><Radio size={14} /><span>局域网信号</span>{lanFriends.some(peer => peer.unread) && <b className="lan-badge">{Math.min(99, lanFriends.reduce((total, peer) => total + (peer.unread || 0), 0))}</b>}</Button>,
     calendar: () => desktop && <Button className="top-pill calendar-header-button" title="打开老黄历" aria-label="打开老黄历" onClick={async () => { const result = await window.nestDesktop.openCalendar(); if (result?.error) showMessage(`打开日历失败：${result.error}`); }}><CalendarDays size={14} /><span>日历</span></Button>,
-    director: () => <Button className="top-pill director-prank-button" title="不要点这个按钮" onClick={playDirectorPrank}><Clapperboard size={14} /><span>AI导演</span></Button>,
+    director: () => <Button className="top-pill usage-demo-button" data-tour="demo" title="演示方法：操作演示视频和新手教程" aria-label="打开演示方法" onClick={openUsageDemo}><CirclePlay size={14} /><span>演示方法</span></Button>,
     tetris: () => <Button className={`top-pill tetris-header-button ${activeModule === "tetris" ? "on" : ""}`} title="无穷大" onClick={requestTetrisAccess}><InfinityIcon size={15} /><span>无穷大</span></Button>,
     ai: () => <Button className={`top-pill ai-header-button ${aiPanel ? "on" : ""}`} title="AI 助手" onClick={toggleAiPanel}><Sparkles size={14} /><span>AI助手</span></Button>,
     updates: () => <Button className={`top-pill update-button ${updateInfo?.available ? "has-update" : ""}`} title={updateInfo?.available ? `发现新版本 ${updateInfo.latest}` : "检查更新"} onClick={checkUpdate} disabled={updateChecking}><RotateCw size={14} /><span>{updateChecking ? "检查中" : "检查更新"}</span>{updateInfo?.available && <i />}</Button>,
@@ -1767,11 +1778,14 @@ function App() {
     tutorial: () => <Button className="top-pill tutorial-button" title="新手教程" aria-label="重新打开新手教程" onClick={startOnboarding}><CircleHelp size={14} /><span>新手教程</span></Button>,
     "library-status": () => <Button className="top-pill library-status-pill" title="资源库健康与备份" onClick={showLibraryInfo}><Archive size={14} /><span>资源库状态检查</span></Button>,
   };
+  // 疯狂模式放到桌面上的卡片小窗口，外层用和主窗口一样的界面类名和主题颜色
+  cardLayout.shellRef.current = { className: `app eagle-ui ready-ui ui-refresh theme-${resolvedThemeMode} soft-ui`, style: themeStyle(renderedTheme, resolvedThemeMode) };
   return (
     <div
-      className={`app eagle-ui ready-ui ui-refresh theme-${resolvedThemeMode} soft-ui ${minimalMode ? "minimal-mode" : ""} ${inspectorFrame.ready ? "detail-open" : ""} ${inspectorFrame.lockWidth ? "main-locked" : ""} ${folderInspectorOpen ? "folder-inspector-open" : ""} ${emptyFolderView ? "empty-folder-view" : ""} ${aiPanel ? "ai-panel-open" : ""} ${activeModule === "reference-board" ? "reference-board-mode" : ""} ${activeModule === "tetris" ? "tetris-mode" : ""} ${cardLayout.panelEmpty ? "soft-panel-empty" : ""} ${cardLayout.editing ? "soft-layout-editing" : ""}`}
+      className={`app eagle-ui ready-ui ui-refresh theme-${resolvedThemeMode} soft-ui ${minimalMode ? "minimal-mode" : ""} ${inspectorFrame.ready ? "detail-open" : ""} ${inspectorFrame.lockWidth ? "main-locked" : ""} ${folderInspectorOpen ? "folder-inspector-open" : ""} ${emptyFolderView ? "empty-folder-view" : ""} ${aiPanel ? "ai-panel-open" : ""} ${activeModule === "reference-board" ? "reference-board-mode" : ""} ${activeModule === "tetris" ? "tetris-mode" : ""} ${layoutClasses} ${docked ? "soft-docked" : ""} ${heightClass}`}
       style={{
-        "--sidebar-width": `${cardLayout.panelEmpty ? softRailWidth : sidebarWidth + softRailWidth}px`,
+        "--sidebar-width": `${asideWidth}px`,
+        ...(docked ? { "--dock-top": `${dockInsets.top}px`, "--dock-right": `${dockInsets.right}px`, "--dock-bottom": `${dockInsets.bottom}px`, "--dock-left": `${dockInsets.left}px` } : {}),
         "--inspector-overlay-width": `${inspectorFrame.overlayWidth}px`,
         "--main-lock-width": inspectorFrame.lockWidth ? `${inspectorFrame.lockWidth}px` : "auto",
         ...themeStyle(renderedTheme, resolvedThemeMode),
@@ -1815,10 +1829,11 @@ function App() {
           : (setDrag(false), importFiles(e.dataTransfer.files));
       }}
     >
-      <aside ref={cardLayout.dockRef}>
+      <aside>
+        <SoftCard id="rail" cards={cardLayout} self>
         <nav className="soft-rail" aria-label="主导航">
           <div className="soft-rail-logo"><img src={appIcon} alt="" /></div>
-          <div className="soft-rail-group">
+          <div className="soft-rail-group" data-tour="categories">
             {nav.map(([n, , Icon]) => (
               <Button
                 key={n}
@@ -1853,6 +1868,9 @@ function App() {
             <Button className="soft-rail-item" title={recycleBinLabel} aria-label={recycleBinLabel} onClick={async () => { const result = await window.nestDesktop?.openRecycleBin?.(); if (result?.error) showMessage(`无法打开${recycleBinLabel}：${result.error}`, 3500); }}><Trash2 size={18} strokeWidth={1.8} /></Button>
           </div>
         </nav>
+        </SoftCard>
+        <SoftCard id="panel" cards={cardLayout} self>
+        <div className="soft-side-panel" ref={cardLayout.dockRef}>
         <div className="sidebar-fixed-controls">
         <SoftCard id="library" cards={cardLayout}>
         <div className="brand" ref={appMenuRef}>
@@ -1986,7 +2004,7 @@ function App() {
         </div>
         <div className="sidebar-scroll-content">
         {desktop && <><div className="nav-title"><span>团队协作</span></div><nav className="reference-board-nav"><Button className={teamLibraryOpen ? "active" : ""} onClick={() => setTeamLibraryOpen(true)} title="连接 NAS 上的公司共享素材库"><FolderOpen size={16} /><span>团队素材库</span></Button><Button className={teamPanel ? "active" : ""} disabled={!library} onClick={() => setTeamPanel(true)} title="查看成员、设置管理员和权限"><Users size={16} /><span>成员与权限</span></Button></nav></>}
-        <nav className="asset-filter-nav" data-tour="categories">
+        <nav className="asset-filter-nav">
           {nav.map(([n, icon, Icon]) => (
             <Button
               className={`${filter === n && !activeFolder && !currentTag ? "active" : ""} ${n === "未分类" && dropFolderId === null ? "drop-target" : ""}`}
@@ -2055,6 +2073,18 @@ function App() {
             <Plus size={15} />
           </Button>
         </div>
+        {/* 文件夹卡片横着（贴顶部 / 底部）时换成访达那样的分栏，竖着时是文件夹树 */}
+        {cardLayout.layout.folders?.o === "h" ? (
+          <FolderColumns
+            folders={allOrderedFolders}
+            activeFolder={activeFolder}
+            counts={folderAssetCounts}
+            canEdit={canEdit}
+            onOpen={openFolder}
+            onContextMenu={(event, folder) => setContextMenu({ kind: "folder", x: event.clientX, y: event.clientY, folder })}
+            onDropAssets={(event, folderId) => dropAssets(event, folderId)}
+          />
+        ) : (
         <FlatTree className="compact-folder-tree" aria-label="文件夹" openItems={Array.from(expandedFolderIds)} onOpenChange={(event, data) => setExpandedFolderIds(new Set(data.openItems))}>
           {desktop ? (
             orderedFolders.map((f) => (
@@ -2223,6 +2253,7 @@ function App() {
             </>
           )}
         </FlatTree>
+        )}
         </SoftCard>
         <SoftCard id="tags" cards={cardLayout}>
         <div className="nav-title">
@@ -2290,6 +2321,8 @@ function App() {
           />
           </SoftCard>
         )}
+        </div>
+        </SoftCard>
       </aside>
       <div
         className="sidebar-resizer"
@@ -2318,6 +2351,7 @@ function App() {
           setContextMenu({ kind: "blank", x: event.clientX, y: event.clientY, folderId: activeFolder || null });
         }}
       >
+        <SoftCard id="header" cards={cardLayout} self>
         <header>
           <div className="breadcrumbs">
             {activeModule === "reference-board" ? (
@@ -2373,16 +2407,7 @@ function App() {
             {minimalMode ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
           </Button>
         </header>
-        {directorPrankPlaying && (
-          <section className="director-prank-overlay" aria-label="全面开战视频播放">
-            <video
-              ref={directorPrankVideoRef}
-              src={directorPrankVideo}
-              playsInline
-              onEnded={closeDirectorPrank}
-            />
-          </section>
-        )}
+        </SoftCard>
         {activeModule === "tetris" && (
           <TetrisModule
             close={() => {
@@ -2410,6 +2435,7 @@ function App() {
             }}
           />
         )}
+        <SoftCard id="toolbar" cards={cardLayout} self>
         <section
           className={`toolbar${sortPanel || filterPanel ? " popover-open" : ""}`}
           aria-hidden={minimalMode}
@@ -2525,6 +2551,7 @@ function App() {
             </Button>
           </div>
         </section>
+        </SoftCard>
         {contentFolders.length > 0 && (
           <section className="content-folders">
             {contentFolders.map((folder) => (
@@ -3118,6 +3145,15 @@ function App() {
         />
       )}
       {supportPanel && <SupportPanel close={closeSupportPanel} />}
+      {usageDemoOpen && (
+        <UsageDemoDialog
+          close={() => setUsageDemoOpen(false)}
+          openTour={() => {
+            setUsageDemoOpen(false);
+            startOnboarding();
+          }}
+        />
+      )}
       {onboardingOpen && (
         <OnboardingTour
           onClose={() => {
@@ -3149,8 +3185,17 @@ function App() {
         <div className="soft-layout-bar" role="toolbar" aria-label="编辑布局">
           <span className="soft-layout-bar-hint">
             <LayoutDashboard size={15} />
-            {cardLayout.dirty ? "有改动还没保存" : "拖动卡片换位置 · 右下角拉大小 · 拖回侧栏放回"}
+            {cardLayout.dirty ? "有改动还没保存" : cardLayout.crazy ? "疯狂模式：把卡片拖出窗口就能放到桌面上" : "拖动卡片换位置 · 右下角拉大小 · 拖回侧栏放回"}
           </span>
+          <Button
+            className={`soft-layout-crazy ${cardLayout.crazy ? "on" : ""}`}
+            role="switch"
+            aria-checked={cardLayout.crazy}
+            title={cardLayout.crazy ? "关掉疯狂模式（桌面上的卡片都回到素材库）" : "打开后可以把卡片拖出素材库窗口，放在桌面任意位置"}
+            onClick={() => cardLayout.setCrazy(!cardLayout.crazy)}
+          >
+            <Zap size={14} /> 疯狂模式
+          </Button>
           <Button className="soft-layout-reset" onClick={cardLayout.resetDraft} title="卡片全部放回侧栏（保存后生效）"><RotateCcw size={14} /> 一键重置</Button>
           <Button className="soft-layout-cancel" onClick={cardLayout.cancel} title="放弃这次的改动">取消</Button>
           <Button className="soft-layout-save" onClick={cardLayout.save}><Check size={14} /> 保存</Button>
@@ -3220,4 +3265,4 @@ function TetrisModule({ close }) {
   );
 }
 
-createRoot(document.getElementById("root")).render(<ReadyUI><App /></ReadyUI>);
+createRoot(document.getElementById("root")).render(<ErrorBoundary><ReadyUI><App /></ReadyUI></ErrorBoundary>);

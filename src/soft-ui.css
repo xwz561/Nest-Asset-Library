@@ -76,7 +76,7 @@ body.soft-ui-body.soft-ui-dark {
 .app.soft-ui.ready-ui.ui-refresh > aside:first-child {
   display: grid !important;
   grid-template-columns: 60px minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
   column-gap: 12px;
   padding: var(--soft-gap) 0 var(--soft-gap) var(--soft-gap) !important;
   background: transparent !important;
@@ -85,29 +85,34 @@ body.soft-ui-body.soft-ui-dark {
   backdrop-filter: none !important;
   overflow: hidden !important;
 }
-/* 右边这一列（品牌、导入、文件夹、标签、磁盘）画成一整张白卡片 */
-.app.soft-ui.ready-ui.ui-refresh > aside:first-child::before {
-  content: "";
+/* 右边这一列（品牌、导入、文件夹、标签、磁盘）是一整张白卡片：侧栏面板（也能整块拖走） */
+/* 固定在第二列：拖动图标栏时第一列先空着（像占位），松手后才收起，面板不会被挤到第一列 */
+.app.soft-ui.ready-ui.ui-refresh .soft-side-panel {
   grid-column: 2;
-  grid-row: 1 / -1;
+  grid-row: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
   border-radius: var(--soft-radius);
   background: var(--soft-card);
   box-shadow: var(--soft-shadow);
-  pointer-events: none;
+  overflow: hidden;
+  transition: background .16s ease, box-shadow .16s ease;
 }
-.app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-fixed-controls,
-.app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-scroll-content,
-.app.soft-ui.ready-ui.ui-refresh > aside > [data-soft-card="disk"] {
-  grid-column: 2;
+.app.soft-ui.ready-ui.ui-refresh .soft-side-panel > .sidebar-fixed-controls,
+.app.soft-ui.ready-ui.ui-refresh .soft-side-panel > .sidebar-scroll-content,
+.app.soft-ui.ready-ui.ui-refresh .soft-side-panel > [data-soft-card="disk"] {
   position: relative;
   z-index: 1;
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
 }
-.app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-fixed-controls { grid-row: 1; padding: 14px 12px 0 !important; }
-.app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-scroll-content { grid-row: 2; min-height: 0; overflow-y: auto; padding: 4px 4px 8px !important; }
-.app.soft-ui.ready-ui.ui-refresh > aside > [data-soft-card="disk"] { grid-row: 3; padding: 8px 12px 12px; }
+.app.soft-ui.ready-ui.ui-refresh .soft-side-panel > .sidebar-fixed-controls { flex: none; padding: 14px 12px 0 !important; }
+.app.soft-ui.ready-ui.ui-refresh .soft-side-panel > .sidebar-scroll-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px 4px 8px !important; }
+.app.soft-ui.ready-ui.ui-refresh .soft-side-panel > [data-soft-card="disk"] { flex: none; padding: 8px 12px 12px; }
 /* 磁盘卡片在侧栏里和浮起来时都一样：去掉旧主题给底栏的固定定位、底色和分隔线 */
 .app.soft-ui.ready-ui.ui-refresh [data-soft-card="disk"] .sidebar-fixed-footer {
   position: static !important;
@@ -121,8 +126,7 @@ body.soft-ui-body.soft-ui-dark {
 }
 
 .app.soft-ui.ready-ui.ui-refresh .soft-rail {
-  grid-column: 1;
-  grid-row: 1 / -1;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -135,7 +139,7 @@ body.soft-ui-body.soft-ui-dark {
   overflow-y: auto;
 }
 html[data-platform=darwin] .app.soft-ui.ready-ui.ui-refresh .soft-rail { padding-top: 40px; }
-html[data-platform=darwin] .app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-fixed-controls { padding-top: 14px !important; }
+html[data-platform=darwin] .app.soft-ui.ready-ui.ui-refresh .soft-side-panel > .sidebar-fixed-controls { padding-top: 14px !important; }
 .app.soft-ui.ready-ui.ui-refresh .soft-rail-logo img { display: block; width: 38px; height: 38px; border-radius: 13px; object-fit: cover; box-shadow: var(--soft-shadow-sm); }
 .app.soft-ui.ready-ui.ui-refresh .soft-rail-group { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .app.soft-ui.ready-ui.ui-refresh .soft-rail-group + .soft-rail-group { padding-top: 16px; border-top: 1px solid var(--soft-line); }
@@ -180,6 +184,18 @@ html[data-platform=darwin] .app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-f
   .app.soft-ui.ready-ui.ui-refresh .soft-rail-group + .soft-rail-group { padding-top: 8px; }
   .app.soft-ui.ready-ui.ui-refresh .soft-rail .soft-rail-item { width: 34px !important; min-width: 34px !important; height: 34px !important; border-radius: 10px !important; }
 }
+/* 贴在顶部 / 底部的卡片占掉高度后，按剩下的高度收紧（main.jsx 加 .soft-short / .soft-shorter，规则同上） */
+.app.soft-ui.ready-ui.ui-refresh.soft-short .soft-rail { gap: 12px; }
+.app.soft-ui.ready-ui.ui-refresh.soft-short .soft-rail-group,
+.app.soft-ui.ready-ui.ui-refresh.soft-short .soft-rail-bottom { gap: 6px; }
+.app.soft-ui.ready-ui.ui-refresh.soft-short .soft-rail-group + .soft-rail-group { padding-top: 12px; }
+.app.soft-ui.ready-ui.ui-refresh.soft-short .soft-rail .soft-rail-item { width: 38px !important; min-width: 38px !important; height: 38px !important; border-radius: 12px !important; }
+.app.soft-ui.ready-ui.ui-refresh.soft-shorter .soft-rail { gap: 8px; padding-bottom: 10px; }
+.app.soft-ui.ready-ui.ui-refresh.soft-shorter .soft-rail-logo img { width: 32px; height: 32px; border-radius: 11px; }
+.app.soft-ui.ready-ui.ui-refresh.soft-shorter .soft-rail-group,
+.app.soft-ui.ready-ui.ui-refresh.soft-shorter .soft-rail-bottom { gap: 4px; }
+.app.soft-ui.ready-ui.ui-refresh.soft-shorter .soft-rail-group + .soft-rail-group { padding-top: 8px; }
+.app.soft-ui.ready-ui.ui-refresh.soft-shorter .soft-rail .soft-rail-item { width: 34px !important; min-width: 34px !important; height: 34px !important; border-radius: 10px !important; }
 
 /* 图标栏里已有的入口，在面板里不再重复显示 */
 .app.soft-ui.ready-ui.ui-refresh .sidebar-scroll-content > nav.asset-filter-nav,
@@ -289,7 +305,6 @@ html[data-platform=darwin] .app.soft-ui.ready-ui.ui-refresh > aside > .sidebar-f
   box-shadow: var(--soft-shadow) !important;
   backdrop-filter: none !important;
 }
-html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { padding-right: 150px !important; }
 .app.soft-ui.ready-ui.ui-refresh > main > header .breadcrumbs {
   grid-column: 1;
   grid-row: 1;
@@ -349,7 +364,7 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { p
 .app.soft-ui.ready-ui.ui-refresh > main > header > .minimal-mode-toggle:hover { color: var(--soft-accent) !important; background: var(--soft-accent-tint) !important; transform: translateY(-1px); }
 .app.soft-ui.ready-ui.ui-refresh > main > header .top-pill.on { color: var(--soft-on-accent) !important; background: linear-gradient(135deg, var(--soft-accent-2), var(--soft-accent)) !important; box-shadow: var(--soft-btn-shadow-primary) !important; }
 /* AI 导演按钮保留自己的粉紫渐变 */
-.app.soft-ui.ready-ui.ui-refresh > main > header .top-pill.director-prank-button { background: linear-gradient(135deg, #ff7ab8, #8d6bff) !important; color: #fff !important; }
+.app.soft-ui.ready-ui.ui-refresh > main > header .top-pill.usage-demo-button { background: linear-gradient(135deg, #ff7ab8, #8d6bff) !important; color: #fff !important; }
 .app.soft-ui.ready-ui.ui-refresh > main > header .top-pill > span:not(.sr-only) { display: none; }
 
 /* ---------- 工具栏卡片 ---------------------------------------------------- */
@@ -511,6 +526,46 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { p
 }
 .app.soft-ui.ready-ui.ui-refresh .toast { border: 0 !important; border-radius: 99px !important; background: var(--soft-text) !important; color: var(--soft-card) !important; box-shadow: var(--soft-shadow) !important; }
 
+/* 「演示方法」窗口：左边视频（在窗口里播，不全屏），右边新手教程的章节列表；列表高度跟着视频走 */
+.app.soft-ui.ready-ui.ui-refresh .modal-backdrop.usage-demo-backdrop { z-index: 260; padding: 24px; }
+.app.soft-ui.ready-ui.ui-refresh .modal-backdrop .app-dialog.usage-demo-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(1180px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  padding: 18px 20px 20px;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--soft-card) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-head h2 { margin: 0 0 4px; font-size: 18px; color: var(--soft-text); }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-head p { margin: 0; font-size: 12px; line-height: 1.6; white-space: normal; color: var(--soft-text-3); }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-close { flex: none; width: 32px; min-width: 32px; height: 32px; border-radius: 99px !important; color: var(--soft-text-3) !important; }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; min-height: 0; }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-player { position: relative; aspect-ratio: 16 / 9; max-height: calc(100vh - 170px); overflow: hidden; border-radius: var(--soft-radius-md); background: var(--soft-tint); }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-player video { display: block; width: 100%; height: 100%; object-fit: contain; background: var(--soft-tint); }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-failed { display: grid; place-items: center; height: 100%; padding: 24px; box-sizing: border-box; text-align: center; font-size: 13px; color: var(--soft-text-3); }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-chapters { contain: size; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-chapters ol { flex: 1; display: grid; align-content: start; gap: 4px; min-height: 0; margin: 0; padding: 0 4px 0 0; overflow-y: auto; list-style: none; }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-chapters li button { display: flex; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 12px; background: transparent; color: var(--soft-text-2); font: inherit; text-align: left; cursor: pointer; }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-chapters li button:hover { background: var(--soft-tint); }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-chapters li button.on { background: var(--soft-accent-tint); color: var(--soft-text); }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-num { flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 8px; background: var(--soft-tint); color: var(--soft-text-3); font-size: 11px; font-weight: 750; }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-chapters li button.on .usage-demo-num { background: linear-gradient(135deg, var(--soft-accent-2), var(--soft-accent)); color: var(--soft-on-accent); }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-text { display: grid; gap: 3px; min-width: 0; }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-text strong { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--soft-text); }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-text time { font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--soft-text-3); }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-text small { font-size: 12px; line-height: 1.55; color: var(--soft-text-3); }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-chapters li button.on small { color: var(--soft-text-2); }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-tour { flex: none; justify-content: center; gap: 6px; height: 36px; border-radius: 99px !important; background: var(--soft-tint) !important; color: var(--soft-text-2) !important; }
+.app.soft-ui.ready-ui.ui-refresh .usage-demo-tour:hover { background: var(--soft-accent-tint) !important; color: var(--soft-text) !important; }
+@media (max-width: 860px) {
+  .app.soft-ui.ready-ui.ui-refresh .usage-demo-body { grid-template-columns: minmax(0, 1fr); }
+  .app.soft-ui.ready-ui.ui-refresh .usage-demo-chapters { contain: none; max-height: 34vh; }
+}
+
 /* 右键菜单：白底、浅色分隔线、圆角悬停 */
 .app.soft-ui.ready-ui.ui-refresh .asset-menu,
 .app.soft-ui.ready-ui.ui-refresh .app-menu,
@@ -529,19 +584,16 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { p
 .app.soft-ui.ready-ui.ui-refresh .app-menu svg,
 .app.soft-ui.ready-ui.ui-refresh .context-menu svg { color: var(--soft-muted); }
 
-/* Windows 窗口按钮：放进问候卡片右上角，做成圆角小方块 */
-.app.soft-ui.ready-ui.ui-refresh .window-controls { top: 24px; right: 30px; height: auto; gap: 8px; }
-.app.soft-ui.ready-ui.ui-refresh button.window-control {
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
-  background: var(--soft-tint) !important;
-  color: var(--soft-muted) !important;
-}
-.app.soft-ui.ready-ui.ui-refresh button.window-control:hover { background: var(--soft-blue-tint) !important; color: var(--soft-blue) !important; }
-.app.soft-ui.ready-ui.ui-refresh button.window-control:active { background: var(--soft-blue-tint-2) !important; color: var(--soft-blue-strong) !important; }
-.app.soft-ui.ready-ui.ui-refresh button.window-control.close:hover { background: linear-gradient(135deg, #ff9a8a, #ff6b5e) !important; color: #fff !important; box-shadow: 0 6px 14px rgba(255, 107, 94, .35); }
-.app.soft-ui.ready-ui.ui-refresh button.window-control.close:active { background: #f0564a !important; color: #fff !important; }
+/* Windows 窗口按钮（样式在 window-controls.css）：和 macOS 一样是左上角的红黄绿三个圆点，
+   坐在图标栏顶上（图标栏 16~76，三个 12px 圆点加两个 7px 间距共 50px，居中 left 21）。
+   右边的顶栏、详情面板、文件夹详情都不用再给它留位置。 */
+.app.soft-ui.ready-ui.ui-refresh .window-controls { top: 30px !important; left: 21px !important; right: auto !important; gap: 7px !important; }
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail { padding-top: 50px; }
+/* 图标栏被拖走后，左上角换成侧栏面板或顶栏，给三个圆点让出位置（macOS 系统红绿灯同理） */
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh.soft-rail-out .soft-side-panel:not(.soft-float-self) > .sidebar-fixed-controls,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh.soft-rail-out .soft-side-panel:not(.soft-float-self) > .sidebar-fixed-controls { padding-top: 44px !important; }
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh.soft-aside-empty > main > header:not(.soft-float-self),
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh.soft-aside-empty > main > header:not(.soft-float-self) { padding-left: 84px !important; }
 
 /* =========================================================================
    第三轮：统一按钮系统
@@ -648,13 +700,12 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { p
 
 /* =========================================================================
    顶栏按钮统一（用户反馈：样式不一致、右边被截断、窗口按钮没对齐）
-   - 顶栏所有按钮（工具图标、极简切换、窗口按钮）同一种：36px 圆角方块、浅灰底、无投影
-   - Windows 窗口按钮占顶栏第一行的最后一列，和搜索框对齐；第二行的工具按钮可以用满整行宽度
+   - 顶栏所有按钮（工具图标、极简切换）同一种：36px 圆角方块、浅灰底、无投影（窗口按钮已改成左上角红黄绿圆点）
+   - 第二行的工具按钮可以用满整行宽度
    - 去掉旧的 48vw 宽度限制，放不下时缩小间距，再放不下就换行，不再被截断
    ========================================================================= */
 .app.soft-ui.ready-ui.ui-refresh > main > header .top-pill,
-.app.soft-ui.ready-ui.ui-refresh > main > header > .minimal-mode-toggle,
-.app.soft-ui.ready-ui.ui-refresh button.window-control {
+.app.soft-ui.ready-ui.ui-refresh > main > header > .minimal-mode-toggle {
   width: 36px !important;
   min-width: 36px !important;
   height: 36px !important;
@@ -668,17 +719,15 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { p
   transform: none;
 }
 .app.soft-ui.ready-ui.ui-refresh > main > header .top-pill:hover:not(:disabled),
-.app.soft-ui.ready-ui.ui-refresh > main > header > .minimal-mode-toggle:hover,
-.app.soft-ui.ready-ui.ui-refresh button.window-control:hover { background: var(--soft-blue-tint) !important; color: var(--soft-blue) !important; transform: none; }
+.app.soft-ui.ready-ui.ui-refresh > main > header > .minimal-mode-toggle:hover { background: var(--soft-blue-tint) !important; color: var(--soft-blue) !important; transform: none; }
 .app.soft-ui.ready-ui.ui-refresh > main > header .top-pill.on,
 .app.soft-ui.ready-ui.ui-refresh > main > header > .minimal-mode-toggle.on {
   background: linear-gradient(135deg, var(--soft-accent-2), var(--soft-accent)) !important;
   color: var(--soft-on-accent) !important;
   box-shadow: var(--soft-btn-shadow-primary) !important;
 }
-.app.soft-ui.ready-ui.ui-refresh > main > header .top-pill.director-prank-button { background: linear-gradient(135deg, #ff7ab8, #8d6bff) !important; color: #fff !important; }
+.app.soft-ui.ready-ui.ui-refresh > main > header .top-pill.usage-demo-button { background: linear-gradient(135deg, #ff7ab8, #8d6bff) !important; color: #fff !important; }
 .app.soft-ui.ready-ui.ui-refresh > main > header .top-pill:disabled { opacity: .45; }
-.app.soft-ui.ready-ui.ui-refresh button.window-control.close:hover { background: linear-gradient(135deg, #ff9a8a, #ff6b5e) !important; color: #fff !important; box-shadow: 0 6px 14px rgba(255, 107, 94, .35) !important; }
 /* 文字按钮（“聊天”）做成胶囊 */
 .app.soft-ui.ready-ui.ui-refresh > main > header .top-action-strip .top-pill:not(:has(> svg)) {
   width: auto !important;
@@ -687,7 +736,7 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { p
   font-weight: 600;
 }
 
-/* 布局：Windows 上第一行最后一列留给窗口按钮（3×36 + 2×6 = 120px） */
+/* 布局：工具按钮占第二行整行、靠右 */
 .app.soft-ui.ready-ui.ui-refresh > main > header .top-action-strip {
   grid-column: 1 / -1 !important;
   justify-self: end;
@@ -697,32 +746,6 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header { p
   justify-content: flex-end !important;
   gap: 6px !important;
 }
-html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header {
-  grid-template-columns: minmax(0, 1fr) auto auto 120px;
-  grid-template-rows: 40px auto;
-  padding-right: 18px !important;
-}
-html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header .top-action-strip { grid-column: 1 / -1 !important; }
-/* 窗口按钮：固定定位对准第一行（顶栏上边距 16 + 内边距 12 + (40-36)/2 = 30） */
-.app.soft-ui.ready-ui.ui-refresh .window-controls { top: 30px !important; right: calc(var(--soft-gap) + 18px) !important; gap: 6px !important; }
-/* 弹窗打开时（遮罩是淡灰半透明的那几种）：窗口按钮还浮在遮罩上面，白色方块悬在半空、贴着弹窗自己的 ×，
-   下沿还压住设置弹窗的上边缘。改成贴窗口顶边、无底色无投影的线条图标，像系统标题栏按钮一样。 */
-.app.soft-ui.ready-ui.ui-refresh:has(.modal-backdrop) .window-controls,
-.app.soft-ui.ready-ui.ui-refresh:has(.ai-settings-backdrop) .window-controls { top: 8px !important; right: 10px !important; gap: 2px !important; }
-.app.soft-ui.ready-ui.ui-refresh:has(.modal-backdrop) button.window-control,
-.app.soft-ui.ready-ui.ui-refresh:has(.ai-settings-backdrop) button.window-control {
-  width: 40px !important;
-  min-width: 40px !important;
-  height: 32px !important;
-  border-radius: 10px !important;
-  background: transparent !important;
-  color: color-mix(in srgb, var(--soft-text) 72%, transparent) !important;
-  box-shadow: none !important;
-}
-.app.soft-ui.ready-ui.ui-refresh:has(.modal-backdrop) button.window-control:hover,
-.app.soft-ui.ready-ui.ui-refresh:has(.ai-settings-backdrop) button.window-control:hover { background: color-mix(in srgb, var(--soft-card) 55%, transparent) !important; color: var(--soft-text) !important; }
-.app.soft-ui.ready-ui.ui-refresh:has(.modal-backdrop) button.window-control.close:hover,
-.app.soft-ui.ready-ui.ui-refresh:has(.ai-settings-backdrop) button.window-control.close:hover { background: linear-gradient(135deg, #ff9a8a, #ff6b5e) !important; color: #fff !important; box-shadow: none !important; }
 /* 窄窗口：缩小间距与按钮 */
 @media (max-width: 1180px) {
   .app.soft-ui.ready-ui.ui-refresh > main > header .top-action-strip { gap: 4px !important; }
@@ -738,11 +761,14 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header .to
 .app.soft-ui.ready-ui.ui-refresh.eagle-ui .import-actions .import-action.primary,
 .app.soft-ui.ready-ui.ui-refresh.eagle-ui .import-actions .import-action.primary:hover { box-shadow: var(--soft-btn-shadow-primary) !important; }
 
-/* ---------- 侧栏卡片自由摆放（components/soft-card.jsx、card-layout.js） --------
-   平时卡片锁定。打开图标栏底部的"编辑布局"开关（.soft-layout-editing）后，
-   资源库、导入、文件夹、标签、磁盘五张卡片整张都能抓住拖到窗口任意位置，底部出现
-   "一键重置 / 取消 / 保存"操作栏。浮动卡片在素材区上面（层级 76：高于顶栏和素材，
-   低于详情面板 80、右键菜单 95 和各种弹窗）。五张都拖走后侧栏白卡收起，只留图标栏。 */
+/* ---------- 界面卡片自由摆放（components/soft-card.jsx、card-layout.js） --------
+   平时卡片锁定。打开图标栏底部的"编辑布局"开关（.soft-layout-editing）后，图标栏、侧栏面板、
+   侧栏面板里的资源库 / 导入 / 文件夹 / 标签 / 磁盘，以及顶栏、工具栏，整张都能抓住拖到窗口任意位置，
+   底部出现"一键重置 / 取消 / 保存"操作栏。
+   - 侧栏面板里的小卡片浮起来时挂到 .soft-float-layer（.soft-float-card），可以拖回侧栏面板；
+   - 骨架卡片（图标栏、侧栏面板、顶栏、工具栏）原地浮起（.soft-float-self），旧样式照样生效，双击放回。
+   位置由 soft-card.jsx 写成 --card-* 变量，这里统一读出来；层级 70~79：高于顶栏和素材，
+   低于详情面板 80、操作栏 90、右键菜单 95 和各种弹窗。 */
 .app.soft-ui.ready-ui.ui-refresh .soft-card-slot { position: relative; }
 .app.soft-ui.ready-ui.ui-refresh .soft-card-grip {
   position: absolute;
@@ -769,28 +795,52 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header .to
 .app.soft-ui.ready-ui.ui-refresh .soft-card-grip:hover::before,
 .app.soft-ui.ready-ui.ui-refresh .soft-card-grip:focus-visible::before { width: 36px; background: var(--soft-blue); }
 .app.soft-ui.ready-ui.ui-refresh .soft-card-grip:focus-visible { outline: 2px solid color-mix(in srgb, var(--soft-blue) 45%, transparent); outline-offset: 1px; }
-/* 编辑布局时：卡片描一圈虚线、整张能抓，里面的按钮和文件夹暂不响应（免得拖的时候误点） */
-.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-card-slot {
-  border-radius: var(--soft-radius-md);
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card > .soft-card-grip,
+.app.soft-ui.ready-ui.ui-refresh .soft-card-self > .soft-card-grip { top: 9px; }
+
+/* 编辑布局时：卡片描一圈虚线、整张能抓，里面的按钮和文件夹暂不响应（免得拖的时候误点）；
+   嵌在侧栏面板里的小卡片、图标栏里的"编辑布局"开关照样能点 */
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-card-slot,
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-card-self {
   outline: 1.5px dashed color-mix(in srgb, var(--soft-blue) 60%, transparent);
   outline-offset: 2px;
   cursor: grab;
   user-select: none;
 }
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-card-slot { border-radius: var(--soft-radius-md); }
+/* 骨架卡片贴着窗口或侧栏边缘，虚线框画在里面，免得被裁掉 */
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-card-self { outline-offset: -3px; }
 .app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-card-slot > :not(.soft-card-grip),
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-card-self > :not(.soft-card-grip):not(.soft-float-resize),
 .app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-float-body { pointer-events: none; }
-.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-card-slot:hover { outline-color: var(--soft-blue); }
-/* 磁盘卡片贴着侧栏底边，虚线框收到内边距里，免得被侧栏裁掉 */
-.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing > aside > [data-soft-card="disk"] { outline-offset: -5px; border-radius: calc(var(--soft-radius-md) + 6px); }
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-card-self .soft-card-slot,
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-layout-toggle { pointer-events: auto; }
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-card-slot:hover,
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-card-self:hover { outline-color: var(--soft-blue); }
+/* Windows 上顶栏是拖动窗口的区域，编辑时要让出来给卡片拖动 */
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing [data-soft-card],
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing [data-soft-card] * { -webkit-app-region: no-drag !important; }
+/* 磁盘卡片贴着侧栏面板底边，虚线框收到内边距里 */
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-side-panel > [data-soft-card="disk"] { outline-offset: -5px; border-radius: calc(var(--soft-radius-md) + 6px); }
 
-.app.soft-ui.ready-ui.ui-refresh .soft-float-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 76;
-  pointer-events: none;
+/* 浮动卡片统一的位置和层级（侧栏小卡片和骨架卡片共用） */
+.app.soft-ui.ready-ui.ui-refresh .soft-float-layer { display: contents; }
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card,
+.app.soft-ui.ready-ui.ui-refresh .soft-float-self {
+  position: fixed !important;
+  left: var(--card-left, auto) !important;
+  right: var(--card-right, auto) !important;
+  top: var(--card-top, auto) !important;
+  bottom: var(--card-bottom, auto) !important;
+  width: var(--card-w, var(--card-auto-w, max-content)) !important;
+  max-width: calc(100vw - 16px) !important;
+  height: var(--card-h, auto) !important;
+  max-height: var(--card-max-h, none) !important;
+  z-index: var(--card-z, 70) !important;
+  margin: 0 !important;
+  -webkit-app-region: no-drag;
 }
 .app.soft-ui.ready-ui.ui-refresh .soft-float-card {
-  position: absolute;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -800,12 +850,11 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header .to
   box-shadow: var(--soft-shadow-lg), 0 0 0 1px var(--soft-hairline);
   color: var(--soft-text);
   overflow: hidden;
-  pointer-events: auto;
-  -webkit-app-region: no-drag;
   transition: box-shadow .18s ease;
 }
-.app.soft-ui.ready-ui.ui-refresh .soft-float-card > .soft-card-grip { top: 9px; }
-.app.soft-ui.ready-ui.ui-refresh .soft-float-card.dragging { box-shadow: var(--soft-shadow-dialog), 0 0 0 1px var(--soft-hairline); }
+.app.soft-ui.ready-ui.ui-refresh .soft-float-self { box-shadow: var(--soft-shadow-lg), 0 0 0 1px var(--soft-hairline) !important; }
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card.dragging,
+.app.soft-ui.ready-ui.ui-refresh .soft-float-self.dragging { box-shadow: var(--soft-shadow-dialog), 0 0 0 1px var(--soft-hairline) !important; }
 .app.soft-ui.ready-ui.ui-refresh .soft-float-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -816,6 +865,7 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header .to
 }
 .app.soft-ui.ready-ui.ui-refresh .soft-float-resize {
   position: absolute;
+  z-index: 190;
   right: 7px;
   bottom: 7px;
   width: 14px;
@@ -825,8 +875,10 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header .to
   background:
     linear-gradient(135deg, transparent 0 46%, color-mix(in srgb, var(--soft-text) 28%, transparent) 46% 56%, transparent 56% 70%, color-mix(in srgb, var(--soft-text) 28%, transparent) 70% 80%, transparent 80%);
 }
-.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-float-card {
-  box-shadow: var(--soft-shadow-lg), 0 0 0 2px color-mix(in srgb, var(--soft-blue) 60%, transparent);
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-float-card,
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing .soft-float-self {
+  outline: 0;
+  box-shadow: var(--soft-shadow-lg), 0 0 0 2px color-mix(in srgb, var(--soft-blue) 60%, transparent) !important;
   cursor: grab;
   user-select: none;
 }
@@ -834,6 +886,11 @@ html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh > main > header .to
 .app.soft-ui.ready-ui.ui-refresh .soft-float-card .import-actions { margin: 0 !important; padding: 0 !important; background: transparent !important; box-shadow: none !important; }
 .app.soft-ui.ready-ui.ui-refresh .soft-float-card .brand { min-height: 0 !important; margin: 0 !important; padding: 0 2px !important; }
 .app.soft-ui.ready-ui.ui-refresh .soft-float-card .nav-title { margin-top: 0 !important; }
+/* 顶栏浮起来后，工具栏不用再躲在顶栏下面 */
+.app.soft-ui.ready-ui.ui-refresh.soft-header-out .toolbar:not(.soft-float-self) { top: var(--soft-gap) !important; }
+/* 素材区的容器查询会把里面的 fixed 元素困在素材区里；顶栏或工具栏浮起时、以及编辑布局（拖动中）时先关掉 */
+.app.soft-ui.ready-ui.ui-refresh.soft-main-free > main,
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing > main { container-type: normal !important; }
 
 /* 拖动时：整页显示抓手光标、不选中文字，iframe 不吃掉指针 */
 body.soft-ui-body.soft-card-dragging,
@@ -843,17 +900,27 @@ body.soft-ui-body.soft-card-resizing * { cursor: nwse-resize !important; user-se
 body.soft-ui-body.soft-card-dragging iframe,
 body.soft-ui-body.soft-card-resizing iframe { pointer-events: none !important; }
 
-/* 拖到侧栏上方时提示"松手放回" */
-.app.soft-ui.ready-ui.ui-refresh > aside:first-child::before { transition: background .16s ease, box-shadow .16s ease; }
-.app.soft-ui.ready-ui.ui-refresh > aside.soft-dock-target:first-child::before { background: var(--soft-blue-tint); box-shadow: var(--soft-shadow), 0 0 0 2px var(--soft-blue); }
-.app.soft-ui.ready-ui.ui-refresh.soft-panel-empty > aside.soft-dock-target .soft-rail { box-shadow: var(--soft-shadow), 0 0 0 2px var(--soft-blue); }
+/* 小卡片拖到侧栏面板上方时提示"松手放回"；面板空了时编辑布局下显示提示 */
+.app.soft-ui.ready-ui.ui-refresh .soft-side-panel.soft-dock-target { background: var(--soft-blue-tint); box-shadow: var(--soft-shadow), 0 0 0 2px var(--soft-blue) !important; }
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing.soft-panel-vacant .soft-side-panel { min-height: 160px; }
+.app.soft-ui.ready-ui.ui-refresh.soft-layout-editing.soft-panel-vacant .soft-side-panel::after {
+  content: "把卡片拖回这里";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--soft-muted);
+  font-size: 13px;
+  pointer-events: none;
+}
 
 /* 编辑布局时窗口底部的操作栏：一键重置 / 取消 / 保存 */
 .app.soft-ui.ready-ui.ui-refresh .soft-layout-bar {
   position: fixed;
-  z-index: 78;
+  z-index: 90;
   left: 50%;
-  bottom: 18px;
+  /* 底部贴着卡片时，操作栏停在卡片上面 */
+  bottom: calc(var(--dock-bottom, 0px) + 18px);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -903,18 +970,290 @@ body.soft-ui-body.soft-card-resizing iframe { pointer-events: none !important; }
   box-shadow: var(--soft-btn-shadow-primary) !important;
 }
 
-/* 五张卡片都浮起来了：侧栏白卡收起，素材区变宽 */
-.app.soft-ui.ready-ui.ui-refresh.soft-panel-empty > aside:first-child { grid-template-columns: 60px !important; column-gap: 0 !important; }
-.app.soft-ui.ready-ui.ui-refresh.soft-panel-empty > aside:first-child::before,
-.app.soft-ui.ready-ui.ui-refresh.soft-panel-empty > aside > .sidebar-fixed-controls,
-.app.soft-ui.ready-ui.ui-refresh.soft-panel-empty > aside > .sidebar-scroll-content,
-.app.soft-ui.ready-ui.ui-refresh.soft-panel-empty > .sidebar-resizer { display: none !important; }
+/* 左侧这一列的收放：图标栏 / 侧栏面板浮走，或者面板里的小卡片都拖走了（平时把空面板藏起来） */
+.app.soft-ui.ready-ui.ui-refresh.soft-panel-hidden .soft-side-panel { display: none !important; }
+.app.soft-ui.ready-ui.ui-refresh.soft-panel-out > aside:first-child,
+.app.soft-ui.ready-ui.ui-refresh.soft-panel-hidden > aside:first-child { grid-template-columns: 60px !important; column-gap: 0 !important; }
+.app.soft-ui.ready-ui.ui-refresh.soft-rail-out > aside:first-child { grid-template-columns: 0 minmax(0, 1fr) !important; column-gap: 0 !important; }
+.app.soft-ui.ready-ui.ui-refresh.soft-aside-empty > aside:first-child { grid-template-columns: 0 !important; padding: 0 !important; }
+.app.soft-ui.ready-ui.ui-refresh.soft-panel-out > .sidebar-resizer,
+.app.soft-ui.ready-ui.ui-refresh.soft-panel-hidden > .sidebar-resizer { display: none !important; }
 @media (max-width: 1180px) {
-  .app.soft-ui.ready-ui.ui-refresh.soft-panel-empty.detail-open:not(.ai-panel-open),
-  .app.soft-ui.ready-ui.ui-refresh.soft-panel-empty.folder-inspector-open { grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 240px; }
-  .app.soft-ui.ready-ui.ui-refresh.soft-panel-empty.ai-panel-open { grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 330px; }
+  .app.soft-ui.ready-ui.ui-refresh.soft-aside-slim.detail-open:not(.ai-panel-open),
+  .app.soft-ui.ready-ui.ui-refresh.soft-aside-slim.folder-inspector-open { grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 240px; }
+  .app.soft-ui.ready-ui.ui-refresh.soft-aside-slim.ai-panel-open { grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 330px; }
 }
+
+/* 贴边的卡片占住窗口四周（--dock-*，main.jsx 量出来的）：侧栏、素材区整体往里收，谁也不盖住谁 */
+.app.soft-ui.ready-ui.ui-refresh.soft-docked {
+  box-sizing: border-box;
+  padding: var(--dock-top, 0px) var(--dock-right, 0px) var(--dock-bottom, 0px) var(--dock-left, 0px) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh.soft-docked > aside:first-child,
+.app.soft-ui.ready-ui.ui-refresh.soft-docked > main { height: auto !important; max-height: none !important; min-height: 0 !important; }
+.app.soft-ui.ready-ui.ui-refresh.soft-docked > .sidebar-resizer { left: calc(var(--dock-left, 0px) + var(--sidebar-width) - 4px) !important; top: var(--dock-top, 0px) !important; bottom: var(--dock-bottom, 0px) !important; }
+.app.soft-ui.ready-ui.ui-refresh.soft-docked > .detail { top: var(--dock-top, 0px) !important; right: var(--dock-right, 0px) !important; bottom: var(--dock-bottom, 0px) !important; }
 
 /* 极简模式只留文件夹；俄罗斯方块全屏时浮动卡片也收起来 */
 .app.soft-ui.ready-ui.ui-refresh.minimal-mode .soft-float-card:not([data-soft-card="folders"]),
-.app.soft-ui.ready-ui.ui-refresh.tetris-mode .soft-float-layer { display: none !important; }
+.app.soft-ui.ready-ui.ui-refresh.minimal-mode .toolbar.soft-float-self,
+.app.soft-ui.ready-ui.ui-refresh.tetris-mode .soft-float-layer,
+.app.soft-ui.ready-ui.ui-refresh.tetris-mode .soft-float-self { display: none !important; }
+
+/* ---------- 卡片贴边换方向 ------------------------------------------------------
+   拖动时鼠标靠近窗口左右边缘 → 卡片变竖排并贴边；靠近顶部或底部 → 变横排并贴边。
+   换了方向的卡片带 .soft-orient-h / .soft-orient-v（只在和本来方向不一样时才加）。
+   刚换方向、还没量过宽度时用 --card-auto-w 作默认宽度。 */
+.app.soft-ui.ready-ui.ui-refresh .soft-rail { --card-auto-w: 60px; }
+.app.soft-ui.ready-ui.ui-refresh .soft-rail.soft-orient-h { --card-auto-w: max-content; }
+.app.soft-ui.ready-ui.ui-refresh .soft-side-panel { --card-auto-w: 320px; }
+.app.soft-ui.ready-ui.ui-refresh .soft-side-panel.soft-orient-h { --card-auto-w: min(1180px, calc(100vw - 16px)); }
+.app.soft-ui.ready-ui.ui-refresh > main > header,
+.app.soft-ui.ready-ui.ui-refresh .toolbar { --card-auto-w: min(1000px, calc(100vw - 32px)); }
+.app.soft-ui.ready-ui.ui-refresh > main > header.soft-orient-v { --card-auto-w: 280px; }
+.app.soft-ui.ready-ui.ui-refresh .toolbar.soft-orient-v { --card-auto-w: 220px; }
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card { --card-auto-w: 300px; }
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card.soft-orient-h { --card-auto-w: min(720px, calc(100vw - 16px)); }
+
+/* 图标栏横过来：图标排成一行，分组之间用竖线隔开，回收站和开关靠右 */
+.app.soft-ui.ready-ui.ui-refresh .soft-rail.soft-orient-h {
+  flex-direction: row;
+  padding: 20px 14px 10px !important;
+  gap: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.app.soft-ui.ready-ui.ui-refresh .soft-rail.soft-orient-h .soft-rail-group,
+.app.soft-ui.ready-ui.ui-refresh .soft-rail.soft-orient-h .soft-rail-bottom { flex-direction: row; }
+.app.soft-ui.ready-ui.ui-refresh .soft-rail.soft-orient-h .soft-rail-group + .soft-rail-group { padding-top: 0; padding-left: 14px; border-top: 0; border-left: 1px solid var(--soft-line); }
+.app.soft-ui.ready-ui.ui-refresh .soft-rail.soft-orient-h .soft-rail-bottom { margin-top: 0; margin-left: auto; padding-left: 14px; }
+
+/* 顶栏竖过来：路径、搜索、极简开关、工具按钮从上往下排，按钮自动换行 */
+.app.soft-ui.ready-ui.ui-refresh > main > header.soft-orient-v {
+  display: flex !important;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 24px 14px 14px !important;
+}
+.app.soft-ui.ready-ui.ui-refresh > main > header.soft-orient-v .search { width: auto !important; }
+.app.soft-ui.ready-ui.ui-refresh > main > header.soft-orient-v > .minimal-mode-toggle { align-self: flex-start; }
+.app.soft-ui.ready-ui.ui-refresh > main > header.soft-orient-v .top-action-strip { flex-wrap: wrap !important; justify-content: flex-start !important; overflow: visible !important; }
+
+/* 工具栏竖过来：标题在上，按钮一个一排 */
+.app.soft-ui.ready-ui.ui-refresh .toolbar.soft-orient-v {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 12px !important;
+  padding: 24px 14px 14px !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .toolbar.soft-orient-v > div:first-child { flex: none !important; min-width: 0 !important; }
+.app.soft-ui.ready-ui.ui-refresh .toolbar.soft-orient-v .view-actions { flex-direction: column !important; align-items: stretch !important; flex-wrap: nowrap !important; }
+.app.soft-ui.ready-ui.ui-refresh .toolbar.soft-orient-v .view-actions > .popover-anchor { width: 100%; }
+.app.soft-ui.ready-ui.ui-refresh .toolbar.soft-orient-v .view-actions > button,
+.app.soft-ui.ready-ui.ui-refresh .toolbar.soft-orient-v .view-actions > .popover-anchor > button { width: 100%; justify-content: flex-start !important; }
+
+/* 侧栏面板横过来：资源库和导入一列，文件夹、标签各一列，磁盘靠右下 */
+.app.soft-ui.ready-ui.ui-refresh .soft-side-panel.soft-float-self.soft-orient-h { height: var(--card-h, 300px) !important; }
+.app.soft-ui.ready-ui.ui-refresh .soft-side-panel.soft-orient-h { flex-direction: row; }
+.app.soft-ui.ready-ui.ui-refresh .soft-side-panel.soft-orient-h > .sidebar-fixed-controls { flex: 0 0 300px; max-height: none !important; overflow-y: auto !important; padding: 24px 12px 12px !important; }
+.app.soft-ui.ready-ui.ui-refresh .soft-side-panel.soft-orient-h > .sidebar-scroll-content { flex: 1 1 auto; display: flex; gap: 12px; overflow-x: auto; overflow-y: hidden; padding: 24px 8px 12px !important; }
+.app.soft-ui.ready-ui.ui-refresh .soft-side-panel.soft-orient-h > .sidebar-scroll-content > [data-soft-card] { flex: 0 0 280px; min-height: 0; overflow-y: auto; }
+.app.soft-ui.ready-ui.ui-refresh .soft-side-panel.soft-orient-h > [data-soft-card="disk"] { flex: 0 0 280px; align-self: flex-end; }
+
+/* 侧栏小卡片横过来：导入的三个按钮排成一行，标签排成一行自动换行 */
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card.soft-orient-h[data-soft-card="import"] .import-actions-grid { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important; gap: 8px !important; }
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card.soft-orient-h[data-soft-card="import"] .import-actions-grid > * { grid-column: auto !important; }
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card.soft-orient-h[data-soft-card="tags"] .tag-list { flex-direction: row !important; flex-wrap: wrap; align-items: center !important; gap: 4px 14px !important; }
+
+/* 文件夹卡片横过来：访达那样的分栏（components/folder-columns.jsx），一级一栏，点哪个在右边展开下一级 */
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card.soft-orient-h[data-soft-card="folders"] { height: var(--card-h, 260px) !important; --card-auto-w: min(1000px, calc(100vw - 16px)); }
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card.soft-orient-h[data-soft-card="folders"] .soft-float-body { display: flex; flex-direction: column; overflow: hidden; }
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card.soft-orient-h[data-soft-card="folders"] .soft-float-body > .soft-card-slot,
+.app.soft-ui.ready-ui.ui-refresh .soft-float-card.soft-orient-h[data-soft-card="folders"] .nav-title { flex: none; }
+.app.soft-ui.ready-ui.ui-refresh .folder-columns {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  margin-top: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: var(--soft-radius-sm);
+  background: var(--soft-tint);
+  scrollbar-width: thin;
+}
+.app.soft-ui.ready-ui.ui-refresh .folder-column {
+  flex: 0 0 210px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  padding: 6px;
+  overflow-y: auto;
+  border-right: 1px solid var(--soft-line);
+  scrollbar-width: thin;
+}
+.app.soft-ui.ready-ui.ui-refresh .folder-column:last-child { border-right: 0; }
+.app.soft-ui.ready-ui.ui-refresh button.folder-column-item {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 8px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--soft-text-2) !important;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.app.soft-ui.ready-ui.ui-refresh button.folder-column-item:hover { background: var(--soft-card) !important; }
+.app.soft-ui.ready-ui.ui-refresh button.folder-column-item.selected { background: color-mix(in srgb, var(--soft-text) 9%, var(--soft-card)) !important; color: var(--soft-text) !important; }
+.app.soft-ui.ready-ui.ui-refresh button.folder-column-item.active { background: var(--soft-blue-tint) !important; color: var(--soft-blue-strong) !important; }
+.app.soft-ui.ready-ui.ui-refresh button.folder-column-item.drop-target { background: var(--soft-accent-tint) !important; color: var(--soft-accent) !important; }
+.app.soft-ui.ready-ui.ui-refresh .folder-column-name { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 600; }
+.app.soft-ui.ready-ui.ui-refresh .folder-column-item small { flex: none; color: var(--soft-faint); font-size: 11px; }
+.app.soft-ui.ready-ui.ui-refresh .folder-column-chevron { flex: none; color: var(--soft-muted); }
+
+/* 拖到窗口边缘时，那条边亮起来，提示松手会贴过去 */
+body.soft-ui-body.soft-card-dragging.soft-snap-top::after,
+body.soft-ui-body.soft-card-dragging.soft-snap-bottom::after,
+body.soft-ui-body.soft-card-dragging.soft-snap-left::after,
+body.soft-ui-body.soft-card-dragging.soft-snap-right::after {
+  content: "";
+  position: fixed;
+  z-index: 95;
+  border-radius: 99px;
+  background: var(--soft-blue);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--soft-blue) 60%, transparent);
+  pointer-events: none;
+}
+body.soft-ui-body.soft-card-dragging.soft-snap-top::after { top: 3px; left: 24px; right: 24px; height: 4px; }
+body.soft-ui-body.soft-card-dragging.soft-snap-bottom::after { bottom: 3px; left: 24px; right: 24px; height: 4px; }
+body.soft-ui-body.soft-card-dragging.soft-snap-left::after { left: 3px; top: 24px; bottom: 24px; width: 4px; }
+body.soft-ui-body.soft-card-dragging.soft-snap-right::after { right: 3px; top: 24px; bottom: 24px; width: 4px; }
+
+/* ---------- 疯狂模式（components/desk-window.jsx） --------------------------------
+   编辑布局时打开"疯狂模式"，把卡片拖出素材库窗口松手，它就变成桌面上的小窗口（挂在主窗口上，
+   只浮在素材库上面）。小窗口顶部是标题条（按住拖动窗口），右边"放回"。顶栏不能拖到桌面。 */
+.app.soft-ui.ready-ui.ui-refresh .soft-layout-bar .soft-layout-crazy.on,
+.app.soft-ui.ready-ui.ui-refresh .soft-layout-bar .soft-layout-crazy.on:hover {
+  background: linear-gradient(135deg, #ff7ab8, #8d6bff) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 6px color-mix(in srgb, #8d6bff 35%, transparent) !important;
+}
+/* 拖出窗口的那一刻：卡片变半透明，表示松手就放到桌面上 */
+body.soft-ui-body.soft-card-tearing .soft-float-card.dragging,
+body.soft-ui-body.soft-card-tearing .soft-float-self.dragging { opacity: .55; }
+body.soft-ui-body.soft-card-tearing,
+body.soft-ui-body.soft-card-tearing * { cursor: copy !important; }
+
+/* 桌面小窗口：卡片铺满整个窗口 */
+body.soft-ui-body.soft-desk-window { margin: 0; overflow: hidden; }
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app {
+  display: block !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  padding: 0 !important;
+  background: var(--soft-card) !important;
+  overflow: hidden;
+}
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .soft-desk-card { display: flex; flex-direction: column; height: 100vh; }
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .soft-desk-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--soft-line);
+  color: var(--soft-muted);
+  font-size: 12px;
+  user-select: none;
+  -webkit-app-region: drag;
+}
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .soft-desk-grip { flex: none; width: 22px; height: 4px; border-radius: 99px; background: color-mix(in srgb, var(--soft-blue) 70%, transparent); }
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .soft-desk-bar strong { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--soft-text); font-weight: 650; }
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app button.soft-desk-return {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 10px !important;
+  border: 0 !important;
+  border-radius: 99px !important;
+  background: var(--soft-tint) !important;
+  color: var(--soft-text-2) !important;
+  font-size: 12px;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app button.soft-desk-return:hover { background: var(--soft-accent-tint) !important; color: var(--soft-text) !important; }
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .soft-desk-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 12px; scrollbar-width: thin; }
+/* 小卡片在桌面上：卡片自己就是窗口，里面不再套底色和投影；磁盘卡片去掉旧主题的底栏定位 */
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .import-actions { margin: 0 !important; padding: 0 !important; background: transparent !important; box-shadow: none !important; }
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .brand { min-height: 0 !important; margin: 0 !important; padding: 0 2px !important; }
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .sidebar-fixed-footer {
+  position: static !important;
+  inset: auto !important;
+  width: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  pointer-events: auto !important;
+}
+/* 小窗口很窄，会碰上旧样式给窄屏写的规则（max-width: 760px 时把侧栏文字都藏起来只留图标），这里放回来 */
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .brand span,
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .import-actions-head > div,
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .import-action span,
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .import-action small,
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app nav span,
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app nav b { display: block !important; }
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .brand .fui-Button { display: inline-flex !important; }
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .nav-title,
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .tag-list { display: flex !important; }
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .import-actions-head > div { display: grid !important; gap: 2px; }
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .brand,
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .import-actions-head { justify-content: flex-start !important; }
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .import-action {
+  height: auto !important;
+  min-height: 46px;
+  padding: 8px 12px !important;
+  place-items: center start !important;
+}
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .import-action > svg { grid-row: 1 / 3 !important; }
+/* 骨架卡片（图标栏、侧栏面板、工具栏）在桌面上：去掉它在主窗口里的定位和外框，铺满小窗口 */
+.app.soft-ui.ready-ui.ui-refresh.soft-desk-app .soft-desk-content {
+  position: relative !important;
+  inset: auto !important;
+  width: auto !important;
+  max-width: none !important;
+  height: auto !important;
+  max-height: none !important;
+  margin: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh.soft-desk-app .soft-desk-content.soft-rail,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh.soft-desk-app .soft-desk-content.soft-rail { padding-top: 6px; }
+
+/* ---------- 素材网格滚动性能 ----------------------------------------------------
+   旧样式让卡片上的小按钮（收藏、勾选、拖拽把手、尺寸标签）用毛玻璃，给图片 / 视频 / 波形加
+   translateZ(0)，给卡片加 contain: layout。几十张卡片一起渲染时这些会产生近 400 个合成层，
+   滚动时每帧重新分层要 90ms（约 11 帧/秒）。去掉这三样后约 60 帧/秒；卡片投影不影响，保留。 */
+.app.soft-ui.ready-ui.ui-refresh > main article * { backdrop-filter: none !important; }
+.app.soft-ui.ready-ui.ui-refresh .masonry article img,
+.app.soft-ui.ready-ui.ui-refresh .masonry article video,
+.app.soft-ui.ready-ui.ui-refresh .audio-waveform { transform: none; }
+.app.soft-ui.ready-ui.ui-refresh .masonry,
+.app.soft-ui.ready-ui.ui-refresh .masonry article { contain: none !important; }
+/* 音频卡片的拖动竖线和播放进度平时不动，不预先占一个合成层（悬停 / 播放时照样能动） */
+.app.soft-ui.ready-ui.ui-refresh .masonry article .audio-scrub-guide,
+.app.soft-ui.ready-ui.ui-refresh .masonry article .audio-play-depth { will-change: auto !important; }

@@ -1,33 +1,42 @@
-/* Windows 右上角的窗口按钮（WindowControls）。所有主题共用这一套基础样式；
-   柔光橙主题在 soft-ui.css 里再改成圆角方块。按钮在弹窗之上，弹窗打开时也能关窗口。
-   浅色主题会用 !important 强制按钮文字颜色，所以这里的图标颜色也带 !important。 */
+/* Windows 的窗口按钮（WindowControls）：和 macOS 一样做成左上角的红、黄、绿三个小圆点
+   （关闭 / 最小化 / 最大化），鼠标移到按钮组上才显示 × − + 图标。位置在 soft-ui.css 里对准图标栏顶部。
+   按钮在弹窗之上，弹窗打开时也能关窗口。旧样式（styles.css）给 .window-controls button 写了 46×44 的
+   方块和背景，所以这里用两级类名压过去。 */
 .window-controls {
   position: fixed;
-  top: 0;
-  right: 0;
+  top: 30px;
+  left: 21px;
+  right: auto;
   z-index: 9000;
   display: flex;
-  height: 44px;
+  align-items: center;
+  gap: 7px;
+  height: 14px;
   -webkit-app-region: no-drag;
 }
-.window-control {
+.window-controls .window-control {
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 44px;
+  width: 12px;
+  min-width: 12px;
+  height: 12px;
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-secondary, #c9ccd2) !important;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .22);
+  color: rgba(0, 0, 0, .62) !important;
   cursor: default;
-  transition: background-color .12s ease, color .12s ease;
+  transition: filter .12s ease;
 }
-.window-control:hover { background: color-mix(in srgb, var(--text-primary, #ffffff) 11%, transparent); color: var(--text-primary, #ffffff) !important; }
-.window-control:active { background: color-mix(in srgb, var(--text-primary, #ffffff) 17%, transparent); }
-.window-control.close:hover { background: #e5484d; color: #ffffff !important; }
-.window-control.close:active { background: #c93b40; color: #ffffff !important; }
-.window-control:focus-visible { outline: 2px solid var(--accent, #2f8cff); outline-offset: -2px; }
-/* 旧版自定义标题栏留下的 .window-controls{background:var(--titlebar-bg)} 会在弹窗打开时露出一块色块；容器本身保持透明 */
+.window-controls .window-control.close { background: #ff5f57 !important; }
+.window-controls .window-control.minimize { background: #febc2e !important; }
+.window-controls .window-control.maximize { background: #28c840 !important; }
+.window-controls .window-control svg { width: 8px; height: 8px; opacity: 0; transition: opacity .12s ease; }
+.window-controls:hover .window-control svg,
+.window-controls .window-control:focus-visible svg { opacity: 1; }
+.window-controls .window-control:hover { filter: brightness(1.04); }
+.window-controls .window-control:active { filter: brightness(.82); }
+.window-controls .window-control:focus-visible { outline: 2px solid var(--accent, #2f8cff); outline-offset: 2px; }
+/* 旧版自定义标题栏留下的 .window-controls{background:var(--titlebar-bg)} 会露出一块色块；容器本身保持透明 */
 .app .window-controls { background: transparent !important; box-shadow: none !important; }

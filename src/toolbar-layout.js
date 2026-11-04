@@ -5,7 +5,7 @@ export const BUILTIN_TOOLBAR_BUTTONS = [
   { id: "friend-tools", label: "友商工具集" },
   { id: "lan-signals", label: "局域网信号" },
   { id: "calendar", label: "老黄历" },
-  { id: "director", label: "AI导演" },
+  { id: "director", label: "演示方法" },
   { id: "tetris", label: "无穷大" },
   { id: "ai", label: "AI助手" },
   { id: "updates", label: "检查更新" },
