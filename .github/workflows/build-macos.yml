@@ -80,19 +80,19 @@ jobs:
       - name: Package DMG and ZIP for both architectures
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-          NEST_PACKAGE_OUTPUT: release-3.0.56-macos
+          NEST_PACKAGE_OUTPUT: release-4.0.1-macos
         run: npm run package:mac
 
       - name: Compute installer sizes and SHA-256 manifest
         shell: bash
         run: |
           set -euo pipefail
-          output_dir="release-3.0.56-macos"
+          output_dir="release-4.0.1-macos"
           : > "$output_dir/SHA256SUMS.txt"
 
           for arch in x64 arm64; do
             for extension in dmg zip; do
-              archive="$output_dir/NestAssetLibrary-3.0.56-macOS-$arch.$extension"
+              archive="$output_dir/NestAssetLibrary-4.0.1-macOS-$arch.$extension"
               test -s "$archive"
               printf '%s bytes  %s\n' "$(wc -c < "$archive" | tr -d '[:space:]')" "$archive"
               shasum -a 256 "$archive" | tee -a "$output_dir/SHA256SUMS.txt"
@@ -102,8 +102,8 @@ jobs:
       - name: Upload x64 DMG
         uses: actions/upload-artifact@v4
         with:
-          name: 小旺仔素材库-3.0.56-macOS-x64-dmg
-          path: release-3.0.56-macos/NestAssetLibrary-3.0.56-macOS-x64.dmg
+          name: 小旺仔素材库-4.0.1-macOS-x64-dmg
+          path: release-4.0.1-macos/NestAssetLibrary-4.0.1-macOS-x64.dmg
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
@@ -111,8 +111,8 @@ jobs:
       - name: Upload x64 ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: 小旺仔素材库-3.0.56-macOS-x64-zip
-          path: release-3.0.56-macos/NestAssetLibrary-3.0.56-macOS-x64.zip
+          name: 小旺仔素材库-4.0.1-macOS-x64-zip
+          path: release-4.0.1-macos/NestAssetLibrary-4.0.1-macOS-x64.zip
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
@@ -120,8 +120,8 @@ jobs:
       - name: Upload arm64 DMG
         uses: actions/upload-artifact@v4
         with:
-          name: 小旺仔素材库-3.0.56-macOS-arm64-dmg
-          path: release-3.0.56-macos/NestAssetLibrary-3.0.56-macOS-arm64.dmg
+          name: 小旺仔素材库-4.0.1-macOS-arm64-dmg
+          path: release-4.0.1-macos/NestAssetLibrary-4.0.1-macOS-arm64.dmg
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
@@ -129,8 +129,8 @@ jobs:
       - name: Upload arm64 ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: 小旺仔素材库-3.0.56-macOS-arm64-zip
-          path: release-3.0.56-macos/NestAssetLibrary-3.0.56-macOS-arm64.zip
+          name: 小旺仔素材库-4.0.1-macOS-arm64-zip
+          path: release-4.0.1-macos/NestAssetLibrary-4.0.1-macOS-arm64.zip
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
@@ -138,8 +138,8 @@ jobs:
       - name: Upload SHA-256 manifest
         uses: actions/upload-artifact@v4
         with:
-          name: 小旺仔素材库-3.0.56-macOS-SHA256
-          path: release-3.0.56-macos/SHA256SUMS.txt
+          name: 小旺仔素材库-4.0.1-macOS-SHA256
+          path: release-4.0.1-macos/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
 
@@ -147,7 +147,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          output_dir="release-3.0.56-macos"
+          output_dir="release-4.0.1-macos"
           temp_root="$RUNNER_TEMP/macos-package-verify"
           mkdir -p "$temp_root"
 
@@ -170,7 +170,7 @@ jobs:
             }
           };
           const pkg = JSON.parse(readAsarFile('package.json').toString('utf8'));
-          assert.equal(pkg.version, '3.0.56', `unexpected app version: ${pkg.version}`);
+          assert.equal(pkg.version, '4.0.1', `unexpected app version: ${pkg.version}`);
           const frames = entries.filter(name => /^dist\/pets\/maid-leash-kitten\/frame-\d{3}\.png$/.test(name));
           assert.equal(frames.length, 24, `expected 24 kitten frames, found ${frames.length}`);
           assert(entries.includes('electron/pet-leash.js'), 'electron/pet-leash.js is missing');
@@ -183,8 +183,8 @@ jobs:
           }
 
           for arch in x64 arm64; do
-            dmg="$output_dir/NestAssetLibrary-3.0.56-macOS-$arch.dmg"
-            zip="$output_dir/NestAssetLibrary-3.0.56-macOS-$arch.zip"
+            dmg="$output_dir/NestAssetLibrary-4.0.1-macOS-$arch.dmg"
+            zip="$output_dir/NestAssetLibrary-4.0.1-macOS-$arch.zip"
 
             mountpoint="$temp_root/mount-$arch"
             mkdir -p "$mountpoint"
