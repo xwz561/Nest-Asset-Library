@@ -12,7 +12,7 @@ test('browser extension declares AI Flow video, two-way folder sync, upload, and
   const page = fs.readFileSync(path.join(extensionRoot, 'aiflow-page.js'), 'utf8');
   const main = require('./source-tree.cjs').readSource(path.join(__dirname, '..', 'electron', 'main.cjs'), 'utf8');
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.version, '1.16.0');
+  assert.equal(manifest.version, '1.16.1');
   for (const entry of manifest.content_scripts) {
     for (const script of entry.js) assert.match(script, /\.js$/, 'Edge content scripts require .js filenames');
   }
@@ -435,7 +435,8 @@ test('a first-click library material is inserted once after AI Flow assigns its 
 test('video-extend references keep AI Flow token numbers and never pre-write a guessed first attachment', () => {
   const page = fs.readFileSync(path.join(extensionRoot, 'aiflow-page.js'), 'utf8');
   assert.match(page, /function parseNativeVideoExtendReference/);
-  assert.match(page, /referenceItems\.sort\(\(left, right\) => left\.token\.localeCompare/);
+  // 按 AI Flow 的编号排（@图片1、@视频2……），编号本身照抄不重排
+  assert.match(page, /referenceItems\.sort\(\(left, right\) => referenceNumber\(left\) - referenceNumber\(right\) \|\| left\.token\.localeCompare/);
   const cardHandler = page.slice(page.indexOf("card.addEventListener('click'"), page.indexOf('list.appendChild(card);'));
   assert.doesNotMatch(cardHandler, /insertVideoExtendReferenceAtCaret/);
   assert.doesNotMatch(cardHandler, /scheduleDuplicateReferenceCollapse/);
