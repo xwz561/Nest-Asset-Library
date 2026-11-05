@@ -1314,9 +1314,13 @@ html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh.soft-desk-app .sof
 .app.soft-ui.ready-ui.ui-refresh > main article * { backdrop-filter: none !important; }
 .app.soft-ui.ready-ui.ui-refresh .masonry article img,
 .app.soft-ui.ready-ui.ui-refresh .masonry article video,
-.app.soft-ui.ready-ui.ui-refresh .audio-waveform { transform: none; }
+/* 波形现在是一张静态图片（LES-007）：铺满卡片，和以前 canvas 一样拉伸，不被卡片图片的 object-fit: cover 裁掉 */
+.app.soft-ui.ready-ui.ui-refresh .audio-waveform { transform: none; object-fit: fill !important; }
 .app.soft-ui.ready-ui.ui-refresh .masonry,
 .app.soft-ui.ready-ui.ui-refresh .masonry article { contain: none !important; }
 /* 音频卡片的拖动竖线和播放进度平时不动，不预先占一个合成层（悬停 / 播放时照样能动） */
 .app.soft-ui.ready-ui.ui-refresh .masonry article .audio-scrub-guide,
 .app.soft-ui.ready-ui.ui-refresh .masonry article .audio-play-depth { will-change: auto !important; }
+
+/* 滚动时暂停卡片悬停（main 上的 is-scrolling 由滚动事件加上、停下 160ms 后去掉；LES-007） */
+.app.soft-ui.ready-ui.ui-refresh main.is-scrolling .masonry article { pointer-events: none; }

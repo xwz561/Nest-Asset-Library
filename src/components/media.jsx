@@ -569,26 +569,41 @@ export const durationText = (value) => {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 };
 
-export function AudioWaveform({ src, large = false }) {
-  const canvasRef = useRef(null),
+// 波形画好后存成一张静态图片显示，不再在卡片里放 <canvas>：
+// 浏览器会把每个 canvas 单独提成 GPU 图层，叠在上面的收藏 / 勾选 / 拖出按钮也得各自成层，
+// 素材一多，滚动时每一帧都要重新排这些图层（用户资源库镜像实测 46 → 70 帧/秒，见 LES-007）。
+// 画好的图片按"音频 + 尺寸"缓存在内存里，卡片滚出去再滚回来直接显示，不用重新解码。
+const waveformImages = new Map();
+
+export function AudioWaveform({ src, large = false, version = "" }) {
+  const holderRef = useRef(null),
     [visible, setVisible] = useState(large);
+  const columns = large ? 180 : 88,
+    width = large ? 720 : 300,
+    height = large ? 150 : 92,
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const imageKey = JSON.stringify([src, version, columns, width, height, dpr]);
+  const [image, setImage] = useState(() => waveformImages.get(imageKey) || "");
   useEffect(() => {
-    if (large || !canvasRef.current) return;
+    setImage(waveformImages.get(imageKey) || "");
+  }, [imageKey]);
+  useEffect(() => {
+    if (large || image || !holderRef.current) return;
     const observer = new IntersectionObserver(
       ([entry]) => setVisible(entry.isIntersecting),
       { rootMargin: "260px 0px" },
     );
-    observer.observe(canvasRef.current);
+    observer.observe(holderRef.current);
     return () => observer.disconnect();
-  }, [large]);
+  }, [large, image]);
   useEffect(() => {
-    if (!src || !visible) return;
+    if (!src || !visible || waveformImages.has(imageKey)) return;
     const controller = new AbortController();
     let context;
     const draw = async () => {
       try {
-        const columns = large ? 180 : 88;
-        const cacheKey = JSON.stringify([src, columns, "rgb"]);
+        // version 是素材文件的 hash：同一路径的文件换了内容，就不会拿旧波形
+        const cacheKey = JSON.stringify([src, columns, "rgb", version]);
         let peaks = waveformCache.get(cacheKey);
         if (!peaks) {
           const response = await fetch(src, { signal: controller.signal });
@@ -631,11 +646,7 @@ export function AudioWaveform({ src, large = false }) {
           }
           waveformCache.set(cacheKey, peaks);
         }
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const width = large ? 720 : 300,
-          height = large ? 150 : 92,
-          dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const canvas = document.createElement("canvas");
         canvas.width = width * dpr;
         canvas.height = height * dpr;
         const ctx = canvas.getContext("2d");
@@ -656,6 +667,12 @@ export function AudioWaveform({ src, large = false }) {
             h,
           );
         }
+        const url = await new Promise((resolve) => {
+          if (canvas.toBlob) canvas.toBlob((blob) => resolve(blob ? URL.createObjectURL(blob) : canvas.toDataURL("image/png")), "image/png");
+          else resolve(canvas.toDataURL("image/png"));
+        });
+        waveformImages.set(imageKey, url);
+        if (!controller.signal.aborted) setImage(url);
       } catch (error) {
         if (error.name !== "AbortError")
           console.warn("Audio waveform:", error.message);
@@ -668,9 +685,11 @@ export function AudioWaveform({ src, large = false }) {
       controller.abort();
       context?.close?.();
     };
-  }, [src, large, visible]);
-  return (
-    <canvas ref={canvasRef} className="audio-waveform" aria-hidden="true" />
+  }, [src, version, visible, imageKey, columns, width, height, dpr]);
+  return image ? (
+    <img className="audio-waveform" src={image} alt="" aria-hidden="true" draggable={false} decoding="async" />
+  ) : (
+    <span ref={holderRef} className="audio-waveform" aria-hidden="true" />
   );
 }
 
@@ -792,7 +811,7 @@ export function AudioMedia({ asset, preview = false, style }) {
             {durationText(current)} / {durationText(duration)}
           </span>
         )}
-        <AudioWaveform src={asset.url} large={preview} />
+        <AudioWaveform src={asset.url} large={preview} version={asset.hash || String(asset.size || "")} />
         <i className="audio-play-depth" ref={progressRef} />
         {!preview && <i className="audio-scrub-guide" ref={guideRef} aria-hidden="true" />}
         {playing && (

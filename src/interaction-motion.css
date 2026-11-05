@@ -115,8 +115,10 @@
   transform: translateY(-5px);
 }
 
+/* 入场动画结束后不保留最后一帧（backwards 而不是 both）：保留的话浏览器会一直把它当动画图层，
+   旁边的按钮跟着各自成层，滚动时多一份合成开销（LES-007）。最后一帧就是元素本来的样子，看起来没区别。 */
 .app.eagle-ui.ready-ui .toolbar-heading {
-  animation: toolbar-heading-enter 320ms var(--apple-ease) both;
+  animation: toolbar-heading-enter 320ms var(--apple-ease) backwards;
 }
 
 @keyframes toolbar-heading-enter {
@@ -125,11 +127,11 @@
 }
 
 .app.eagle-ui.ready-ui .folder-inspector {
-  animation: folder-inspector-enter 190ms var(--apple-ease) both;
+  animation: folder-inspector-enter 190ms var(--apple-ease) backwards;
 }
 
 .app.eagle-ui.ready-ui .folder-inspector-section dl > div {
-  animation: folder-inspector-row-enter 220ms ease both;
+  animation: folder-inspector-row-enter 220ms ease backwards;
 }
 
 .app.eagle-ui.ready-ui .folder-inspector-section dl > div:nth-child(2) { animation-delay: 35ms; }
@@ -209,4 +211,24 @@
   .app.eagle-ui.ready-ui .bug-feedback:hover {
     transform: none;
   }
+}
+
+/* ---------- 素材多时滚动掉帧（LES-007） ------------------------------------
+   卡片上悬停才出现的小按钮（收藏、勾选、尺寸、拖出）以前平时只是透明，仍然参与布局和图层计算，
+   一屏七八十张卡就是三百个，滚动时每帧重算（用户资源库镜像实测 55 → 62 帧/秒）。
+   现在不显示时直接 display: none；悬停时用 @starting-style 从透明淡入，离开时等淡出结束再隐藏，看起来和原来一样。
+   放在这个文件而不是 soft-ui.css：那边的样式检查不认 @starting-style。 */
+.app.soft-ui.ready-ui.ui-refresh .masonry article .thumb:not(:hover) .fav:not(.yes),
+.app.soft-ui.ready-ui.ui-refresh .masonry article:not(.multi-selected) .thumb:not(:hover) .select-dot,
+.app.soft-ui.ready-ui.ui-refresh .masonry article .thumb:not(:hover) .dimensions,
+.app.soft-ui.ready-ui.ui-refresh .masonry article .thumb:not(:hover) .external-drag-handle:not(:focus-visible) { display: none !important; }
+.app.soft-ui.ready-ui.ui-refresh .masonry article .thumb .fav,
+.app.soft-ui.ready-ui.ui-refresh .masonry article .thumb .select-dot,
+.app.soft-ui.ready-ui.ui-refresh .masonry article .thumb .dimensions { transition: opacity .15s ease, transform .18s cubic-bezier(.25, .1, .25, 1), display .18s allow-discrete !important; }
+.app.soft-ui.ready-ui.ui-refresh .masonry article .thumb .external-drag-handle { transition: opacity .14s ease, background .14s ease, color .14s ease, display .14s allow-discrete !important; }
+@starting-style {
+  .app.soft-ui.ready-ui.ui-refresh .masonry article .thumb:hover .fav,
+  .app.soft-ui.ready-ui.ui-refresh .masonry article .thumb:hover .select-dot,
+  .app.soft-ui.ready-ui.ui-refresh .masonry article .thumb:hover .dimensions,
+  .app.soft-ui.ready-ui.ui-refresh .masonry article .thumb:hover .external-drag-handle { opacity: 0; }
 }

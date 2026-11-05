@@ -222,6 +222,7 @@ function App() {
     desktopChanges = useRef(new Map()),
     marqueeStart = useRef(null),
     marqueeMoved = useRef(false),
+    scrollIdleTimer = useRef(0),
     marqueeBase = useRef(new Set()),
     lastSelectedId = useRef(null),
     sidebarResizing = useRef(false),
@@ -2347,7 +2348,15 @@ function App() {
         ref={mainScrollRef}
         className={`view-${viewMode}`}
         style={{"--thumbnail-size": `${thumbnailSize ?? (viewMode === "compact" ? 145 : 190)}px`}}
-        onScroll={(e) => updateVirtualRange(e.currentTarget)}
+        onScroll={(e) => {
+          updateVirtualRange(e.currentTarget);
+          // 滚动时暂停卡片的悬停效果：卡片从鼠标底下划过会不停触发上浮、阴影、按钮淡入，素材多时掉帧（LES-007）。
+          // 直接改 DOM 的 class，不走 React 状态，免得每次滚动都重新渲染整个界面。
+          const scroller = e.currentTarget;
+          scroller.classList.add("is-scrolling");
+          clearTimeout(scrollIdleTimer.current);
+          scrollIdleTimer.current = setTimeout(() => scroller.classList.remove("is-scrolling"), 160);
+        }}
         onClick={(event) => {
           // 点素材区空白处：收起文件夹详情（素材详情由框选逻辑取消选中）；框选拖动后的那次点击不算
           if (marqueeMoved.current) { marqueeMoved.current = false; return; }
