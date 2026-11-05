@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 
 const workerSource = fs.readFileSync(path.join(__dirname, '..', 'browser-extension', 'service-worker.js'), 'utf8');
+const connectionStateSource = fs.readFileSync(path.join(__dirname, '..', 'browser-extension', 'connection-state.js'), 'utf8');
 
 function response({ status = 200, text = '' } = {}) {
   return { status, ok: status >= 200 && status < 300, text: async () => text };
@@ -14,8 +15,13 @@ function createHarness({ deletes = [{ remoteAssetId: '22784' }], deleteResponseF
   const calls = [];
   const notifications = [];
   const reloads = [];
+  const sessionData = {};
   const listener = handler => ({ addListener: handler });
   const chrome = {
+    storage: { session: {
+      async get(key) { return { [key]: sessionData[key] }; },
+      async set(value) { Object.assign(sessionData, value); },
+    } },
     contextMenus: { create() {}, removeAll(callback) { callback?.(); }, onClicked: listener(() => {}) },
     notifications: { create(payload) { notifications.push(payload); } },
     runtime: { lastError: null, onInstalled: listener(() => {}), onStartup: listener(() => {}), onMessage: listener(() => {}) },
@@ -24,6 +30,7 @@ function createHarness({ deletes = [{ remoteAssetId: '22784' }], deleteResponseF
   };
   const sandbox = {
     URL,
+    AbortSignal,
     Blob,
     Headers,
     FormData,
@@ -36,6 +43,7 @@ function createHarness({ deletes = [{ remoteAssetId: '22784' }], deleteResponseF
     fetch: async (rawUrl, init = {}) => {
       const url = String(rawUrl);
       calls.push({ url, method: init.method || 'GET', body: init.body || '' });
+      if (url === 'http://127.0.0.1:32145/extension-status') return response({ text: JSON.stringify({ ok: true, ready: true }) });
       if (url === 'http://127.0.0.1:32145/aiflow-live-plan') {
         return response({ text: JSON.stringify({ wakeSequence: 1, deletes, assets: [], roots: [] }) });
       }
@@ -47,7 +55,7 @@ function createHarness({ deletes = [{ remoteAssetId: '22784' }], deleteResponseF
     },
   };
   vm.createContext(sandbox);
-  vm.runInContext(workerSource, sandbox, { filename: 'service-worker.js' });
+  vm.runInContext(`${connectionStateSource}\n${workerSource}`, sandbox, { filename: 'service-worker.js' });
   return {
     calls,
     notifications,
@@ -60,6 +68,7 @@ function createHarness({ deletes = [{ remoteAssetId: '22784' }], deleteResponseF
     },
     notifyDeleteFailureTwice() {
       vm.runInContext("notifyLiveDeleteFailure(['服务器删除暂时失败']); notifyLiveDeleteFailure(['服务器删除暂时失败'])", sandbox);
+      return new Promise(resolve => setTimeout(resolve, 25));
     },
   };
 }
@@ -107,7 +116,7 @@ test('only genuinely failed deletions stay queued and repeated failure alerts ar
   const failed = harness.calls.find(call => call.url.endsWith('/aiflow-live-delete-failed'));
   assert.deepEqual(JSON.parse(complete.body).remoteAssetIds, ['22784']);
   assert.deepEqual(JSON.parse(failed.body).failures, [{ remoteAssetId: '22785', error: '服务繁忙' }]);
-  harness.notifyDeleteFailureTwice();
+  await harness.notifyDeleteFailureTwice();
   assert.equal(harness.notifications.length, 1);
   assert.equal(harness.notifications[0].title, 'AI Flow 实时删除失败');
 });

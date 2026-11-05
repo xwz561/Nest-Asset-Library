@@ -1978,6 +1978,12 @@ async function readCollectorAIFlowLiveStatus(req) {
   return { ok: true, ...liveSyncStatusForPage(permission, { serverOrigin, projectId }) };
 }
 
+function readCollectorExtensionStatus() {
+  // The extension needs a tiny authenticated health check that is independent
+  // of the currently focused AI Flow tab. It never exposes library contents.
+  return { ok: true, ready: Boolean(libraryPath && fs.existsSync(indexFile(libraryPath))) };
+}
+
 async function cancelCollectorAIFlowLiveUpload(req) {
   const input = parseCollectorJson(await readCollectorBody(req, 12 * 1024), 'AI Flow 取消上传请求无效');
   const serverOrigin = validatedAIFlowPageOrigin(input.pageUrl);
@@ -2230,10 +2236,11 @@ function startSecureClipServer() {
       return res.end('浏览器采集扩展未配对，请在小旺仔素材库中重新准备扩展');
     }
     try {
-      const readOnlyDiffRequest = req.url === '/aiflow-folder-diff-preview' || req.url === '/aiflow-library-assets' || ['/prompt-review-status', '/prompt-review', '/prompt-review-result'].includes(req.url);
+      const readOnlyDiffRequest = req.url === '/extension-status' || req.url === '/aiflow-folder-diff-preview' || req.url === '/aiflow-library-assets' || ['/prompt-review-status', '/prompt-review', '/prompt-review-result'].includes(req.url);
       if (!readOnlyDiffRequest) collectorPermission();
       let result;
-      if (req.url === '/prompt-review-status') result = promptReviewer.status();
+      if (req.url === '/extension-status') result = readCollectorExtensionStatus();
+      else if (req.url === '/prompt-review-status') result = promptReviewer.status();
       else if (req.url === '/prompt-review') result = promptReviewer.start(parseCollectorJson(await readCollectorBody(req, 256 * 1024), '审查请求格式错误'));
       else if (req.url === '/prompt-review-result') result = promptReviewer.result(parseCollectorJson(await readCollectorBody(req, 4096), '审查编号无效').jobId);
       else if (req.url === '/clip-data') result = await importCollectorImage(req);

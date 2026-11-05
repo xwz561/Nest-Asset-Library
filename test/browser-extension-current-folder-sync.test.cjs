@@ -5,10 +5,12 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 
 const workerSource = fs.readFileSync(path.join(__dirname, '..', 'browser-extension', 'service-worker.js'), 'utf8');
+const connectionStateSource = fs.readFileSync(path.join(__dirname, '..', 'browser-extension', 'connection-state.js'), 'utf8');
 
 function response({ ok = true, json = {}, text = '', blob = null, headers = {} } = {}) {
   return {
     ok,
+    status: ok ? 200 : 500,
     json: async () => json,
     text: async () => text,
     blob: async () => blob || new Blob(['asset'], { type: 'image/png' }),
@@ -27,9 +29,14 @@ function createHarness({
 }) {
   const calls = [];
   const notifications = [];
+  const sessionData = {};
   let messageListener = null;
   const listener = handler => ({ addListener: handler });
   const chrome = {
+    storage: { session: {
+      async get(key) { return { [key]: sessionData[key] }; },
+      async set(value) { Object.assign(sessionData, value); },
+    } },
     contextMenus: { create() {}, removeAll(callback) { callback?.(); }, onClicked: listener(() => {}) },
     notifications: { create(payload) { notifications.push(payload); } },
     runtime: {
@@ -46,6 +53,7 @@ function createHarness({
   };
   const context = {
     URL,
+    AbortSignal,
     Blob,
     Headers,
     FormData,
@@ -58,6 +66,7 @@ function createHarness({
     fetch: async (rawUrl, init = {}) => {
       const url = String(rawUrl);
       calls.push({ url, method: init.method || 'GET', headers: init.headers || {}, body: init.body });
+      if (url === 'http://127.0.0.1:32145/extension-status') return response({ text: JSON.stringify({ ok: true, ready: true }) });
       if (url.startsWith('http://flow.test/auth/assets')) return response({ json: { items, folders } });
       if (url.startsWith('http://flow.test/media/')) return response({ blob: new Blob(['asset'], { type: 'image/png' }), headers: { 'content-type': 'image/png' } });
       if (url === 'http://127.0.0.1:32145/aiflow-folder-target') return folderTarget();
@@ -68,7 +77,7 @@ function createHarness({
     },
   };
   vm.createContext(context);
-  vm.runInContext(workerSource, context, { filename: 'service-worker.js' });
+  vm.runInContext(`${connectionStateSource}\n${workerSource}`, context, { filename: 'service-worker.js' });
   return {
     calls,
     notifications,
@@ -183,6 +192,7 @@ test('current-folder worker sync rejects shared views and never reports all fail
     bridge: () => response({ ok: false, text: JSON.stringify({ error: '本地桥拒绝导入' }) }),
   });
   const failed = await failingHarness.dispatch(currentFolderMessage());
+  await new Promise(resolve => setTimeout(resolve, 25));
   assert.equal(failed.ok, false);
   assert.equal(failed.imported, 0);
   assert.equal(failed.errors.length, 1);
@@ -264,5 +274,7 @@ test('current-folder sync and diff reject a tab that switched project or folder 
   assert.match(preview.error, /已切换/);
   assert.equal(harness.calls.filter(call => call.url.startsWith('http://flow.test/auth/assets')).length, 0);
   assert.equal(harness.calls.filter(call => call.url.includes('/media/')).length, 0);
-  assert.equal(harness.calls.filter(call => call.url.includes('32145')).length, 0);
+  assert.deepEqual(harness.calls.filter(call => call.url.includes('32145')).map(call => call.url), [
+    'http://127.0.0.1:32145/extension-status',
+  ]);
 });

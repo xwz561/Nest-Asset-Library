@@ -12,17 +12,19 @@ test('closing the desktop app cancels only unfinished AI Flow transfers and make
   const page = read('browser-extension/aiflow-page.js');
 
   assert.match(main, /function cancelAIFlowTransfersForShutdown\(\)/);
-  assert.match(main, /app\.on\('before-quit', cancelAIFlowTransfersForShutdown\)/);
+  assert.match(main, /app\.on\('before-quit', event => \{ if \(!event\.defaultPrevented\) cancelAIFlowTransfersForShutdown\(\); \}\)/);
   assert.match(main, /pendingAIFlowUpload = null/);
   assert.doesNotMatch(main.slice(main.indexOf('function cancelAIFlowTransfersForShutdown'), main.indexOf('// Every library write')), /aiFlowReferenceAttachments\s*=/);
 
   assert.match(worker, /function fetchNestBridge\(path, options\)/);
   assert.match(worker, /throw nestBridgeUnavailableError\(error\)/);
-  assert.match(worker, /if \(isNestBridgeUnavailable\(error\)\) \{\s*sendResponse\(\{ ok: true, cancelled: true, offline: true \}\)/);
+  assert.match(worker, /readBridgeConnectionState\(\)/);
+  assert.match(worker, /cancelled: true, offline: connection\.state === 'offline'/);
   assert.match(worker, /fetchNestBridge\('\/aiflow-reference-upload-plan'/);
   assert.match(worker, /fetchNestBridge\('\/aiflow-reference-upload-complete'/);
 
-  assert.match(page, /let referenceUploadOfflineUntil = 0/);
-  assert.match(page, /Date\.now\(\) < referenceUploadOfflineUntil/);
-  assert.match(page, /result\?\.offline\) referenceUploadOfflineUntil = Date\.now\(\) \+ 60 \* 1000/);
+  assert.match(page, /let bridgeFailureCount = 0/);
+  assert.match(page, /Date\.now\(\) < bridgeRetryAfter/);
+  assert.match(page, /retryDelayForFailure\(bridgeFailureCount\)/);
+  assert.match(page, /bridgeFailureCount = 0/);
 });

@@ -18,6 +18,8 @@
   // a referenced asset is removed. That does not dispatch an input event.
   const PROMPT_VALUE_WATCH_INTERVAL_MS = 180;
   const LIVE_SYNC_ACTION = 'aiflow-live-sync-tick';
+  const BRIDGE_RECOVERY_PROBE_ACTION = 'aiflow-bridge-recovery-probe';
+  const BRIDGE_RECOVERY_PROBE_MS = 30 * 1000;
   const REFERENCE_UPLOAD_ACTION = 'aiflow-reference-upload-tick';
   const REFERENCE_ATTACH_ACTION = 'attach-aiflow-uploaded-references';
   const CONTROL_CONTEXT_ACTION = 'aiflow-control-context';
@@ -42,7 +44,9 @@
   // 最近一次点过的 AI Flow 任务卡片：延长弹窗里的视频接不上时，用这张卡片的视频文件做预览
   let lastVideoExtendTaskId = '';
   let liveSyncTimer = null;
-  let referenceUploadOfflineUntil = 0;
+  let bridgeHealthTimer = null;
+  let bridgeFailureCount = 0;
+  let bridgeRetryAfter = 0;
   let contextRecoveryScheduled = false;
   let pageMutationObserver = null;
   const promptHighlighters = new WeakMap();
@@ -1876,6 +1880,11 @@
     const projectId = currentProjectId();
     const folder = currentFolderSelection();
     const sharedLibrary = isSharedLibraryView();
+    const themeStyle = getComputedStyle(document.body || document.documentElement);
+    const theme = Object.fromEntries(['bg', 'surface', 'border', 'text', 'muted', 'accent', 'button'].map(key => [
+      key,
+      themeStyle.getPropertyValue(`--nest-theme-${key}`).trim(),
+    ]).filter(([, value]) => value));
     const error = !workspace
       ? '当前页面不是已打开素材库的 AI Flow 页面'
       : sharedLibrary
@@ -1892,6 +1901,7 @@
       folderId: folder?.id || '',
       folderName: folder?.name || '',
       sharedLibrary,
+      theme,
       error,
     };
   }
@@ -1983,19 +1993,14 @@
   function requestReferenceUpload() {
     const toolbar = folderToolbar();
     const projectId = currentProjectId();
-    if (!toolbar || !projectId || isSharedLibraryView() || Date.now() < referenceUploadOfflineUntil) return;
+    if (!toolbar || !projectId || isSharedLibraryView() || Date.now() < bridgeRetryAfter) return;
     sendRuntimeMessage({
       action: REFERENCE_UPLOAD_ACTION,
       pageUrl: location.href,
       projectId,
       folderId: currentFolderId(),
       folderName: currentFolderName(),
-    }, result => {
-      // Closing the desktop app cancels in-flight local work. Do not wake the
-      // extension every three seconds while it is intentionally offline; a new
-      // desktop upload still wakes the extension immediately through live sync.
-      if (result?.offline) referenceUploadOfflineUntil = Date.now() + 60 * 1000;
-    });
+    }, result => { updateBridgeConnectionState(result); }, error => { updateBridgeConnectionState(null, error); });
   }
 
   function currentFolderSnapshot() {
@@ -2362,7 +2367,49 @@
     toolbar.insertBefore(button, viewToggle || null);
   }
 
+  function publishBridgeConnectionState(connection) {
+    document.documentElement.dataset.nestBridgeState = connection.state;
+    window.dispatchEvent(new CustomEvent('nest:bridge-connection-state', { detail: connection }));
+  }
+
+  function scheduleBridgeRecoveryProbe() {
+    if (bridgeHealthTimer) return;
+    bridgeHealthTimer = window.setTimeout(() => {
+      bridgeHealthTimer = null;
+      sendRuntimeMessage({ action: BRIDGE_RECOVERY_PROBE_ACTION }, result => {
+        const connection = globalThis.NestConnectionState.classifyConnection(result?.connection
+          || (result?.ok ? { state: 'connected' } : { error: result?.error || '扩展桥接暂不可用' }));
+        publishBridgeConnectionState(connection);
+        if (connection.state === 'connected') {
+          bridgeFailureCount = 0;
+          bridgeRetryAfter = 0;
+          requestLiveSync();
+          return;
+        }
+        scheduleBridgeRecoveryProbe();
+      }, () => scheduleBridgeRecoveryProbe());
+    }, BRIDGE_RECOVERY_PROBE_MS);
+  }
+
+  function updateBridgeConnectionState(result, error = null) {
+    const connection = globalThis.NestConnectionState.classifyConnection(result?.connection
+      || (result?.ok ? { state: 'connected' } : { error: error || result?.error || '扩展桥接暂不可用' }));
+    publishBridgeConnectionState(connection);
+    if (connection.state === 'connected') {
+      bridgeFailureCount = 0;
+      bridgeRetryAfter = 0;
+      if (bridgeHealthTimer) window.clearTimeout(bridgeHealthTimer);
+      bridgeHealthTimer = null;
+      return true;
+    }
+    bridgeFailureCount += 1;
+    bridgeRetryAfter = Date.now() + globalThis.NestConnectionState.retryDelayForFailure(bridgeFailureCount);
+    scheduleBridgeRecoveryProbe();
+    return false;
+  }
+
   function requestLiveSync() {
+    if (Date.now() < bridgeRetryAfter) return;
     const toolbar = folderToolbar();
     const projectId = currentProjectId();
     if (!toolbar || !projectId || isSharedLibraryView()) return;
@@ -2370,8 +2417,9 @@
       action: LIVE_SYNC_ACTION,
       pageUrl: location.href,
       projectId,
-    });
-    requestReferenceUpload();
+    }, result => {
+      if (updateBridgeConnectionState(result)) requestReferenceUpload();
+    }, error => { updateBridgeConnectionState(null, error); });
   }
 
   function ensureLiveSyncTimer() {
@@ -2379,6 +2427,18 @@
     liveSyncTimer = setInterval(requestLiveSync, LIVE_SYNC_INTERVAL_MS);
     setTimeout(requestLiveSync, 500);
   }
+
+  function retryBridgeWhenPageReturns() {
+    if (document.hidden || !bridgeRetryAfter) return;
+    bridgeRetryAfter = 0;
+    requestLiveSync();
+  }
+
+  window.addEventListener('focus', retryBridgeWhenPageReturns);
+  window.addEventListener('blur', () => {
+    if (bridgeRetryAfter) window.setTimeout(retryBridgeWhenPageReturns, 500);
+  });
+  document.addEventListener('visibilitychange', retryBridgeWhenPageReturns);
 
   document.addEventListener('click', event => {
     const card = AI_FLOW_DOM?.taskFromTarget?.(event.target)

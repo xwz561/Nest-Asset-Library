@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 
 const workerSource = fs.readFileSync(path.join(__dirname, '..', 'browser-extension', 'service-worker.js'), 'utf8');
+const connectionStateSource = fs.readFileSync(path.join(__dirname, '..', 'browser-extension', 'connection-state.js'), 'utf8');
 
 function response({ status = 200, text = '' } = {}) {
   return { status, ok: status >= 200 && status < 300, text: async () => text };
@@ -13,8 +14,13 @@ function response({ status = 200, text = '' } = {}) {
 function createHarness({ moveResponse = () => response() } = {}) {
   const calls = [];
   const notifications = [];
+  const sessionData = {};
   const listener = handler => ({ addListener: handler });
   const chrome = {
+    storage: { session: {
+      async get(key) { return { [key]: sessionData[key] }; },
+      async set(value) { Object.assign(sessionData, value); },
+    } },
     contextMenus: { create() {}, removeAll(callback) { callback?.(); }, onClicked: listener(() => {}) },
     notifications: { create(payload) { notifications.push(payload); } },
     runtime: { lastError: null, onInstalled: listener(() => {}), onStartup: listener(() => {}), onMessage: listener(() => {}) },
@@ -23,6 +29,7 @@ function createHarness({ moveResponse = () => response() } = {}) {
   };
   const sandbox = {
     URL,
+    AbortSignal,
     Blob,
     Headers,
     FormData,
@@ -35,13 +42,14 @@ function createHarness({ moveResponse = () => response() } = {}) {
     fetch: async (rawUrl, init = {}) => {
       const url = String(rawUrl);
       calls.push({ url, method: init.method || 'GET', headers: init.headers || {}, body: init.body || '' });
+      if (url === 'http://127.0.0.1:32145/extension-status') return response({ text: JSON.stringify({ ok: true, ready: true }) });
       const moveMatch = url.match(/^http:\/\/flow\.test\/auth\/assets\/(\d+)\/folder$/);
       if (moveMatch) return moveResponse(moveMatch[1]);
       throw new Error(`Unexpected fetch: ${url}`);
     },
   };
   vm.createContext(sandbox);
-  vm.runInContext(`${workerSource}\nglobalThis.__moveTest = { moveAIFlowPlan, notifyLiveMoveFailure };`, sandbox, { filename: 'service-worker.js' });
+  vm.runInContext(`${connectionStateSource}\n${workerSource}\nglobalThis.__moveTest = { moveAIFlowPlan, notifyLiveMoveFailure };`, sandbox, { filename: 'service-worker.js' });
   return { calls, notifications, api: sandbox.__moveTest };
 }
 
@@ -67,6 +75,7 @@ test('failed linked material moves remain reportable and repeat alerts are dedup
   assert.deepEqual(JSON.parse(JSON.stringify(result.failures)), [{ ...move, error: '目标文件夹不可用' }]);
   harness.api.notifyLiveMoveFailure(result.errors);
   harness.api.notifyLiveMoveFailure(result.errors);
+  await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(harness.notifications.length, 1);
   assert.equal(harness.notifications[0].title, 'AI Flow 素材移动失败');
 });

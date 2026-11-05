@@ -12,7 +12,7 @@ test('browser extension declares AI Flow video, two-way folder sync, upload, and
   const page = fs.readFileSync(path.join(extensionRoot, 'aiflow-page.js'), 'utf8');
   const main = require('./source-tree.cjs').readSource(path.join(__dirname, '..', 'electron', 'main.cjs'), 'utf8');
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.version, '1.16.2');
+  assert.equal(manifest.version, '1.16.3');
   for (const entry of manifest.content_scripts) {
     for (const script of entry.js) assert.match(script, /\.js$/, 'Edge content scripts require .js filenames');
   }
@@ -76,7 +76,8 @@ test('browser extension declares AI Flow video, two-way folder sync, upload, and
   assert.match(worker, /liveRemotePullRunning/);
   assert.match(worker, /startAIFlowLiveRemotePull/);
   assert.match(worker, /background remote mirror failed/);
-  assert.match(worker, /lastLiveFailureAt/);
+  assert.match(worker, /notifyFailureOnce/);
+  assert.match(worker, /chrome\.storage\?\.session/);
   assert.doesNotMatch(worker, /refreshAIFlowTabAfterUpload/);
   assert.doesNotMatch(worker, /refreshAIFlowTabAfterSync/);
   assert.doesNotMatch(worker, /runAIFlowLiveSync[\s\S]{0,6000}chrome\.tabs\.reload/);

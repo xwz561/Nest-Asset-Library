@@ -1,4 +1,4 @@
-importScripts('config.js');
+importScripts('connection-state.js', 'config.js');
 
 const IMAGE_MENU_ID = 'save-image-to-nest';
 const AIFLOW_VIDEO_MENU_ID = 'save-aiflow-video-to-nest';
@@ -9,6 +9,7 @@ const AIFLOW_FOLDER_STRUCTURE_SYNC_ACTION = 'sync-aiflow-folder-structure';
 const AIFLOW_FOLDER_STRUCTURE_ONLY_ACTION = 'sync-aiflow-folder-structure-only';
 const AIFLOW_UPLOAD_ACTION = 'upload-nest-assets-to-aiflow-folder';
 const AIFLOW_LIVE_SYNC_ACTION = 'aiflow-live-sync-tick';
+const AIFLOW_BRIDGE_RECOVERY_PROBE_ACTION = 'aiflow-bridge-recovery-probe';
 const AIFLOW_REFERENCE_UPLOAD_ACTION = 'aiflow-reference-upload-tick';
 const AIFLOW_REFERENCE_ATTACH_ACTION = 'attach-aiflow-uploaded-references';
 const AIFLOW_LIBRARY_ASSETS_ACTION = 'aiflow-library-assets';
@@ -22,6 +23,7 @@ const AIFLOW_CONTROL_CANCEL_UPLOAD_ACTION = 'aiflow-control:cancel-upload';
 const AIFLOW_CONTROL_CONTEXT_ACTION = 'aiflow-control-context';
 const AIFLOW_CONTROL_SYNC_NOW_ACTION = 'aiflow-live-sync-now';
 const BRIDGE_BASE_URL = 'http://127.0.0.1:32145';
+const CONNECTION_STATE_STORAGE_KEY = 'nest-aiflow-connection-state-v1';
 const MAX_AIFLOW_FOLDER_SYNC_ITEMS = 5000;
 const LIVE_REMOTE_PULL_INTERVAL_MS = 10 * 1000;
 const LIVE_WAKE_RETRY_MS = 1200;
@@ -33,12 +35,7 @@ let liveRemotePullRunning = false;
 let liveWakeRunning = false;
 let liveWakeSequence = 0;
 let liveWakeContext = null;
-let lastLiveFailureMessage = '';
-let lastLiveFailureAt = 0;
-let lastLiveDeleteFailureMessage = '';
-let lastLiveDeleteFailureAt = 0;
-let lastLiveMoveFailureMessage = '';
-let lastLiveMoveFailureAt = 0;
+let connectionStateWriteQueue = Promise.resolve();
 const liveUploadStates = new Map();
 const videoExtendTargets = new Map();
 
@@ -56,12 +53,90 @@ function bridgeKey() {
 }
 
 function notify(title, message) {
+  const cleanMessage = String(message || '操作未完成').slice(0, 300);
+  if (/失败|错误|异常/.test(String(title || ''))) {
+    return notifyFailureOnce(title, cleanMessage);
+  }
+  createSystemNotification(title, cleanMessage);
+  return Promise.resolve(true);
+}
+
+function createSystemNotification(title, message) {
   chrome.notifications.create({
     type: 'basic',
     iconUrl: 'icon.png',
     title,
     message: String(message || '操作未完成'),
   });
+}
+
+function connectionNotificationText(connection) {
+  return connection.state === 'unpaired'
+    ? '在素材库「扩展」面板点安装，再在浏览器扩展页点重新加载。'
+    : connection.detail;
+}
+
+function observeConnectionState(input) {
+  const connection = NestConnectionState.classifyConnection(input);
+  const task = connectionStateWriteQueue.then(async () => {
+    const storage = chrome.storage?.session;
+    const saved = storage ? (await storage.get(CONNECTION_STATE_STORAGE_KEY))[CONNECTION_STATE_STORAGE_KEY] || {} : {};
+    const notices = saved.notices && typeof saved.notices === 'object' ? { ...saved.notices } : {};
+    const previousState = String(saved.state || '');
+    const noticeKey = NestConnectionState.notificationKey('connection', connection.state);
+    const show = NestConnectionState.shouldNotify({
+      kind: 'connection', previousState, nextState: connection.state,
+      lastNotifiedAt: Number(notices[noticeKey]) || 0, now: Date.now(),
+    });
+    if (show) notices[noticeKey] = Date.now();
+    if (storage) await storage.set({ [CONNECTION_STATE_STORAGE_KEY]: { state: connection.state, notices } });
+    if (show) notify('需要重新配对', connectionNotificationText(connection));
+    return connection;
+  });
+  connectionStateWriteQueue = task.catch(() => {});
+  return task;
+}
+
+async function notifyFailureOnce(title, message) {
+  const cleanMessage = String(message || '操作未完成').slice(0, 300);
+  const connection = await observeBridgeConnection();
+  if (connection.state !== 'connected') return false;
+  const task = connectionStateWriteQueue.then(async () => {
+    const storage = chrome.storage?.session;
+    const saved = storage ? (await storage.get(CONNECTION_STATE_STORAGE_KEY))[CONNECTION_STATE_STORAGE_KEY] || {} : {};
+    const notices = saved.notices && typeof saved.notices === 'object' ? { ...saved.notices } : {};
+    const key = NestConnectionState.notificationKey('upload-failure', title);
+    const now = Date.now();
+    if (!NestConnectionState.shouldNotify({
+      kind: 'upload-failure', nextState: saved.state, lastNotifiedAt: Number(notices[key]) || 0, now,
+    })) return false;
+    notices[key] = now;
+    const recent = Object.entries(notices).sort((left, right) => right[1] - left[1]).slice(0, 50);
+    if (storage) await storage.set({ [CONNECTION_STATE_STORAGE_KEY]: { ...saved, notices: Object.fromEntries(recent) } });
+    createSystemNotification(title, cleanMessage);
+    return true;
+  });
+  connectionStateWriteQueue = task.catch(() => {});
+  return task;
+}
+
+async function readBridgeConnectionState() {
+  try {
+    const response = await fetchNestBridge('/extension-status', {
+      method: 'POST',
+      headers: bridgeHeaders({ 'content-type': 'application/json' }),
+      body: '{}',
+      signal: AbortSignal.timeout(3000),
+    });
+    const body = await readResponse(response);
+    return NestConnectionState.classifyConnection({ status: response.status, body, ready: body.ready });
+  } catch (error) {
+    return NestConnectionState.classifyConnection({ error });
+  }
+}
+
+async function observeBridgeConnection() {
+  return observeConnectionState(await readBridgeConnectionState());
 }
 
 function notifyLiveUploadFailure(errors) {
@@ -71,33 +146,21 @@ function notifyLiveUploadFailure(errors) {
   // Older page callbacks sometimes supplied an undefined array entry, which
   // made Edge repeatedly show a useless "undefined" upload-failed alert.
   if (!message || /^(undefined|null|\[object Object\])$/i.test(message)) return;
-  const now = Date.now();
-  if (message === lastLiveFailureMessage && now - lastLiveFailureAt < 30 * 1000) return;
-  lastLiveFailureMessage = message;
-  lastLiveFailureAt = now;
-  notify('AI Flow 实时上传失败', message.slice(0, 180));
+  void notifyFailureOnce('AI Flow 实时上传失败', message.slice(0, 180));
 }
 
 function notifyLiveDeleteFailure(errors) {
   const firstError = Array.isArray(errors) ? errors[0] : '';
   const message = typeof firstError === 'string' ? firstError.trim() : '';
   if (!message || /^(undefined|null|\[object Object\])$/i.test(message)) return;
-  const now = Date.now();
-  if (message === lastLiveDeleteFailureMessage && now - lastLiveDeleteFailureAt < 30 * 1000) return;
-  lastLiveDeleteFailureMessage = message;
-  lastLiveDeleteFailureAt = now;
-  notify('AI Flow 实时删除失败', message.slice(0, 300));
+  void notifyFailureOnce('AI Flow 实时删除失败', message.slice(0, 300));
 }
 
 function notifyLiveMoveFailure(errors) {
   const firstError = Array.isArray(errors) ? errors[0] : '';
   const message = typeof firstError === 'string' ? firstError.trim() : '';
   if (!message || /^(undefined|null|\[object Object\])$/i.test(message)) return;
-  const now = Date.now();
-  if (message === lastLiveMoveFailureMessage && now - lastLiveMoveFailureAt < 30 * 1000) return;
-  lastLiveMoveFailureMessage = message;
-  lastLiveMoveFailureAt = now;
-  notify('AI Flow 素材移动失败', message.slice(0, 300));
+  void notifyFailureOnce('AI Flow 素材移动失败', message.slice(0, 300));
 }
 
 function installMenus() {
@@ -197,9 +260,8 @@ function aiFlowAssetLinkFailureMessage(error) {
 
 function aiFlowAssetSyncFailureMessage(error) {
   const message = String(error?.message || '').trim();
-  if (/failed to fetch|networkerror/i.test(message)) {
-    return '请先启动小旺仔素材库，并在扩展面板重新安装已配对的扩展';
-  }
+  if (message.includes('浏览器采集扩展未配对')) return '需要重新配对：在素材库「扩展」面板点安装，再在浏览器扩展页点重新加载。';
+  if (/NEST_BRIDGE_UNAVAILABLE|failed to fetch|networkerror|ECONNREFUSED|fetch failed/i.test(`${error?.code || ''} ${message}`)) return '小旺仔素材库没有打开；打开素材库后会自动连上。';
   if (/401|403|登录|auth|session|cookie|unauthori[sz]ed/i.test(message)) {
     return 'AI Flow 网页登录已失效，请刷新网页并重新登录后再试';
   }
@@ -211,7 +273,8 @@ function aiFlowAssetSyncFailureMessage(error) {
 
 function aiFlowUploadFailureMessage(error) {
   const message = String(error?.message || '').trim();
-  if (/failed to fetch|networkerror/i.test(message)) return '请先启动小旺仔素材库，并在扩展面板重新安装已配对的扩展';
+  if (message.includes('浏览器采集扩展未配对')) return '需要重新配对：在素材库「扩展」面板点安装，再在浏览器扩展页点重新加载。';
+  if (/NEST_BRIDGE_UNAVAILABLE|failed to fetch|networkerror|ECONNREFUSED|fetch failed/i.test(`${error?.code || ''} ${message}`)) return '小旺仔素材库没有打开；打开素材库后会自动连上。';
   if (/401|403|登录|auth|session|cookie|unauthori[sz]ed/i.test(message)) return 'AI Flow 网页登录已失效，请刷新网页并重新登录后再试';
   if (/上传准备|待上传|过期|重新右键/.test(message)) return '请先在小旺仔素材库中右键素材，选择“上传到 AI Flow”并确认';
   return message || '上传到 AI Flow 失败';
@@ -226,6 +289,13 @@ function nestBridgeUnavailableError(error) {
 function isNestBridgeUnavailable(error) {
   return error?.code === 'NEST_BRIDGE_UNAVAILABLE'
     || /请先启动小旺仔素材库并打开资源库|请先打开资源库|当前没有.*素材库|素材库正在删除/.test(String(error?.message || ''));
+}
+
+function classifyKnownBridgeFailure(error) {
+  const message = String(error?.message || error || '');
+  if (message.includes('浏览器采集扩展未配对')) return { state: 'unpaired' };
+  if (isNestBridgeUnavailable(error)) return { state: 'offline' };
+  return null;
 }
 
 async function fetchNestBridge(path, options) {
@@ -562,6 +632,7 @@ function normalizeAIFlowControlStatus(context, result) {
       id: context.folderId,
       name: compactControlLabel(context.folderName, '我的素材'),
     },
+    theme: context.theme && typeof context.theme === 'object' ? context.theme : {},
     queue: {
       uploads: controlQueueCount(queue, 'uploads'),
       deletes: controlQueueCount(queue, 'deletes'),
@@ -579,7 +650,7 @@ function normalizeAIFlowControlStatus(context, result) {
   };
 }
 
-async function currentAIFlowControlContext() {
+async function currentAIFlowControlContext({ allowIncomplete = false } = {}) {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = Array.isArray(tabs) ? tabs.find(candidate => Number.isInteger(Number(candidate?.id))) : null;
   if (!tab) throw new Error('请先切换到已打开的 AI Flow 素材页面');
@@ -591,27 +662,34 @@ async function currentAIFlowControlContext() {
       ? '当前页面不是已打开素材库的 AI Flow 页面，请刷新后重试'
       : String(error?.message || error));
   }
-  if (!context?.workspace) throw new Error('当前页面不是已打开素材库的 AI Flow 页面');
-  if (context?.sharedLibrary) throw new Error('公共资产包不支持实时同步，请打开“我的素材”中的文件夹');
-  if (!context?.ok) throw new Error(String(context?.error || '请在 AI Flow 的“我的素材”中打开具体文件夹'));
-  const page = safeAIFlowPage(context.pageUrl);
-  const projectId = numericId(context.projectId, 'AI Flow 项目 ID');
+  if (!context?.workspace) {
+    if (allowIncomplete) return { tabId: Number(tab.id), contextUnavailable: true };
+    throw new Error('当前页面不是已打开素材库的 AI Flow 页面');
+  }
+  if (context.sharedLibrary && !allowIncomplete) throw new Error('公共资产包不支持实时同步，请打开“我的素材”中的文件夹');
+  const page = safeAIFlowPage(context.pageUrl || tab.url);
+  const projectId = numericId(context.projectId, 'AI Flow 项目 ID', { optional: allowIncomplete });
+  if (!projectId && allowIncomplete) return { tabId: Number(tab.id), contextUnavailable: true };
   const folderId = numericId(context.folderId, 'AI Flow 文件夹 ID', { optional: true });
   return {
     tabId: Number(tab.id),
     page,
     projectId,
     folderId,
+    contextError: String(context.error || ''),
+    sharedLibrary: Boolean(context.sharedLibrary),
     projectName: compactControlLabel(context.projectName, `项目 ${projectId}`),
     folderName: compactControlLabel(context.folderName, '我的素材'),
+    theme: context.theme && typeof context.theme === 'object' ? context.theme : {},
   };
 }
 
 async function readAIFlowControlStatus(context) {
-  const response = await fetch(`${BRIDGE_BASE_URL}/aiflow-live-status`, {
+  const response = await fetchNestBridge('/aiflow-live-status', {
     method: 'POST',
     headers: bridgeHeaders({ 'content-type': 'application/json' }),
     body: JSON.stringify({ pageUrl: context.page.href, projectId: context.projectId }),
+    signal: AbortSignal.timeout(5000),
   });
   const result = await readResponse(response);
   if (!response.ok || result?.ok === false) {
@@ -620,12 +698,41 @@ async function readAIFlowControlStatus(context) {
   return normalizeAIFlowControlStatus(context, result);
 }
 
+function emptyAIFlowControlStatus(connection, detail = '') {
+  return {
+    connection: { ...connection, detail: detail || connection.detail },
+    project: { name: '—' },
+    folder: { name: '—' },
+    queue: { uploads: 0, deletes: 0, moves: 0, references: 0, failed: 0, active: 0, items: [] },
+    error: null,
+    updatedAt: Date.now(),
+  };
+}
+
 async function getAIFlowControlStatus() {
+  const connection = await observeBridgeConnection();
+  if (connection.state !== 'connected') return { ok: true, status: emptyAIFlowControlStatus(connection) };
   try {
-    const context = await currentAIFlowControlContext();
-    return { ok: true, status: await readAIFlowControlStatus(context) };
+    const context = await currentAIFlowControlContext({ allowIncomplete: true });
+    if (context.contextUnavailable) {
+      return { ok: true, status: emptyAIFlowControlStatus(connection, '已连接；打开 AI Flow 的“我的素材”文件夹后显示项目、文件夹和队列。') };
+    }
+    if (context.sharedLibrary) {
+      return { ok: true, status: emptyAIFlowControlStatus(connection, '公共资产包不支持实时同步，请打开“我的素材”中的文件夹。') };
+    }
+    const status = await readAIFlowControlStatus(context);
+    await observeConnectionState({ state: 'connected' });
+    return { ok: true, status };
   } catch (error) {
-    return { ok: false, error: controlFailureMessage(error) };
+    const verified = await observeBridgeConnection();
+    if (verified.state !== 'connected') return { ok: true, status: emptyAIFlowControlStatus(verified) };
+    const contextMessage = /当前页面不是|请先切换到|请在 AI Flow/.test(String(error?.message || ''));
+    return {
+      ok: true,
+      status: emptyAIFlowControlStatus(verified, contextMessage
+        ? '已连接；打开 AI Flow 的“我的素材”文件夹后显示项目、文件夹和队列。'
+        : '已连接；当前同步请求遇到问题。'),
+    };
   }
 }
 
@@ -1446,6 +1553,7 @@ async function runAIFlowLiveSync(message, { tabId = -1 } = {}) {
   });
   const plan = await readResponse(planResponse);
   if (!planResponse.ok) throw new Error(plan.error || plan.message || `读取 AI Flow 实时同步计划失败 (${planResponse.status})`);
+  await observeConnectionState({ state: 'connected' });
   liveWakeSequence = Math.max(liveWakeSequence, Number(plan.wakeSequence) || 0);
   // A local deletion must not wait behind a potentially large file upload.
   // The desktop already woke this authenticated extension as soon as the item
@@ -1720,18 +1828,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message?.action === AIFLOW_FOLDER_SYNC_ACTION) {
     syncAIFlowFolder(message, sender).then(
-      result => {
+      async result => {
         const failed = result.errors.length;
         const target = result.folderName ? `到“${result.folderName}”` : '';
         const source = String(message?.folderName || '当前文件夹');
         const completed = Boolean(result.empty || Number(result.imported || 0) || Number(result.duplicates || 0));
         const fullyFailed = !result.empty && result.total > 0 && !completed && failed >= result.total;
         if (fullyFailed) {
-          notify('AI Flow 当前文件夹同步失败', result.errors[0] || `“${source}”中的素材未能导入`);
+          await notify('AI Flow 当前文件夹同步失败', result.errors[0] || `“${source}”中的素材未能导入`);
           sendResponse({ ok: false, error: result.errors[0] || '当前文件夹同步失败', ...result });
           return;
         }
-        notify(
+        await notify(
           failed ? 'AI Flow 当前文件夹同步部分完成' : 'AI Flow 当前文件夹同步完成',
           result.empty
             ? `“${source}”中暂无可同步素材`
@@ -1739,9 +1847,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         );
         sendResponse({ ok: true, partial: failed > 0, ...result });
       },
-      error => {
+      async error => {
         const message = aiFlowAssetSyncFailureMessage(error);
-        notify('AI Flow 素材同步失败', message);
+        await notify('AI Flow 素材同步失败', message);
         sendResponse({ ok: false, error: message });
       },
     );
@@ -1792,6 +1900,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     );
     return true;
   }
+  if (message?.action === AIFLOW_BRIDGE_RECOVERY_PROBE_ACTION) {
+    if (sender.id !== chrome.runtime.id || !sender.tab || !/^https?:\/\//.test(sender.tab.url || '')) {
+      sendResponse({ ok: false, connection: NestConnectionState.classifyConnection({ state: 'offline' }) });
+      return false;
+    }
+    readBridgeConnectionState().then(async connection => {
+      const observed = await observeConnectionState(connection);
+      sendResponse({ ok: true, connection: observed });
+    }, error => sendResponse({ ok: true, connection: NestConnectionState.classifyConnection({ error }) }));
+    return true;
+  }
   if (message?.action === AIFLOW_REFERENCE_UPLOAD_ACTION) {
     if (referenceUploadRunning) {
       sendResponse({ ok: true, skipped: true });
@@ -1799,7 +1918,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     const tabId = Number(sender?.tab?.id);
     runAIFlowReferenceUploadWhenWoken(message, { tabId, target: videoExtendTargetForTab(tabId) ? 'video-extend' : 'global' }).then(
-      result => {
+      async result => {
+        await observeConnectionState({ state: 'connected' });
         if (result.pending) {
           const attachment = Number(result.attachment?.attached) > 0 ? `，已加入顶部引用 ${result.attachment.attached} 项` : '';
           const missing = Array.isArray(result.attachment?.missing) && result.attachment.missing.length ? `，${result.attachment.missing.length} 项未能自动加入` : '';
@@ -1808,14 +1928,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
         sendResponse({ ok: true, ...result });
       },
-      error => {
-        if (isNestBridgeUnavailable(error)) {
-          sendResponse({ ok: true, cancelled: true, offline: true });
+      async error => {
+        const knownFailure = classifyKnownBridgeFailure(error);
+        const connection = knownFailure
+          ? await observeConnectionState(knownFailure)
+          : await observeBridgeConnection();
+        if (connection.state !== 'connected') {
+          await observeConnectionState(connection);
+          sendResponse({ ok: true, cancelled: true, offline: connection.state === 'offline', unpaired: connection.state === 'unpaired', connection });
           return;
         }
         const message = aiFlowUploadFailureMessage(error);
-        notify('AI Flow 引用上传失败', message);
-        sendResponse({ ok: false, error: message });
+        await observeConnectionState(connection);
+        await notifyFailureOnce('AI Flow 引用上传失败', message);
+        sendResponse({ ok: false, error: message, connection });
       },
     );
     return true;
@@ -1828,7 +1954,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     liveSyncRunning = true;
     const tabId = Number(sender?.tab?.id);
     runAIFlowLiveSync(message, { tabId }).then(
-      result => {
+      async result => {
+        await observeConnectionState({ state: 'connected' });
         if (message?.source !== 'control-center') {
           notifyLiveUploadFailure(result.uploadErrors);
           notifyLiveDeleteFailure(result.deleteErrors);
@@ -1837,7 +1964,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         armAIFlowLiveWake(message, 0, tabId);
         sendResponse({ ok: true, ...result });
       },
-      error => sendResponse({ ok: false, error: aiFlowAssetSyncFailureMessage(error) }),
+      async error => {
+        const connection = await observeBridgeConnection();
+        await observeConnectionState(connection);
+        if (connection.state !== 'connected') {
+          sendResponse({ ok: true, offline: connection.state === 'offline', unpaired: connection.state === 'unpaired', connection });
+          return;
+        }
+        sendResponse({ ok: false, error: aiFlowAssetSyncFailureMessage(error), connection });
+      },
     ).finally(() => { liveSyncRunning = false; });
     return true;
   }

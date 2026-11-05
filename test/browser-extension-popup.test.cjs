@@ -11,12 +11,12 @@ test('sync console popup is packaged with a message-only control surface', () =>
   const script = fs.readFileSync(path.join(extensionRoot, 'popup.js'), 'utf8');
   const css = fs.readFileSync(path.join(extensionRoot, 'popup.css'), 'utf8');
 
-  assert.equal(manifest.version, '1.16.2');
+  assert.equal(manifest.version, '1.16.3');
   assert.deepEqual(manifest.action, {
     default_title: '小旺仔同步控制台',
     default_popup: 'popup.html',
   });
-  assert.deepEqual(manifest.permissions, ['contextMenus', 'notifications', 'tabs', 'scripting']);
+  assert.deepEqual(manifest.permissions, ['contextMenus', 'notifications', 'tabs', 'scripting', 'storage']);
   assert.match(html, /connection-label/);
   assert.match(html, /project-name/);
   assert.match(html, /folder-name/);
@@ -40,8 +40,9 @@ test('sync console popup is packaged with a message-only control surface', () =>
   assert.doesNotMatch(script, /\bfetch\s*\(/);
   assert.doesNotMatch(script, /chrome\.(?:tabs|scripting)\b/);
   assert.doesNotMatch(script, /127\.0\.0\.1|https?:\/\//);
-  assert.match(css, /@keyframes pulse/);
-  assert.match(css, /queue-cancel/);
+  assert.match(css, /#nest-sync-popup \.nx-button/);
+  assert.match(css, /!important/);
+  assert.match(css, /nx-item/);
 });
 
 

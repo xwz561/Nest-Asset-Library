@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 
 const workerSource = fs.readFileSync(path.join(__dirname, '..', 'browser-extension', 'service-worker.js'), 'utf8');
+const connectionStateSource = fs.readFileSync(path.join(__dirname, '..', 'browser-extension', 'connection-state.js'), 'utf8');
 
 function response({ ok = true, status = ok ? 200 : 500, text = '', blob = null } = {}) {
   return {
@@ -42,9 +43,14 @@ function createHarness({
   const reloads = [];
   const sent = [];
   const notifications = [];
+  const sessionData = {};
   let messageListener = null;
   const listener = handler => ({ addListener: handler });
   const chrome = {
+    storage: { session: {
+      async get(key) { return { [key]: sessionData[key] }; },
+      async set(value) { Object.assign(sessionData, value); },
+    } },
     contextMenus: { create() {}, removeAll(callback) { callback?.(); }, onClicked: listener(() => {}) },
     notifications: { create(payload) { notifications.push(payload); } },
     runtime: { lastError: null, onInstalled: listener(() => {}), onStartup: listener(() => {}), onMessage: { addListener(handler) { messageListener = handler; } } },
@@ -62,6 +68,7 @@ function createHarness({
   };
   const sandbox = {
     URL,
+    AbortSignal,
     Blob,
     Headers,
     FormData,
@@ -73,6 +80,7 @@ function createHarness({
     importScripts() {},
     fetch: async (url, init = {}) => {
       calls.push({ url: String(url), method: init.method || 'GET', body: init.body || '' });
+      if (String(url) === 'http://127.0.0.1:32145/extension-status') return response({ text: JSON.stringify({ ok: true, ready: true }) });
       if(String(url).endsWith('/aiflow-reference-upload-plan')) return response({ok:false,status:400,text:JSON.stringify({error:referenceError})});
        if (String(url) === 'http://127.0.0.1:32145/aiflow-live-status') return response({ text: JSON.stringify(status) });
         if (String(url) === 'http://127.0.0.1:32145/aiflow-live-upload-cancel') return response({ text: JSON.stringify(cancelResult) });
@@ -80,7 +88,7 @@ function createHarness({
     },
   };
   vm.createContext(sandbox);
-  vm.runInContext(workerSource, sandbox, { filename: 'service-worker.js' });
+  vm.runInContext(`${connectionStateSource}\n${workerSource}`, sandbox, { filename: 'service-worker.js' });
   return {
     calls,
     reloads,
@@ -108,18 +116,19 @@ test('control-center status reads only the paired local status endpoint and retu
   assert.equal(result.status.folder.name, 'EP01');
   assert.deepEqual(JSON.parse(JSON.stringify(result.status.queue)), { uploads: 2, deletes: 1, moves: 0, references: 0, failed: 1, running: false, active: 0, oldestQueuedAt: 123, nextRetryAt: 0, items: [] });
   assert.equal(result.status.error.message, '网络暂时断开');
-  assert.deepEqual(harness.calls.map(call => call.url), ['http://127.0.0.1:32145/aiflow-live-status']);
+  assert.deepEqual(harness.calls.map(call => call.url), ['http://127.0.0.1:32145/extension-status', 'http://127.0.0.1:32145/aiflow-live-status']);
   assert.equal(harness.reloads.length, 0);
   assert.equal(harness.notifications.length, 0);
   assert.equal(harness.sent[0].message.action, 'aiflow-control-context');
 });
 
-test('control-center rejects a shared or invalid current page without bridge or server requests', async () => {
+test('control-center reports a healthy bridge without reading private status from shared or invalid pages', async () => {
   const harness = createHarness({ context: activeContext({ ok: false, sharedLibrary: true, error: '公共资产包不支持实时同步，请打开“我的素材”中的文件夹' }) });
   const result = await harness.dispatch({ action: 'aiflow-control:get-status' });
-  assert.equal(result.ok, false);
-  assert.match(result.error, /公共资产包/);
-  assert.equal(harness.calls.length, 0);
+  assert.equal(result.ok, true);
+  assert.equal(result.status.connection.state, 'connected');
+  assert.match(result.status.connection.detail, /公共资产包/);
+  assert.deepEqual(harness.calls.map(call => call.url), ['http://127.0.0.1:32145/extension-status']);
   assert.equal(harness.reloads.length, 0);
   assert.equal(harness.notifications.length, 0);
 });
@@ -230,7 +239,7 @@ test('live transfer uses two bounded workers, reports real stages, and preserves
     },
   };
   vm.createContext(sandbox);
-  vm.runInContext(`${workerSource}\nglobalThis.__m3Test = { uploadAIFlowPlan, normalizeAIFlowControlStatus, setLiveUploadState, clearLiveUploadState, liveWakeRetryDelay };`, sandbox, { filename: 'service-worker.js' });
+  vm.runInContext(`${connectionStateSource}\n${workerSource}\nglobalThis.__m3Test = { uploadAIFlowPlan, normalizeAIFlowControlStatus, setLiveUploadState, clearLiveUploadState, liveWakeRetryDelay };`, sandbox, { filename: 'service-worker.js' });
   api = sandbox.__m3Test;
 
   const result = await api.uploadAIFlowPlan(new URL('http://flow.test/project/7'), { uploadId: 'batch-1', assets }, {

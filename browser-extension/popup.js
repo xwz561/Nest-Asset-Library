@@ -13,11 +13,16 @@
   let latestStatus = null;
   let activeAction = '';
   let activeCancelId = '';
+  let statusPollTimer = null;
 
   const elements = {
     connectionDot: document.querySelector('#connection-dot'),
     connectionLabel: document.querySelector('#connection-label'),
     connectionDetail: document.querySelector('#connection-detail'),
+    offlineGuidance: document.querySelector('#offline-guidance'),
+    unpairedGuidance: document.querySelector('#unpaired-guidance'),
+    connectedContent: document.querySelector('#connected-content'),
+    root: document.querySelector('#nest-sync-popup'),
     projectName: document.querySelector('#project-name'),
     folderName: document.querySelector('#folder-name'),
     queueActiveCount: document.querySelector('#queue-active-count'),
@@ -121,20 +126,26 @@
       'queue.failed', 'queue.failedCount', 'queue.failures', 'failedCount', 'failures', 'error.count',
     ], 0));
     const connectedFlag = readFirst(payload, ['connection.connected', 'connected', 'bridgeConnected'], undefined);
-    const connectionState = text(readFirst(payload, ['connection.state', 'connection.status', 'state'], ''), '').toLowerCase();
-    const isConnected = connectedFlag === true || connectionState === 'connected' || connectionState === 'online';
-    const isError = connectedFlag === false || ['error', 'offline', 'disconnected', 'unavailable'].includes(connectionState);
-    const connectionLabel = text(readFirst(payload, [
-      'connection.label', 'connection.message', 'connection.statusText', 'statusText',
-    ], isConnected ? '已连接本机桥接' : isError ? '连接不可用' : '等待连接状态'));
+    const rawConnectionState = readFirst(payload, ['connection.state', 'connection.status', 'state'], '');
+    const connectionState = globalThis.NestConnectionState.classifyConnection({
+      state: connectedFlag === true ? 'connected' : rawConnectionState,
+      status: readFirst(payload, ['connection.httpStatus', 'httpStatus'], 0),
+      body: readFirst(payload, ['connection.body', 'body'], ''),
+      ready: readFirst(payload, ['connection.ready', 'ready'], undefined),
+      error: readFirst(payload, ['connection.error', 'error.message', 'error'], undefined),
+    });
+    const isConnected = connectionState.state === 'connected';
+    const isError = connectionState.state === 'unpaired';
+    const connectionLabel = connectionState.label;
 
     return {
       isConnected,
       isError,
+      connectionState: connectionState.state,
       connectionLabel,
       connectionDetail: text(readFirst(payload, [
         'connection.detail', 'connection.reason', 'connectionDetail', 'detail', 'message',
-      ], isConnected ? '可查看现有同步队列与最近结果。' : '请确认小旺仔素材库正在运行。')),
+      ], connectionState.detail)),
       projectName: resolveName(readFirst(payload, ['project', 'currentProject', 'context.project'], UNKNOWN)),
       folderName: resolveName(readFirst(payload, ['folder', 'currentFolder', 'context.folder'], UNKNOWN)),
       active: count(readFirst(payload, ['queue.active', 'queue.uploading', 'activeUploads'], 0)),
@@ -146,9 +157,10 @@
       items: (Array.isArray(readFirst(payload, ['queue.items', 'queue.uploadItems'], []))
         ? readFirst(payload, ['queue.items', 'queue.uploadItems'], [])
         : []).map(transferItem).filter(Boolean),
-      errorMessage: text(readFirst(payload, [
+      theme: payload.theme && typeof payload.theme === 'object' ? payload.theme : {},
+      errorMessage: connectionState.state === 'connected' ? text(readFirst(payload, [
         'error.message', 'lastError', 'lastFailure', 'failureMessage',
-      ], ''), ''),
+      ], ''), '') : '',
       updatedAt: readFirst(payload, ['updatedAt', 'lastUpdatedAt', 'updated_at'], null),
     };
   }
@@ -188,11 +200,11 @@
       : '小文件优先';
     for (const item of items) {
       const row = document.createElement('div');
-      row.className = `queue-item is-${item.state}`;
+      row.className = `nx-item nx-item-${item.state}`;
       row.setAttribute('role', 'listitem');
 
       const copy = document.createElement('div');
-      copy.className = 'queue-item-copy';
+      copy.className = 'nx-item-copy';
       const title = document.createElement('strong');
       title.textContent = item.name;
       title.title = item.name;
@@ -208,14 +220,14 @@
       if (transferable) {
         const cancel = document.createElement('button');
         cancel.type = 'button';
-        cancel.className = 'queue-cancel';
+        cancel.className = 'nx-button nx-button-subtle';
         cancel.textContent = activeCancelId === item.assetId ? '取消中…' : '取消';
         cancel.disabled = Boolean(activeAction || activeCancelId);
         cancel.addEventListener('click', () => cancelQueuedUpload(item));
         row.appendChild(cancel);
       } else {
         const state = document.createElement('span');
-        state.className = 'queue-item-active';
+        state.className = 'nx-item-active';
         state.textContent = transferStateLabel(item);
         row.appendChild(state);
       }
@@ -225,6 +237,19 @@
 
   function render(status) {
     latestStatus = status;
+    const state = status.connectionState || 'offline';
+    elements.root.dataset.connection = state;
+    const colorPattern = /^(#[0-9a-f]{3,8}|rgba?\([0-9.,%\s]+\)|hsla?\([0-9.,%\s]+\))$/i;
+    for (const [key, value] of Object.entries(status.theme || {})) {
+      const safeValue = String(value || '').trim();
+      if (['bg', 'surface', 'border', 'text', 'muted', 'accent', 'button'].includes(key) && colorPattern.test(safeValue)) {
+        elements.root.style.setProperty(`--nx-${key}`, safeValue, 'important');
+      }
+    }
+    elements.offlineGuidance.hidden = state !== 'offline';
+    elements.unpairedGuidance.hidden = state !== 'unpaired';
+    elements.connectedContent.hidden = state !== 'connected';
+    elements.feedback.textContent = '';
     const queued = status.uploads + status.deletes + status.references;
     elements.connectionLabel.textContent = status.connectionLabel;
     elements.connectionDetail.textContent = status.connectionDetail;
@@ -235,15 +260,16 @@
     elements.queueDeleteCount.textContent = String(status.deletes);
     elements.queueFailedCount.textContent = String(status.failed);
     elements.queueSummary.textContent = status.active > 0 ? `上传中 ${status.active} 项` : queued > 0 ? `队列中 ${queued} 项` : '队列空闲';
-    elements.errorState.textContent = status.errorMessage || status.failed > 0 ? '需要处理' : '暂无异常';
-    elements.errorState.classList.toggle('is-error', Boolean(status.errorMessage || status.failed > 0));
+    const hasRecentError = Boolean(status.errorMessage || status.failed > 0);
+    elements.errorState.textContent = hasRecentError ? '需要处理' : '暂无异常';
+    elements.errorState.classList.toggle('nx-error', hasRecentError);
     elements.errorMessage.textContent = status.errorMessage || (status.failed > 0
       ? '存在失败任务，可点击“重新唤醒队列”重新处理既有任务。'
       : '队列空闲或上一轮同步已完成。');
     elements.updatedAt.textContent = `最后更新：${formatTime(status.updatedAt)}`;
 
-    elements.connectionDot.classList.remove('is-loading', 'is-connected', 'is-error');
-    elements.connectionDot.classList.add(status.isConnected ? 'is-connected' : status.isError ? 'is-error' : 'is-loading');
+    elements.connectionDot.classList.remove('is-loading', 'is-connected', 'is-error', 'nx-dot-connected', 'nx-dot-unpaired', 'nx-dot-offline');
+    elements.connectionDot.classList.add(state === 'connected' ? 'nx-dot-connected' : state === 'unpaired' ? 'nx-dot-unpaired' : 'nx-dot-offline');
     renderQueueItems(status);
     if (!activeAction) setButtonBusy('', false);
   }
@@ -277,13 +303,11 @@
   async function readStatus(silent = false) {
     const result = await sendRuntimeMessage(ACTIONS.getStatus);
     if (!result.ok) {
+      const connection = globalThis.NestConnectionState.classifyConnection(result.response?.connection || { error: result.error });
       render(normalizeStatus({
-        connected: false,
-        connection: { state: 'error', label: '无法读取状态', detail: result.error },
-        error: { message: result.error },
-        updatedAt: new Date().toISOString(),
+        connection: { state: connection.state, label: connection.label, detail: connection.detail },
+        updatedAt: Date.now(),
       }));
-      if (!silent) showFeedback(result.error, true);
       return false;
     }
     render(normalizeStatus(result.response));
@@ -374,8 +398,14 @@
   });
   elements.copyButton.addEventListener('click', copyDiagnostics);
 
-  readStatus();
-  window.setInterval(() => readStatus(true), 1200);
+  async function pollStatus() {
+    await readStatus(true);
+    const delay = latestStatus?.connectionState === 'connected' ? 3000 : 15000;
+    statusPollTimer = window.setTimeout(pollStatus, delay);
+  }
+
+  if (statusPollTimer) window.clearTimeout(statusPollTimer);
+  void pollStatus();
 })();
 
 // 标题下显示网页采集器版本号，方便核对浏览器里装的是不是新版

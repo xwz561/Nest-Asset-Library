@@ -7,94 +7,67 @@
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <main class="popup-shell" aria-labelledby="popup-title">
-      <header class="popup-header">
-        <div class="brand-mark" aria-hidden="true">◆</div>
-        <div class="brand-copy">
-          <h1 id="popup-title">小旺仔同步控制台</h1>
-          <p>AI Flow · Edge 本机桥接 · <span id="extension-version">v—</span></p>
+    <div id="nest-sync-popup" aria-labelledby="popup-title">
+      <div id="popup-head" class="nx-head">
+        <div id="brand-mark" class="nx-mark" aria-hidden="true">◆</div>
+        <div id="brand-copy" class="nx-brand">
+          <div id="popup-title" class="nx-title">小旺仔同步控制台</div>
+          <div id="popup-subtitle" class="nx-subtitle">AI Flow · Edge 本机桥接 · <span id="extension-version">v—</span></div>
         </div>
-        <span id="connection-dot" class="connection-dot is-loading" aria-hidden="true"></span>
-      </header>
+        <span id="connection-dot" class="nx-dot is-loading" aria-hidden="true"></span>
+      </div>
 
-      <section class="connection-card" aria-label="连接状态">
-        <div class="section-label">连接状态</div>
-        <strong id="connection-label">正在读取状态…</strong>
-        <p id="connection-detail">请确认小旺仔素材库正在运行。</p>
-      </section>
+      <div id="connection-state" class="nx-state" aria-label="连接状态">
+        <span id="connection-label" class="nx-state-title">正在检测连接…</span>
+        <span id="connection-detail" class="nx-state-copy">正在检查小旺仔本机桥接。</span>
+        <div id="offline-guidance" class="nx-guidance" hidden>
+          <span>打开素材库后会自动连上</span>
+          <button type="button" class="nx-button nx-button-primary" data-action="aiflow-control:reconnect">重新检测</button>
+        </div>
+        <div id="unpaired-guidance" class="nx-guidance" hidden>
+          <span>在素材库「扩展」面板点安装 → 浏览器扩展页点重新加载。</span>
+          <button type="button" class="nx-button nx-button-primary" data-action="aiflow-control:reconnect">重新检测</button>
+        </div>
+      </div>
 
-      <section class="context-card" aria-label="当前同步上下文">
-        <div class="context-line">
-          <span>当前项目</span>
-          <strong id="project-name">—</strong>
+      <div id="connected-content">
+        <div id="context-state" class="nx-surface" aria-label="当前同步上下文">
+          <div class="nx-line"><span>当前项目</span><strong id="project-name">—</strong></div>
+          <div class="nx-line"><span>当前文件夹</span><strong id="folder-name">—</strong></div>
         </div>
-        <div class="context-line">
-          <span>当前文件夹</span>
-          <strong id="folder-name">—</strong>
-        </div>
-      </section>
 
-      <section class="queue-card" aria-labelledby="queue-title">
-        <div class="section-heading">
-          <span id="queue-title">传输队列</span>
-          <span id="queue-summary" class="queue-summary">读取中</span>
-        </div>
-        <div class="queue-metrics">
-          <div class="queue-metric is-active">
-            <strong id="queue-active-count">—</strong>
-            <span>上传中</span>
-          </div>
-          <div class="queue-metric">
-            <strong id="queue-upload-count">—</strong>
-            <span>待上传</span>
-          </div>
-          <div class="queue-metric">
-            <strong id="queue-delete-count">—</strong>
-            <span>待删除</span>
-          </div>
-          <div class="queue-metric is-alert">
-            <strong id="queue-failed-count">—</strong>
-            <span>失败待重试</span>
+        <div id="queue-state" class="nx-surface" aria-labelledby="queue-title">
+          <div class="nx-heading"><span id="queue-title">传输队列</span><span id="queue-summary" class="nx-muted">读取中</span></div>
+          <div id="queue-metrics" class="nx-metrics">
+            <div class="nx-metric"><strong id="queue-active-count">—</strong><span>上传中</span></div>
+            <div class="nx-metric"><strong id="queue-upload-count">—</strong><span>待上传</span></div>
+            <div class="nx-metric"><strong id="queue-delete-count">—</strong><span>待删除</span></div>
+            <div class="nx-metric nx-metric-alert"><strong id="queue-failed-count">—</strong><span>失败待重试</span></div>
           </div>
         </div>
-      </section>
 
-      <section class="queue-items-card" aria-labelledby="queue-items-title">
-        <div class="section-heading">
-          <span id="queue-items-title">待上传明细</span>
-          <span id="queue-items-note" class="queue-summary">小文件优先</span>
+        <div id="queue-items-state" class="nx-surface" aria-labelledby="queue-items-title">
+          <div class="nx-heading"><span id="queue-items-title">待上传明细</span><span id="queue-items-note" class="nx-muted">小文件优先</span></div>
+          <div id="queue-items" class="nx-items" role="list"></div>
+          <span id="queue-items-empty" class="nx-empty">当前没有待上传素材。</span>
         </div>
-        <div id="queue-items" class="queue-items" role="list"></div>
-        <p id="queue-items-empty" class="queue-items-empty">当前没有待上传素材。</p>
-      </section>
 
-      <section class="error-card" aria-labelledby="error-title">
-        <div class="section-heading">
-          <span id="error-title">最近异常</span>
-          <span id="error-state" class="error-state is-ok">暂无异常</span>
+        <div id="error-card" class="nx-surface" aria-labelledby="error-title">
+          <div class="nx-heading"><span id="error-title">最近异常</span><span id="error-state" class="nx-muted">暂无异常</span></div>
+          <span id="error-message" class="nx-empty">队列空闲或上一轮同步已完成。</span>
         </div>
-        <p id="error-message">队列空闲或上一轮同步已完成。</p>
-      </section>
 
-      <p id="updated-at" class="updated-at">最后更新：—</p>
-
-      <section class="actions" aria-label="控制操作">
-        <button type="button" class="control-button" data-action="aiflow-control:reconnect">
-          <span aria-hidden="true">↻</span>重新检测
-        </button>
-        <button type="button" class="control-button" data-action="aiflow-control:retry" disabled>
-          <span aria-hidden="true">↺</span>重新唤醒队列
-        </button>
-        <button type="button" class="control-button" data-action="aiflow-control:refresh">
-          <span aria-hidden="true">⟳</span>刷新 AI Flow
-        </button>
-        <button type="button" class="control-button control-button-secondary" id="copy-diagnostics">
-          <span aria-hidden="true">⧉</span>复制诊断
-        </button>
-      </section>
-
-      <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
-    </main>
+        <div id="updated-at" class="nx-updated">最后更新：—</div>
+        <div id="actions" class="nx-actions" aria-label="控制操作">
+          <button type="button" class="nx-button" data-action="aiflow-control:reconnect">重新检测</button>
+          <button type="button" class="nx-button" data-action="aiflow-control:retry" disabled>重新唤醒队列</button>
+          <button type="button" class="nx-button" data-action="aiflow-control:refresh">刷新 AI Flow</button>
+          <button type="button" class="nx-button nx-button-subtle" id="copy-diagnostics">复制诊断</button>
+        </div>
+      </div>
+      <div id="feedback" class="nx-feedback" role="status" aria-live="polite"></div>
+    </div>
+    <script src="connection-state.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>
