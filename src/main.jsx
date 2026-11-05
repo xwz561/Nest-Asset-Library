@@ -69,6 +69,7 @@ import "./window-controls.css";
 import "./soft-ui.css";
 import "./soft-ui-panels.css";
 import { waitForViewportShift } from "./lib/viewport-settle.js";
+import { withViewTransition } from "./view-transition.js";
 
 import { buildFolderRows, defaultExpandedFolderIds, expandableFolderIds, formatFolderBytes, summarizeFolderAssets, toggleExpandedFolder, toggleExpandedFolderScope } from "./folder-tree.js";
 
@@ -263,9 +264,11 @@ function App() {
         resolve,
       }),
     );
-  const resolveDialog = (value) => {
-    dialogState?.resolve(value);
-    setDialogState(null);
+  const resolveDialog = (value, event) => {
+    withViewTransition(() => {
+      dialogState?.resolve(value);
+      setDialogState(null);
+    }, { kind: "fade", point: event ? { x: event.clientX, y: event.clientY } : null });
   };
 
   useEffect(() => {
@@ -719,7 +722,7 @@ function App() {
   const emptyFolderView = activeModule === "library" && filter === "全部素材" && !query && !currentTag && !hiddenFilterActive && shown.length === 0 && contentFolders.length === 0;
   const treePositions = useMemo(() => folderPositions(orderedFolders), [orderedFolders]);
   const folderPreviewById = useMemo(() => new Map(), []);
-  const openFolder = (folder) => {
+  const openFolder = (folder, event) => withViewTransition(() => {
     setActiveModule("library");
     setFilter("全部素材");
     setAiResultIds(null);
@@ -729,8 +732,8 @@ function App() {
     setFolderInspectorHidden(false);
     setSelected(null);
     setSelectedIds([]);
-  };
-  const openLibraryRoot = () => {
+  }, { kind: "folder-forward", point: event ? { x: event.clientX, y: event.clientY } : null });
+  const openLibraryRoot = (event) => withViewTransition(() => {
     setActiveModule("library");
     setFilter("全部素材");
     setAiResultIds(null);
@@ -739,7 +742,12 @@ function App() {
     setActiveFolder(null);
     setSelected(null);
     setSelectedIds([]);
-  };
+  }, { kind: "folder-back", point: event ? { x: event.clientX, y: event.clientY } : null });
+  const openFolderParent = (event) => withViewTransition(() => {
+    setActiveFolder(currentFolder?.parentId || null);
+    setSelected(null);
+    setSelectedIds([]);
+  }, { kind: "folder-back", point: event ? { x: event.clientX, y: event.clientY } : null });
   const applyLibrary = (lib, { reset = false } = {}) => {
     if (!lib || lib.error) {
       if (lib?.error) showMessage(lib.error);
@@ -797,26 +805,28 @@ function App() {
       return result;
     }
   };
-  const openReferenceBoard = (id = null) => {
+  const openReferenceBoard = (id = null, event) => withViewTransition(() => {
     setActiveReferenceBoardId(id || library?.referenceBoards?.[0]?.id || null);
     setActiveModule("reference-board");
     setAiPanel(false);
-  };
+  }, { kind: "module", point: event ? { x: event.clientX, y: event.clientY } : null });
   const requestTetrisAccess = () => {
     setTetrisPassword("");
     setTetrisPasswordError("");
     setTetrisPasswordOpen(true);
   };
-  const unlockTetris = () => {
+  const unlockTetris = (event) => {
     if (tetrisPassword !== TETRIS_ACCESS_CODE) {
       setTetrisPasswordError("密码不正确，请重新输入。");
       return;
     }
-    setSelected(null);
-    setAiPanel(false);
-    setTetrisPasswordOpen(false);
-    setTetrisPasswordError("");
-    setActiveModule("tetris");
+    withViewTransition(() => {
+      setSelected(null);
+      setAiPanel(false);
+      setTetrisPasswordOpen(false);
+      setTetrisPasswordError("");
+      setActiveModule("tetris");
+    }, { kind: "module", point: event ? { x: event.clientX, y: event.clientY } : null });
   };
     const { beginAIFlowExtensionUpload, beginAIFlowFolderExtensionUpload, aiFlowLiveRootForFolder, aiFlowLiveSyncEnabledForFolder, aiFlowFolderConnected, toggleAIFlowLiveSync, pendingAIFlowUploadsByAssetId, activeAIFlowSync } = useAIFlow({ desktop, canEdit, selectedIds, assetsRef, askConfirm, showMessage, clearMessageAfter, library, applyLibrary, currentFolder });
 
@@ -1521,13 +1531,13 @@ function App() {
     setSidebarWidth(232);
     localStorage.setItem(SIDEBAR_WIDTH_KEY, "326");
   };
-  const cycleViewMode = () =>
+  const cycleViewMode = (event) => withViewTransition(() =>
     setViewMode((current) => {
       const next =
         VIEW_MODES[(VIEW_MODES.indexOf(current) + 1) % VIEW_MODES.length];
       localStorage.setItem(VIEW_MODE_KEY, next);
       return next;
-    });
+    }), { kind: "fade", point: event ? { x: event.clientX, y: event.clientY } : null });
   const importFiles = async (files) => {
     for (const file of [...files].filter((f) =>
       /^(image|video|audio)\//.test(f.type),
@@ -1720,7 +1730,7 @@ function App() {
     return () =>
       background.forEach((element) => element.removeAttribute("inert"));
   }, [desktop, ready, library]);
-  const selectNav = (n) => {
+  const selectNav = (n) => withViewTransition(() => {
     setActiveModule("library");
     setAiResultIds(null);
     setFilter(n);
@@ -1729,7 +1739,7 @@ function App() {
     setActiveFolder(null);
     setSelected(null);
     setSelectedIds([]);
-  };
+  }, { kind: "fade" });
   const nav = [
     ["全部素材", "all", LayoutGrid],
     ["未分类", "unclassified", Box],
@@ -1740,6 +1750,27 @@ function App() {
     ["音频", "audio", Music],
     ["剧本", "script", FileText],
   ];
+  const railCategoryGroupRef = useRef(null);
+  const [railHighlight, setRailHighlight] = React.useState({ y: 0, height: 44, visible: false });
+  useLayoutEffect(() => {
+    const group = railCategoryGroupRef.current;
+    if (!group) return undefined;
+    const update = () => {
+      const active = group.querySelector(".soft-rail-item.active");
+      if (!active) {
+        setRailHighlight(current => current.visible ? { ...current, visible: false } : current);
+        return;
+      }
+      const groupRect = group.getBoundingClientRect();
+      const activeRect = active.getBoundingClientRect();
+      const next = { y: activeRect.top - groupRect.top, height: activeRect.height, visible: true };
+      setRailHighlight(current => current.visible === next.visible && Math.abs(current.y - next.y) < 0.5 && Math.abs(current.height - next.height) < 0.5 ? current : next);
+    };
+    update();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    observer?.observe(group);
+    return () => observer?.disconnect();
+  }, [activeModule, filter, activeFolder, currentTag]);
   const importPercent =
     importProgress?.phase === "complete"
       ? 100
@@ -1841,7 +1872,8 @@ function App() {
         <SoftCard id="rail" cards={cardLayout} self>
         <nav className="soft-rail" aria-label="主导航">
           <div className="soft-rail-logo"><img src={appIcon} alt="" /></div>
-          <div className="soft-rail-group" data-tour="categories">
+          <div className="soft-rail-group rail-selection-group" data-tour="categories" ref={railCategoryGroupRef}>
+            <span className="rail-selection-highlight" aria-hidden="true" style={{ transform: `translateY(${railHighlight.y}px)`, height: `${railHighlight.height}px`, opacity: railHighlight.visible ? 1 : 0 }} />
             {nav.map(([n, , Icon]) => (
               <Button
                 key={n}
@@ -1858,7 +1890,7 @@ function App() {
             ))}
           </div>
           <div className="soft-rail-group">
-            <Button className={`soft-rail-item ${activeModule === "reference-board" ? "active" : ""}`} title="无限参考板" aria-label="无限参考板" onClick={() => openReferenceBoard()}><StickyNote size={18} strokeWidth={1.8} /></Button>
+            <Button className={`soft-rail-item ${activeModule === "reference-board" ? "active" : ""}`} title="无限参考板" aria-label="无限参考板" onClick={(event) => openReferenceBoard(null, event)}><StickyNote size={18} strokeWidth={1.8} /></Button>
             {desktop && <Button className={`soft-rail-item ${teamLibraryOpen ? "active" : ""}`} title="团队素材库" aria-label="团队素材库" onClick={() => setTeamLibraryOpen(true)}><FolderOpen size={18} strokeWidth={1.8} /></Button>}
             {desktop && <Button className={`soft-rail-item ${teamPanel ? "active" : ""}`} title="成员与权限" aria-label="成员与权限" disabled={!library} onClick={() => setTeamPanel(true)}><Users size={18} strokeWidth={1.8} /></Button>}
           </div>
@@ -1871,7 +1903,7 @@ function App() {
               aria-label="编辑布局"
               onClick={cardLayout.editing ? cardLayout.save : cardLayout.startEditing}
             >
-              <LayoutDashboard size={18} strokeWidth={1.8} />
+              <span className="switch-track" aria-hidden="true"><span className="switch-thumb" /></span>
             </Button>
             <Button className="soft-rail-item" title={recycleBinLabel} aria-label={recycleBinLabel} onClick={async () => { const result = await window.nestDesktop?.openRecycleBin?.(); if (result?.error) showMessage(`无法打开${recycleBinLabel}：${result.error}`, 3500); }}><Trash2 size={18} strokeWidth={1.8} /></Button>
           </div>
@@ -2286,14 +2318,14 @@ function App() {
               </Button>
               <Button
                 className={`tag-filter ${currentTag === tag.path ? "active" : ""}`}
-                onClick={() => {
+                onClick={(event) => withViewTransition(() => {
                   setActiveModule("library");
                   setCurrentTag((current) => (current === tag.path ? null : tag.path));
                   setFilter("全部素材");
                   setActiveFolder(null);
                   setSelected(null);
                   setSelectedIds([]);
-                }}
+                }, { kind: "fade", point: { x: event.clientX, y: event.clientY } })}
               >
                 <i className={`dot c${i % 4}`} />
                 {tag.name}
@@ -2386,7 +2418,7 @@ function App() {
                 {folderBreadcrumbs.map(folder => (
                   <React.Fragment key={folder.id}>
                     <b>›</b>
-                    <Button className="breadcrumb-link" title={folder.name} onClick={() => openFolder(folder)}>{folder.name}</Button>
+                    <Button className="breadcrumb-link" title={folder.name} onClick={(event) => openFolder(folder, event)}>{folder.name}</Button>
                   </React.Fragment>
                 ))}
                 {!activeFolder && <><b>›</b><strong>{filter}</strong></>}
@@ -2399,8 +2431,11 @@ function App() {
               ref={searchInputRef}
               value={query}
               onChange={(e) => {
-                setQuery(e.target.value);
-                setAiResultIds(null);
+                const nextQuery = e.target.value;
+                withViewTransition(() => {
+                  setQuery(nextQuery);
+                  setAiResultIds(null);
+                }, { kind: "fade", point: { x: e.clientX, y: e.clientY } });
               }}
               placeholder="搜索素材"
             />
@@ -2409,10 +2444,10 @@ function App() {
                 className="search-clear"
                 aria-label="清除搜索"
                 title="清除搜索"
-                onClick={() => {
+                onClick={(event) => withViewTransition(() => {
                   setQuery("");
                   setAiResultIds(null);
-                }}
+                }, { kind: "fade", point: { x: event.clientX, y: event.clientY } })}
               >
                 <X size={16} />
               </Button>
@@ -2432,11 +2467,14 @@ function App() {
           </Button>
         </header>
         </SoftCard>
+        <div className="view-transition-content">
         {activeModule === "tetris" && (
           <TetrisModule
             close={() => {
-              setSelected(null);
-              setActiveModule("library");
+              withViewTransition(() => {
+                setSelected(null);
+                setActiveModule("library");
+              }, { kind: "module" });
             }}
           />
         )}
@@ -2452,10 +2490,12 @@ function App() {
             createBoard={createReferenceBoard}
             updateBoard={updateReferenceBoard}
             deleteBoard={deleteReferenceBoard}
-            close={() => setActiveModule("library")}
+            close={() => withViewTransition(() => setActiveModule("library"), { kind: "module" })}
             openAsset={(asset) => {
-              setSelected(asset);
-              setActiveModule("library");
+              withViewTransition(() => {
+                setSelected(asset);
+                setActiveModule("library");
+              }, { kind: "module" });
             }}
           />
         )}
@@ -2487,7 +2527,7 @@ function App() {
           <div className="view-actions" data-tour="organize">
             {activeFolder && (
               <Button
-                onClick={() => setActiveFolder(currentFolder?.parentId || null)}
+                onClick={openFolderParent}
               >
                 <FolderOpen size={15} /> 返回上级
               </Button>
@@ -2558,13 +2598,9 @@ function App() {
               aria-label="切换视图"
               onClick={cycleViewMode}
             >
-              {viewMode === "list" ? (
-                <List size={17} />
-              ) : viewMode === "compact" ? (
-                <Grid2X2 size={17} />
-              ) : (
-                <LayoutGrid size={17} />
-              )}
+              <span className="view-mode-icon" key={viewMode}>
+                {viewMode === "list" ? <List size={17} /> : viewMode === "compact" ? <Grid2X2 size={17} /> : <LayoutGrid size={17} />}
+              </span>
               <span>
                 {viewMode === "list"
                   ? "列表"
@@ -2582,8 +2618,8 @@ function App() {
               <Button
                 key={folder.id}
                 className={dropFolderId === folder.id ? "drop-target" : ""}
-                onClick={() => openFolder(folder)}
-                onDoubleClick={() => openFolder(folder)}
+                onClick={(event) => openFolder(folder, event)}
+                onDoubleClick={(event) => openFolder(folder, event)}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -2739,7 +2775,7 @@ function App() {
                   <h2>没有符合条件的素材</h2>
                   <p>{hiddenFilterActive && !query && !currentTag && filter === "全部素材" ? "当前有筛选条件（AI 搜索结果或类型/格式筛选）在隐藏素材。" : "尝试调整搜索内容或筛选条件。"}</p>
                   <div className="empty-library-actions">
-                    <Button onClick={() => { setQuery(""); setCurrentTag(null); setFilter("全部素材"); setAiResultIds(null); setQuickTypes([]); setQuickFormats([]); }}>
+                    <Button onClick={(event) => withViewTransition(() => { setQuery(""); setCurrentTag(null); setFilter("全部素材"); setAiResultIds(null); setQuickTypes([]); setQuickFormats([]); }, { kind: "fade", point: { x: event.clientX, y: event.clientY } })}>
                       清除所有筛选
                     </Button>
                   </div>
@@ -2761,6 +2797,7 @@ function App() {
             </section>
           )
         )}
+        </div>
       </main>
       {marquee && <div className="selection-marquee" style={marquee} />}
       {inspectorFrame.ready && !aiPanel && selected && (
@@ -3191,7 +3228,7 @@ function App() {
             title={cardLayout.crazy ? "关掉疯狂模式（桌面上的卡片都回到素材库）" : "打开后可以把卡片拖出素材库窗口，放在桌面任意位置"}
             onClick={() => cardLayout.setCrazy(!cardLayout.crazy)}
           >
-            <Zap size={14} /> 疯狂模式
+            <Zap size={14} /> 疯狂模式 <span className="switch-track" aria-hidden="true"><span className="switch-thumb" /></span>
           </Button>
           <Button className="soft-layout-reset" onClick={cardLayout.resetDraft} title="卡片全部放回侧栏（保存后生效）"><RotateCcw size={14} /> 一键重置</Button>
           <Button className="soft-layout-cancel" onClick={cardLayout.cancel} title="放弃这次的改动">取消</Button>

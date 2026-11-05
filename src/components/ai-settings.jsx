@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import appIcon from "../../build/icon.png";
 import { Button } from "../ready-ui.jsx";
 import { Search, X, Check, Sparkles, Trash2 } from "lucide-react";
@@ -8,6 +8,7 @@ import { ThemePanel, ReleaseNotes } from "./dialogs.jsx";
 import { AutomaticUpdateSettings } from './automatic-update-settings.jsx';
 import { BUILTIN_TOOLBAR_BUTTONS, DEFAULT_TOOLBAR_LAYOUT, normalizeToolbarLayout } from "../toolbar-layout.js";
 import { LAYOUT_CARDS } from "../card-layout.js";
+import { withViewTransition } from "../view-transition.js";
 
 function ToolbarLayoutSettings({ layout, onChange }) {
   const [dragging, setDragging] = useState("");
@@ -53,6 +54,8 @@ export function AISettings({ initialTab = "通用", close, library, diskInfo, re
     [status, setStatus] = useState(""),
     [saving, setSaving] = useState(false),
     [usage, setUsage] = useState(null);
+  const settingsNavRef = useRef(null);
+  const [settingsHighlight, setSettingsHighlight] = useState({ y: 0, height: 36, visible: false });
   const SETTING_TABS = [
     ["通用", "⚙", "基本信息 启动 界面 布局 卡片 拖动 恢复默认"],
     ["主题与配色", "◈", "颜色 主题 模式 外观 预设"],
@@ -67,6 +70,29 @@ export function AISettings({ initialTab = "通用", close, library, diskInfo, re
   const visibleSettingTabs = SETTING_TABS.filter(([name, , keywords]) =>
     `${name} ${keywords}`.toLocaleLowerCase().includes(settingsSearch.trim().toLocaleLowerCase()),
   );
+  const closeWithTransition = (event) => withViewTransition(() => close(), {
+    kind: "fade",
+    point: event ? { x: event.clientX, y: event.clientY } : null,
+  });
+  useLayoutEffect(() => {
+    const nav = settingsNavRef.current;
+    if (!nav) return undefined;
+    const update = () => {
+      const activeButton = nav.querySelector("button.active");
+      if (!activeButton) {
+        setSettingsHighlight(current => current.visible ? { ...current, visible: false } : current);
+        return;
+      }
+      const navRect = nav.getBoundingClientRect();
+      const buttonRect = activeButton.getBoundingClientRect();
+      const next = { y: buttonRect.top - navRect.top + nav.scrollTop, height: buttonRect.height, visible: true };
+      setSettingsHighlight(current => current.visible === next.visible && Math.abs(current.y - next.y) < 0.5 && Math.abs(current.height - next.height) < 0.5 ? current : next);
+    };
+    update();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    observer?.observe(nav);
+    return () => observer?.disconnect();
+  }, [tab, settingsSearch, visibleSettingTabs.length]);
   useEffect(() => {
     window.nestDesktop.ai.settings().then((settings) => {
       setValue(settings);
@@ -75,11 +101,11 @@ export function AISettings({ initialTab = "通用", close, library, diskInfo, re
     window.nestDesktop.ai.usage().then(setUsage);
   }, []);
   useEffect(() => {
-    const onKeyDown = event => { if (event.key === "Escape") close(); };
+    const onKeyDown = event => { if (event.key === "Escape") closeWithTransition(event); };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [close]);
-  const backdropMouseDown = event => { if (event.target === event.currentTarget) close(); };
+  }, [closeWithTransition]);
+  const backdropMouseDown = event => { if (event.target === event.currentTarget) closeWithTransition(event); };
   if (!value && tab === "AI 与模型")
     return (
       <div className="ai-settings-backdrop" onMouseDown={backdropMouseDown}>
@@ -153,7 +179,7 @@ export function AISettings({ initialTab = "通用", close, library, diskInfo, re
           <em>专业版</em>
         </div>
         <div className="ai-settings-crumb">
-          <Button onClick={close}>‹</Button>
+          <Button onClick={closeWithTransition}>‹</Button>
           <span>偏好设置</span>
           <b>›</b>
           <strong>{tab}</strong>
@@ -164,17 +190,18 @@ export function AISettings({ initialTab = "通用", close, library, diskInfo, re
           {settingsSearch && <Button type="button" aria-label="清除设置搜索" onClick={() => setSettingsSearch("")}><X size={14} /></Button>}
         </label>
         <span className="settings-version-badge">v{APP_VERSION}</span>
-        <Button onClick={close}>
+        <Button onClick={closeWithTransition}>
           <X size={19} />
         </Button>
       </header>
-      <aside className="ai-settings-nav">
+      <aside className="ai-settings-nav" ref={settingsNavRef}>
         <h2>设置</h2>
+        <span className="settings-selection-highlight" aria-hidden="true" style={{ transform: `translateY(${settingsHighlight.y}px)`, height: `${settingsHighlight.height}px`, opacity: settingsHighlight.visible ? 1 : 0 }} />
         {visibleSettingTabs.map(([name, icon]) => (
           <Button
             key={name}
             className={tab === name ? "active" : ""}
-            onClick={() => setTab(name)}
+            onClick={(event) => withViewTransition(() => setTab(name), { kind: "fade", point: { x: event.clientX, y: event.clientY } })}
           >
             <i>{icon}</i>
             {name}
@@ -188,6 +215,7 @@ export function AISettings({ initialTab = "通用", close, library, diskInfo, re
         </footer>
       </aside>
       <main className="ai-settings-main">
+        <div className="settings-tab-content" key={tab}>
         {tab === "AI 与模型" ? (
           <>
             <h2>默认 AI 服务与模型</h2>
@@ -483,6 +511,7 @@ export function AISettings({ initialTab = "通用", close, library, diskInfo, re
             )}
           </>
         )}
+        </div>
       </main>
       {tab === "AI 与模型" && (
         <aside className="ai-settings-side">

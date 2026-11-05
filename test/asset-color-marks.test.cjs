@@ -49,7 +49,8 @@ test('文件夹详情点素材区空白处收起，重新打开文件夹时再�
   assert.match(main, /const \[folderInspectorHidden, setFolderInspectorHidden\] = React\.useState\(false\);/);
   assert.match(main, /useEffect\(\(\) => \{ setFolderInspectorHidden\(false\); \}, \[activeFolder\]\);/);
   assert.match(main, /activeModule === "library" && !folderInspectorHidden\)/);
-  const openFolder = main.slice(main.indexOf('const openFolder = (folder) => {'), main.indexOf('const openFolder = (folder) => {') + 400);
+  const openFolderStart = main.indexOf('const openFolder = (folder, event) => withViewTransition(() => {');
+  const openFolder = main.slice(openFolderStart, openFolderStart + 600);
   assert.match(openFolder, /setFolderInspectorHidden\(false\);/);
   const blank = main.slice(main.indexOf('onClick={(event) => {\n          // 点素材区空白处'), main.indexOf('onContextMenu={(event) => {\n          if (!desktop || !canEdit'));
   assert.match(blank, /if \(marqueeMoved\.current\) \{ marqueeMoved\.current = false; return; \}/);

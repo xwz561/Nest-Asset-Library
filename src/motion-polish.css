@@ -271,3 +271,187 @@ html[data-platform="win32"] .app.ready-ui main > header {
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------- 7. 开关、选择高亮与视图切换 -------------------------------- */
+.app.soft-ui.ready-ui.ui-refresh .soft-rail-group.rail-selection-group,
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-nav { position: relative; }
+.app.soft-ui.ready-ui.ui-refresh .rail-selection-highlight,
+.app.soft-ui.ready-ui.ui-refresh .settings-selection-highlight {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 14px;
+  background: linear-gradient(140deg, var(--soft-accent-2), var(--soft-accent));
+  transition: transform 240ms var(--apple-ease), opacity 120ms var(--motion-ease);
+}
+.app.soft-ui.ready-ui.ui-refresh .rail-selection-highlight { inset: 0 0 auto; }
+.app.soft-ui.ready-ui.ui-refresh .settings-selection-highlight { top: 0; right: 10px; left: 10px; }
+.app.soft-ui.ready-ui.ui-refresh .rail-selection-group > .soft-rail-item,
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-nav > button { position: relative; z-index: 1; }
+.app.soft-ui.ready-ui.ui-refresh .rail-selection-group > .soft-rail-item.active,
+.app.soft-ui.ready-ui.ui-refresh .rail-selection-group > .soft-rail-item.active:hover:not(:disabled),
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-nav > button.active,
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-nav > button[aria-current] {
+  background: transparent !important;
+  color: var(--soft-on-accent) !important;
+  box-shadow: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-nav > button.active i,
+.app.soft-ui.ready-ui.ui-refresh .ai-settings-nav > button[aria-current] i { color: var(--soft-on-accent) !important; }
+
+.app.soft-ui.ready-ui.ui-refresh [role="switch"] {
+  outline-offset: 3px;
+  transition: color 200ms var(--motion-ease), outline-color 160ms var(--motion-ease);
+}
+.app.soft-ui.ready-ui.ui-refresh [role="switch"]:focus-visible {
+  outline: 2px solid var(--soft-accent) !important;
+  box-shadow: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .switch-track {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 34px;
+  align-items: center;
+  width: 34px;
+  height: 20px;
+  padding: 2px;
+  border-radius: 99px;
+  background: var(--soft-line);
+  transition: background-color 200ms var(--motion-ease);
+}
+.app.soft-ui.ready-ui.ui-refresh .switch-thumb {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--soft-card);
+  transform: translateX(0);
+  transform-origin: center;
+  transition: transform 260ms var(--motion-spring), background-color 200ms var(--motion-ease);
+}
+.app.soft-ui.ready-ui.ui-refresh [role="switch"][aria-checked="true"] .switch-track { background: var(--soft-accent); }
+.app.soft-ui.ready-ui.ui-refresh [role="switch"][aria-checked="true"] .switch-thumb { transform: translateX(14px); }
+.app.soft-ui.ready-ui.ui-refresh [role="switch"]:active .switch-thumb {
+  transform: scaleX(1.2);
+  transition: transform 120ms var(--motion-spring), background-color 200ms var(--motion-ease);
+}
+.app.soft-ui.ready-ui.ui-refresh [role="switch"][aria-checked="true"]:active .switch-thumb {
+  transform: translateX(14px) scaleX(1.2);
+  transition: transform 120ms var(--motion-spring), background-color 200ms var(--motion-ease);
+}
+.app.soft-ui.ready-ui.ui-refresh .soft-layout-toggle[role="switch"] .switch-track { flex-basis: 34px; }
+.app.soft-ui.ready-ui.ui-refresh .soft-layout-crazy[role="switch"] .switch-track { margin-left: auto; }
+
+.app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"] {
+  position: relative;
+  appearance: none;
+  flex: 0 0 42px;
+  width: 42px;
+  min-width: 42px;
+  height: 24px;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid var(--soft-line);
+  border-radius: 99px;
+  background: var(--soft-tint);
+  cursor: pointer;
+  transition: background-color 200ms var(--motion-ease), border-color 200ms var(--motion-ease);
+}
+.app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"]::before {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--soft-card);
+  content: "";
+  transform: translateX(0);
+  transition: transform 260ms var(--motion-spring), background-color 200ms var(--motion-ease);
+}
+.app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"]:checked { border-color: var(--soft-accent); background: var(--soft-accent); }
+.app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"]:checked::before { transform: translateX(18px); }
+.app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"]:active::before { transform: scaleX(1.2); transition: transform 120ms var(--motion-spring), background-color 200ms var(--motion-ease); }
+.app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"]:checked:active::before { transform: translateX(18px) scaleX(1.2); transition: transform 120ms var(--motion-spring), background-color 200ms var(--motion-ease); }
+.app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"]:disabled { opacity: .5; cursor: default; }
+
+.app.soft-ui.ready-ui.ui-refresh .view-mode-icon {
+  display: inline-flex;
+  align-items: center;
+  animation: view-mode-icon-enter 180ms var(--apple-ease) backwards;
+}
+@keyframes view-mode-icon-enter {
+  from { opacity: 0; rotate: -8deg; }
+  to { opacity: 1; rotate: 0deg; }
+}
+.app.soft-ui.ready-ui.ui-refresh .masonry article.has-color-mark { transition: box-shadow 180ms var(--motion-ease), transform 200ms var(--motion-ease) !important; }
+.app.soft-ui.ready-ui.ui-refresh .asset-color-picker > button { transition: transform 180ms var(--motion-spring), background-color 180ms var(--motion-ease), border-color 180ms var(--motion-ease); }
+.app.soft-ui.ready-ui.ui-refresh .asset-color-picker > button.on { transform: scale(1.07); }
+.app.soft-ui.ready-ui.ui-refresh .asset-color-picker > button.on:active { transform: scale(1.13); transition-duration: 120ms; }
+
+/* ---------- 8. View Transitions: 主界面快照保持静止，只动画被命名的内容区域 --- */
+.app.eagle-ui.ready-ui .view-transition-content { view-transition-name: nest-content; }
+.app.eagle-ui.ready-ui .app-dialog-backdrop { view-transition-name: nest-dialog-backdrop; }
+.app.eagle-ui.ready-ui .app-dialog-backdrop > .app-dialog { view-transition-name: nest-dialog; }
+.app.eagle-ui.ready-ui .ai-settings-backdrop { view-transition-name: nest-dialog-backdrop; }
+.app.eagle-ui.ready-ui .ai-settings-page { view-transition-name: nest-dialog; }
+html:not([data-vt="theme"])::view-transition-old(root),
+html:not([data-vt="theme"])::view-transition-new(root) { animation: none; }
+::view-transition-old(root),
+::view-transition-new(root),
+::view-transition-group(nest-content),
+::view-transition-group(nest-dialog),
+::view-transition-group(nest-dialog-backdrop) { animation-duration: 240ms; }
+::view-transition-old(nest-content),
+::view-transition-new(nest-content),
+::view-transition-old(nest-dialog),
+::view-transition-new(nest-dialog),
+::view-transition-old(nest-dialog-backdrop),
+::view-transition-new(nest-dialog-backdrop) { animation-timing-function: var(--apple-ease); }
+html[data-vt="folder-forward"]::view-transition-old(nest-content) { animation: vt-content-fade-out 180ms var(--apple-ease) both; }
+html[data-vt="folder-forward"]::view-transition-new(nest-content) { animation: vt-folder-forward 220ms var(--apple-ease) both; }
+html[data-vt="folder-back"]::view-transition-old(nest-content) { animation: vt-content-fade-out 180ms var(--apple-ease) both; }
+html[data-vt="folder-back"]::view-transition-new(nest-content) { animation: vt-folder-back 220ms var(--apple-ease) both; }
+html[data-vt="fade"]::view-transition-old(nest-content) { animation: vt-fade-out 200ms var(--motion-ease) both; }
+html[data-vt="fade"]::view-transition-new(nest-content) { animation: vt-fade-in 200ms var(--motion-ease) both; }
+html[data-vt="module"]::view-transition-old(nest-content) { animation: vt-module-out 280ms var(--apple-ease) both; }
+html[data-vt="module"]::view-transition-new(nest-content) { animation: vt-module-in 280ms var(--apple-ease) both; }
+html[data-vt="theme"] .view-transition-content { view-transition-name: none; }
+html[data-vt="theme"][data-vt-origin="pointer"]::view-transition-new(root) {
+  animation: vt-theme-reveal 420ms var(--apple-ease) both;
+}
+html[data-vt="theme"][data-vt-origin="center"]::view-transition-old(root) { animation: vt-fade-out 200ms var(--motion-ease) both; }
+html[data-vt="theme"][data-vt-origin="center"]::view-transition-new(root) { animation: vt-fade-in 200ms var(--motion-ease) both; }
+::view-transition-old(nest-dialog) { animation: vt-dialog-out 160ms var(--apple-ease) both; }
+::view-transition-old(nest-dialog-backdrop) { animation: vt-fade-out 160ms var(--motion-ease) both; }
+@keyframes vt-content-fade-out { to { opacity: 0; } }
+@keyframes vt-folder-forward { from { opacity: 0; translate: 16px 0; } to { opacity: 1; translate: 0 0; } }
+@keyframes vt-folder-back { from { opacity: 0; translate: -16px 0; } to { opacity: 1; translate: 0 0; } }
+@keyframes vt-fade-out { to { opacity: 0; } }
+@keyframes vt-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes vt-module-out { to { opacity: 0; scale: .99; } }
+@keyframes vt-module-in { from { opacity: 0; scale: .98; } to { opacity: 1; scale: 1; } }
+@keyframes vt-theme-reveal {
+  from { clip-path: circle(0 at var(--vt-x) var(--vt-y)); }
+  to { clip-path: circle(var(--vt-radius) at var(--vt-x) var(--vt-y)); }
+}
+@keyframes vt-dialog-out { to { opacity: 0; scale: .98; } }
+
+.ai-settings-page .settings-tab-content { animation: motion-rise-in 180ms var(--apple-ease) backwards; }
+@media (prefers-reduced-motion: reduce) {
+  .app.soft-ui.ready-ui.ui-refresh .rail-selection-highlight,
+  .app.soft-ui.ready-ui.ui-refresh .settings-selection-highlight,
+  .app.soft-ui.ready-ui.ui-refresh [role="switch"],
+  .app.soft-ui.ready-ui.ui-refresh .switch-track,
+  .app.soft-ui.ready-ui.ui-refresh .switch-thumb,
+  .app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"],
+  .app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"]::before,
+  .app.soft-ui.ready-ui.ui-refresh .asset-color-picker > button,
+  .app.soft-ui.ready-ui.ui-refresh .masonry article.has-color-mark {
+    transition: none !important;
+    animation: none !important;
+  }
+  .app.soft-ui.ready-ui.ui-refresh .view-mode-icon,
+  .ai-settings-page .settings-tab-content,
+  ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}

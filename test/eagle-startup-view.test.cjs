@@ -11,5 +11,5 @@ test('opens on the Recent view so an empty startup matches the reference screen'
 });
 
 test('opening a folder switches back to its all-assets view', () => {
-  assert.match(renderer, /const openFolder = \(folder\) => \{\s*setActiveModule\("library"\);\s*setFilter\("全部素材"\);/);
+  assert.match(renderer, /const openFolder = \(folder, event\) => withViewTransition\(\(\) => \{\s*setActiveModule\("library"\);\s*setFilter\("全部素材"\);/);
 });

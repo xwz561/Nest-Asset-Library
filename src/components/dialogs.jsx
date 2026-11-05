@@ -22,20 +22,21 @@ export function AppDialog({ state, resolve }) {
         : state.kind === "prompt"
           ? value
           : true,
+      e,
     );
   };
   return (
     <div
       className="modal-backdrop app-dialog-backdrop"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) resolve(cancelValue);
+        if (e.target === e.currentTarget) resolve(cancelValue, e);
       }}
     >
       <form
         className={`app-dialog ${isFolder ? "folder-dialog" : ""}`}
         onSubmit={submit}
         onKeyDown={(e) => {
-          if (e.key === "Escape") resolve(cancelValue);
+          if (e.key === "Escape") resolve(cancelValue, e);
         }}
       >
         <div className="dialog-head">
@@ -43,7 +44,7 @@ export function AppDialog({ state, resolve }) {
           <Button
             type="button"
             aria-label="关闭"
-            onClick={() => resolve(cancelValue)}
+            onClick={(event) => resolve(cancelValue, event)}
           >
             <X size={18} />
           </Button>
