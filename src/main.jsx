@@ -2906,7 +2906,7 @@ function App() {
           <Button disabled={!canEdit} className="danger" onClick={batchDelete}>
             <Trash2 size={15} /> 删除
           </Button>
-          <Button aria-label="取消选择" onClick={() => setSelectedIds([])}>
+          <Button className="batch-bar-clear" aria-label="取消选择" onClick={() => setSelectedIds([])}>
             <X size={16} />
           </Button>
         </div>

@@ -169,6 +169,40 @@
 }
 .app.soft-ui.ready-ui.ui-refresh .settings-actions button:not(.primary):not(.danger) { border: 0 !important; border-radius: 12px !important; background: var(--soft-tint) !important; color: var(--soft-text) !important; box-shadow: var(--soft-btn-shadow) !important; }
 
+/* 底部多选操作条也使用当前主题的表面、边线与强调色，不保留旧版固定深蓝底。 */
+.app.soft-ui.ready-ui.ui-refresh .batch-bar {
+  gap: 6px !important;
+  padding: 8px 10px !important;
+  border: 1px solid var(--soft-line) !important;
+  border-radius: 16px !important;
+  background: var(--soft-card) !important;
+  color: var(--soft-text) !important;
+  box-shadow: var(--soft-shadow-lg) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .batch-bar strong {
+  border-radius: 99px;
+  background: var(--soft-blue-tint);
+  color: var(--soft-blue) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .batch-bar button:not(.danger) {
+  border: 1px solid var(--soft-line) !important;
+  border-radius: 12px !important;
+  background: var(--soft-tint) !important;
+  color: var(--soft-text) !important;
+  box-shadow: var(--soft-btn-shadow) !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .batch-bar button.danger {
+  border: 1px solid transparent !important;
+  border-radius: 12px !important;
+  background: var(--soft-danger-tint) !important;
+  color: var(--soft-danger) !important;
+  box-shadow: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh .batch-bar .batch-bar-clear { min-width: 34px; padding-inline: 8px !important; }
+.app.soft-ui.ready-ui.ui-refresh .batch-bar button:not(:disabled):hover { background: var(--soft-blue-tint) !important; border-color: var(--soft-accent) !important; color: var(--soft-text) !important; }
+.app.soft-ui.ready-ui.ui-refresh .batch-bar button.danger:hover:not(:disabled) { background: var(--soft-danger-tint-2) !important; color: var(--soft-danger) !important; }
+.app.soft-ui.ready-ui.ui-refresh .batch-bar button:disabled { opacity: .52 !important; box-shadow: none !important; }
+
 /* 无限参考板 */
 .app.soft-ui.ready-ui.ui-refresh button.reference-board-primary,
 .app.soft-ui.ready-ui.ui-refresh button.reference-board-primary:hover:not(:disabled) {

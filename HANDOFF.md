@@ -9,9 +9,9 @@
 - 基于未推送的 `d9324ca` 更新至 4.0.2（含滚动修复、扩展 1.16.2）；Windows 安装包：`release-4.0.2/小旺仔素材库-4.0.2-Setup.exe`（2026-11-05 11:22，386 MB）。本轮提交待推送，不发 GitHub Release。之后未提交（用户说先不提交）：`scripts/perf` 测速工具、package.json 的 `perf:*` 命令、`test/perf-scripts.test.cjs`。
 - 扩展验证：完整逻辑在仿 AI Flow 页面上跑过（离屏 Electron，LES-005）；真 AI Flow（http://10.128.30.22:8080/，内置浏览器里用户已登录）上贴样式和结构验过外观、视频预览、原生素材副本（内置浏览器拦截本机地址，没法整包注入）。
 - 样式约定：新界面选择器以 `.app.soft-ui.ready-ui.ui-refresh` 等开头，颜色用 `--soft-*`；扩展浮窗以窗口 ID 开头 + `!important`，class 用 `nx-` 前缀。
-- 动效：新增 `withViewTransition`，统一开关、选中滑块、主题圆形揭示、内容切换和关闭淡出；滚动、减少动态效果、桌面小窗口时跳过。全量 npm test：577 条，558 通过、19 失败；失败均属 `test/fixtures/known-failures.txt` 旧集合（20 项中 1 项本轮未复现）。
+- 动效：新增 `withViewTransition`，统一开关、选中滑块、批量操作条、主题圆形揭示、内容切换和关闭淡出；滚动、减少动态效果、桌面小窗口时跳过。全量 npm test：578 条，559 通过、19 失败；19 项均在 `test/fixtures/known-failures.txt` 的 22 项旧集合内，3 项未复现。
 - 动效前后 1440×900 滚动 A/B：鼠标停卡片或侧栏均为 75 FPS，>33ms 帧 0%，无长任务，未见性能下降。
-- GUI 已查看浅色/深色主题设置与开关；文件夹、模块切换动效未完成实机视觉复验（验收窗口被用户操作打断）。
+- GUI 已看浅/深主题设置与开关；截图中的批量操作条已补主题样式和入场，构建及相关测试通过，未实机复验；文件夹/模块动画也待复验。
 - 验收窗口的 user-data 指向**用户真实资源库** `D:\鏉庢椇`（LES-008），只能只读查看；改数据、测性能用 `npm run perf:lib` 生成的测试库，测帧率用 `npm run perf:scroll`（scripts/perf/README.md）。
 - 未确认：装上 1.16.2 后在真 AI Flow 上加参考素材的完整流程；真 Mac。原生延长窗口里的视频标注工具（色点、圈框箭头）工作台没有，要用得点"打开 AI Flow 原窗口"。
 

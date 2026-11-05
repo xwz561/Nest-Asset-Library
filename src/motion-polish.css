@@ -438,6 +438,17 @@ html[data-vt="theme"][data-vt-origin="center"]::view-transition-new(root) { anim
 @keyframes vt-dialog-out { to { opacity: 0; scale: .98; } }
 
 .ai-settings-page .settings-tab-content { animation: motion-rise-in 180ms var(--apple-ease) backwards; }
+.app.soft-ui.ready-ui.ui-refresh .batch-bar {
+  animation: batch-bar-enter 200ms var(--apple-ease) backwards;
+}
+.app.soft-ui.ready-ui.ui-refresh .batch-bar button {
+  transition: transform 120ms var(--motion-ease), background-color 180ms var(--motion-ease), border-color 180ms var(--motion-ease), color 180ms var(--motion-ease);
+}
+.app.soft-ui.ready-ui.ui-refresh .batch-bar button:active:not(:disabled) { transform: scale(.97); }
+@keyframes batch-bar-enter {
+  from { opacity: 0; translate: 0 8px; }
+  to { opacity: 1; translate: 0 0; }
+}
 @media (prefers-reduced-motion: reduce) {
   .app.soft-ui.ready-ui.ui-refresh .rail-selection-highlight,
   .app.soft-ui.ready-ui.ui-refresh .settings-selection-highlight,
@@ -447,7 +458,9 @@ html[data-vt="theme"][data-vt-origin="center"]::view-transition-new(root) { anim
   .app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"],
   .app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"]::before,
   .app.soft-ui.ready-ui.ui-refresh .asset-color-picker > button,
-  .app.soft-ui.ready-ui.ui-refresh .masonry article.has-color-mark {
+  .app.soft-ui.ready-ui.ui-refresh .masonry article.has-color-mark,
+  .app.soft-ui.ready-ui.ui-refresh .batch-bar,
+  .app.soft-ui.ready-ui.ui-refresh .batch-bar button {
     transition: none !important;
     animation: none !important;
   }

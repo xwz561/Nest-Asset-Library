@@ -97,6 +97,6 @@
 - 决策：开关滑块 260ms、按压 120ms，轨道颜色 200ms；分类和设置导航的选中底色用 240ms 滑动；颜色标记 180ms；内容切换 200–280ms；主题从点击位置圆形揭示 420ms，无点击坐标时淡入淡出 200ms；弹窗关闭 160ms。曲线统一使用现有 `--apple-ease`、`--motion-ease`、`--motion-spring`。`withViewTransition(update, { kind })` 用 `flushSync` 更新；只命名内容区，根快照不动。尊重减少动态效果；不支持 View Transitions、滚动中、桌面小窗口中直接更新、不做动画。
 - 性能边界：动画只使用 transform、opacity、clip-path 和颜色；不逐帧过渡颜色自定义属性，不给素材卡片增加常驻动画或 backdrop-filter、will-change、translateZ、contain: layout；滚动中不触发新动画，悬停按钮平时仍 `display: none`，入场动画使用 `backwards`。1440×900 滚动验收须 ≥70 FPS、>33ms 帧占比 ≤1%，且不低于改前基线。
 - 原因：用户 2026-11-05 要求交互更柔和一致、兼顾素材网格滚动性能。
-- 适用范围：开关、多选一导航、主题/颜色、页面切换和对话框；所有主题。
+- 适用范围：开关、多选一导航、批量操作条、主题/颜色、页面切换和对话框；所有主题。
 - 失效或复审条件：View Transitions 浏览器支持或页面容器结构变化，或帧率 A/B 低于 DEC-008 验收门槛。
 - 来源：用户 2026-11-05 动效优化要求及本轮验证。
