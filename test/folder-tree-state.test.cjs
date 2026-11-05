@@ -27,10 +27,11 @@ test('folders start collapsed and expose only root nodes', async () => {
   assert.deepEqual(buildFolderRows(folders, new Set()).map(item => item.id), ['ax17', 'other']);
 });
 
-test('the sidebar tree starts expanded through every folder that has children', async () => {
+test('the sidebar tree opens only the first level by default', async () => {
   const { buildFolderRows, defaultExpandedFolderIds } = await import('../src/folder-tree.js');
   const expanded = defaultExpandedFolderIds(folders);
-  assert.deepEqual(buildFolderRows(folders, expanded).map(item => item.id), folders.map(item => item.id));
+  assert.deepEqual([...expanded].sort(), ['ax17', 'other']);
+  assert.deepEqual(buildFolderRows(folders, expanded).map(item => item.id), ['ax17', '01', 'other', 'other-child']);
 });
 
 test('initial and newly opened libraries initialize the visible folder hierarchy', () => {
@@ -56,16 +57,36 @@ test('each toggle changes only the requested folder id', async () => {
   assert.deepEqual([...collapsed].sort(), ['01', 'ax17', 'locked']);
 });
 
-test('collapsing a parent hides descendants without clearing descendant state', async () => {
-  const { buildFolderRows, toggleExpandedFolder } = await import('../src/folder-tree.js');
+test('collapsing a parent clears descendants so reopening exposes only direct children', async () => {
+  const { buildFolderRows, collapseFolderSubtree } = await import('../src/folder-tree.js');
   const expanded = new Set(['ax17', '01', 'locked', 'characters']);
   assert.equal(buildFolderRows(folders, expanded).some(item => item.id === 'evan'), true);
-  const hidden = toggleExpandedFolder(expanded, '01');
-  assert.equal(hidden.has('locked'), true);
-  assert.equal(hidden.has('characters'), true);
+  const hidden = collapseFolderSubtree(expanded, folders, '01');
+  assert.equal(hidden.has('locked'), false);
+  assert.equal(hidden.has('characters'), false);
   assert.equal(buildFolderRows(folders, hidden).some(item => item.id === 'locked'), false);
-  const restored = toggleExpandedFolder(hidden, '01');
-  assert.equal(buildFolderRows(folders, restored).some(item => item.id === 'evan'), true);
+  const restored = new Set(hidden).add('01');
+  assert.equal(buildFolderRows(folders, restored).some(item => item.id === 'locked'), true);
+  assert.equal(buildFolderRows(folders, restored).some(item => item.id === 'characters'), false);
+});
+
+test('the FlatTree callback prunes descendants when a parent is removed from openItems', () => {
+  const start = renderer.indexOf('onOpenChange=');
+  const callback = renderer.slice(start, start + 500);
+  assert.match(callback, /setExpandedFolderIds\(current => \{/);
+  assert.match(callback, /collapseFolderSubtree\(next, library\?\.folders \|\| \[\], id\)/);
+});
+
+test('the sidebar triangle removes the collapsed folder subtree', () => {
+  const start = renderer.indexOf('const toggleFolderExpanded =');
+  const toggle = renderer.slice(start, start + 280);
+  assert.match(toggle, /current\.has\(id\)/);
+  assert.match(toggle, /collapseFolderSubtree\(current, library\?\.folders \|\| \[\], id\)/);
+  assert.match(toggle, /toggleExpandedFolder\(current, id\)/);
+});
+
+test('entering a folder expands its ancestors without opening its child branches', () => {
+  assert.match(renderer, /setExpandedFolderIds\(current => expandFolderAncestors\(current, library\?\.folders \|\| \[\], folder\.id\)\)/);
 });
 
 test('eight nested levels require eight independent expansions', async () => {
@@ -85,7 +106,9 @@ test('full folder choices remain available independently of visible expansion st
 
 test('folder rows expose last-sibling and ancestor guide metadata for tree connectors', async () => {
   const { buildFolderRows, defaultExpandedFolderIds } = await import('../src/folder-tree.js');
-  const rows = buildFolderRows(folders, defaultExpandedFolderIds(folders));
+  const expanded = defaultExpandedFolderIds(folders);
+  for (const id of ['01', 'locked', 'characters', 'evan', 'deep-5', 'deep-6', 'deep-7']) expanded.add(id);
+  const rows = buildFolderRows(folders, expanded);
   assert.equal(rows.find(item => item.id === 'effects').isLastSibling, false);
   assert.equal(rows.find(item => item.id === 'locked').isLastSibling, true);
   assert.deepEqual(rows.find(item => item.id === 'characters').ancestorContinuations, [true, false, false]);

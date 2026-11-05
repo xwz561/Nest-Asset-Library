@@ -882,6 +882,7 @@ export function AudioPreviewChoice({asset, preview, style}) {
 
 export function VideoCardMedia({ asset, onSize, style }) {
   const videoRef = useRef(null);
+  const cardDragRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(true);
   const [current, setCurrent] = useState(0);
@@ -894,6 +895,39 @@ export function VideoCardMedia({ asset, onSize, style }) {
   }, [asset.id, asset.url]);
 
   const stopCardAction = (event) => event.stopPropagation();
+  const restoreCardDraggable = () => {
+    const active = cardDragRef.current;
+    if (!active) return;
+    const { article, previousDraggable, ownerDocument, ownerWindow, restore } = active;
+    cardDragRef.current = null;
+    if (previousDraggable === null) article.removeAttribute("draggable");
+    else article.setAttribute("draggable", previousDraggable);
+    ownerDocument.removeEventListener("pointerup", restore, true);
+    ownerDocument.removeEventListener("pointercancel", restore, true);
+    ownerDocument.removeEventListener("mouseup", restore, true);
+    ownerWindow?.removeEventListener("blur", restore);
+  };
+  const beginControlPointer = (event) => {
+    stopCardAction(event);
+    if (event.button !== 0 || cardDragRef.current) return;
+    const article = event.currentTarget.closest("article");
+    if (!article) return;
+    const ownerDocument = article.ownerDocument;
+    const ownerWindow = ownerDocument.defaultView;
+    const previousDraggable = article.getAttribute("draggable");
+    const restore = () => restoreCardDraggable();
+    cardDragRef.current = { article, previousDraggable, ownerDocument, ownerWindow, restore };
+    article.setAttribute("draggable", "false");
+    ownerDocument.addEventListener("pointerup", restore, true);
+    ownerDocument.addEventListener("pointercancel", restore, true);
+    ownerDocument.addEventListener("mouseup", restore, true);
+    ownerWindow?.addEventListener("blur", restore, { once: true });
+  };
+  const preventControlDrag = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  useEffect(() => () => restoreCardDraggable(), []);
   const togglePlayback = async (event) => {
     stopCardAction(event);
     const video = videoRef.current;
@@ -955,9 +989,14 @@ export function VideoCardMedia({ asset, onSize, style }) {
       <div
         className="video-card-controls"
         aria-label="视频卡片控制栏"
-        onPointerDown={stopCardAction}
+        onPointerDown={beginControlPointer}
+        onPointerUp={restoreCardDraggable}
+        onPointerCancel={restoreCardDraggable}
+        onLostPointerCapture={restoreCardDraggable}
+        onMouseDown={stopCardAction}
         onClick={stopCardAction}
         onDoubleClick={stopCardAction}
+        onDragStart={preventControlDrag}
       >
         <button
           type="button"

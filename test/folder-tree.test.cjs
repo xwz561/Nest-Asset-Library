@@ -31,3 +31,32 @@ test('folder expansion scopes target current level and toggle together', async (
   assert.equal(folderExpansionState(opened, ['a', 'b']), true);
   assert.deepEqual([...toggleExpandedFolderScope(opened, ['a', 'b'])], []);
 });
+
+test('collapsing a folder clears its whole expanded subtree without mutating the input', async () => {
+  const { collapseFolderSubtree } = await import('../src/folder-tree.js');
+  const folders = [
+    { id: 'root' },
+    { id: 'child', parentId: 'root' },
+    { id: 'grandchild', parentId: 'child' },
+    { id: 'sibling' },
+    { id: 'sibling-child', parentId: 'sibling' },
+  ];
+  const before = new Set(['root', 'child', 'grandchild', 'sibling', 'sibling-child']);
+  const after = collapseFolderSubtree(before, folders, 'root');
+  assert.deepEqual([...after].sort(), ['sibling', 'sibling-child']);
+  assert.equal(before.size, 5);
+});
+
+test('entering a folder opens its ancestors and clears expansion inside the destination subtree', async () => {
+  const { expandFolderAncestors } = await import('../src/folder-tree.js');
+  const folders = [
+    { id: 'root' },
+    { id: 'middle', parentId: 'root' },
+    { id: 'target', parentId: 'middle' },
+    { id: 'target-child', parentId: 'target' },
+    { id: 'target-grandchild', parentId: 'target-child' },
+    { id: 'other', parentId: 'root' },
+  ];
+  const before = new Set(['root', 'middle', 'target', 'target-child', 'other']);
+  assert.deepEqual([...expandFolderAncestors(before, folders, 'target')].sort(), ['middle', 'other', 'root']);
+});

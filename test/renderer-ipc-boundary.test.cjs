@@ -90,7 +90,7 @@ test('moving a linked material uses the paired AI Flow folder API and retains th
 
 test('library breadcrumbs expose every folder level as a clickable path', () => {
   assert.match(renderer, /const folderBreadcrumbs = useMemo/);
-  assert.match(renderer, /const openLibraryRoot = \(event\) => withViewTransition\(\(\) =>/);
+  assert.match(renderer, /const openLibraryRoot = \(\) => \{/);
   assert.match(renderer, /className="breadcrumb-link" onClick=\{openLibraryRoot\}>资源库/);
   assert.match(renderer, /folderBreadcrumbs\.map\(folder =>/);
   assert.match(renderer, /onClick=\{\(event\) => openFolder\(folder, event\)\}/);
@@ -233,7 +233,11 @@ test('reference board supports inertial panning, folder-scoped canvas drops, gro
   assert.doesNotMatch(board, /const onMiniPointerDown = \(event\) => \{\s*if \(!canEdit\) return/);
   assert.match(styles, /\.reference-board-minimap-viewport/);
   assert.doesNotMatch(board, /<aside className="reference-board-inspector"/);
-  assert.match(renderer, /const openFolder = \(folder, event\) => withViewTransition\(\(\) => \{\s*setActiveModule\("library"\)/);
+  const openFolderStart = renderer.indexOf('const openFolder =');
+  const openFolder = renderer.slice(openFolderStart, openFolderStart + 650);
+  assert.match(openFolder, /const openFolder = \(folder\) => \{/);
+  assert.doesNotMatch(openFolder, /withViewTransition/);
+  assert.match(openFolder, /setActiveModule\("library"\)/);
   assert.doesNotMatch(renderer, /activeCollection|openCollection|createCollection|dropAssetsOnCollection/);
   assert.match(renderer, /folders=\{library\?\.folders \|\| \[\]\}/);
   assert.match(renderer, /preferredFolderId=\{activeFolder\}/);

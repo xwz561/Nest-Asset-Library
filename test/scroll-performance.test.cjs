@@ -31,7 +31,17 @@ test('卡片里的波形是一张静态图片，不再是 <canvas>', () => {
   assert.doesNotMatch(waveform, /<canvas/);
   assert.match(waveform, /waveformImages\.set\(imageKey, url\);/);
   assert.match(media, /<AudioWaveform src=\{asset\.url\} large=\{preview\} version=\{asset\.hash \|\| String\(asset\.size \|\| ""\)\} \/>/);
-  assert.match(read('src', 'soft-ui.css'), /\.audio-waveform \{ transform: none; object-fit: fill !important; \}/);
+  const css = read('src', 'soft-ui.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, selector, body]) => ({ selector: selector.trim(), body }));
+  const imageVideoRule = rules.find(rule => rule.selector.includes('.masonry article img') && rule.selector.includes('.masonry article video'));
+  const audioRule = rules.find(rule => rule.selector === '.app.soft-ui.ready-ui.ui-refresh .audio-waveform');
+  assert.ok(imageVideoRule, '图片和视频共用规则');
+  assert.match(imageVideoRule.body, /transform:\s*none/);
+  assert.doesNotMatch(imageVideoRule.body, /object-fit:\s*fill/);
+  assert.ok(audioRule, '音频波形单独规则');
+  assert.match(audioRule.body, /object-fit:\s*fill\s*!important/);
+  assert.equal((css.match(/object-fit:\s*fill\s*!important/g) || []).length, 1);
+  assert.match(read('src', 'styles.css'), /\.thumb img,\.thumb video\{[^}]*object-fit:cover/);
 });
 
 test('入场动画结束后不保留最后一帧，免得一直占着动画图层', () => {

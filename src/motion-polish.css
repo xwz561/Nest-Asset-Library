@@ -310,21 +310,23 @@ html[data-platform="win32"] .app.ready-ui main > header {
 .app.soft-ui.ready-ui.ui-refresh .switch-track {
   position: relative;
   display: inline-flex;
-  flex: 0 0 34px;
+  flex: none;
   align-items: center;
-  width: 34px;
-  height: 20px;
+  width: 36px;
+  height: 22px;
   padding: 2px;
   border-radius: 99px;
-  background: var(--soft-line);
+  background: color-mix(in srgb, var(--soft-text) 18%, transparent);
   transition: background-color 200ms var(--motion-ease);
 }
 .app.soft-ui.ready-ui.ui-refresh .switch-thumb {
   display: block;
-  width: 16px;
-  height: 16px;
+  flex: none;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: var(--soft-card);
+  background: #fff;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--soft-text) 28%, transparent);
   transform: translateX(0);
   transform-origin: center;
   transition: transform 260ms var(--motion-spring), background-color 200ms var(--motion-ease);
@@ -339,40 +341,42 @@ html[data-platform="win32"] .app.ready-ui main > header {
   transform: translateX(14px) scaleX(1.2);
   transition: transform 120ms var(--motion-spring), background-color 200ms var(--motion-ease);
 }
-.app.soft-ui.ready-ui.ui-refresh .soft-layout-toggle[role="switch"] .switch-track { flex-basis: 34px; }
 .app.soft-ui.ready-ui.ui-refresh .soft-layout-crazy[role="switch"] .switch-track { margin-left: auto; }
+.app.soft-ui.ready-ui.ui-refresh .soft-layout-toggle[role="switch"] { position: relative; }
+.app.soft-ui.ready-ui.ui-refresh .soft-layout-toggle-indicator { position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; flex: none; border: 1px solid var(--soft-blue); border-radius: 50%; background: var(--soft-on-blue); pointer-events: none; }
 
 .app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"] {
   position: relative;
   appearance: none;
-  flex: 0 0 42px;
-  width: 42px;
-  min-width: 42px;
-  height: 24px;
+  flex: 0 0 36px;
+  width: 36px;
+  min-width: 36px;
+  height: 22px;
   margin: 0;
   padding: 2px;
   border: 1px solid var(--soft-line);
   border-radius: 99px;
-  background: var(--soft-tint);
+  background: color-mix(in srgb, var(--soft-text) 18%, transparent);
   cursor: pointer;
   transition: background-color 200ms var(--motion-ease), border-color 200ms var(--motion-ease);
 }
 .app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"]::before {
   position: absolute;
-  top: 2px;
+  top: 1px;
   left: 2px;
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--soft-card);
+  background: #fff;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--soft-text) 28%, transparent);
   content: "";
   transform: translateX(0);
   transition: transform 260ms var(--motion-spring), background-color 200ms var(--motion-ease);
 }
 .app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"]:checked { border-color: var(--soft-accent); background: var(--soft-accent); }
-.app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"]:checked::before { transform: translateX(18px); }
+.app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"]:checked::before { transform: translateX(14px); }
 .app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"]:active::before { transform: scaleX(1.2); transition: transform 120ms var(--motion-spring), background-color 200ms var(--motion-ease); }
-.app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"]:checked:active::before { transform: translateX(18px) scaleX(1.2); transition: transform 120ms var(--motion-spring), background-color 200ms var(--motion-ease); }
+.app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"]:checked:active::before { transform: translateX(14px) scaleX(1.2); transition: transform 120ms var(--motion-spring), background-color 200ms var(--motion-ease); }
 .app.soft-ui.ready-ui.ui-refresh input[type="checkbox"][role="switch"]:disabled { opacity: .5; cursor: default; }
 
 .app.soft-ui.ready-ui.ui-refresh .view-mode-icon {
@@ -399,9 +403,9 @@ html:not([data-vt="theme"])::view-transition-old(root),
 html:not([data-vt="theme"])::view-transition-new(root) { animation: none; }
 ::view-transition-old(root),
 ::view-transition-new(root),
-::view-transition-group(nest-content),
 ::view-transition-group(nest-dialog),
 ::view-transition-group(nest-dialog-backdrop) { animation-duration: 240ms; }
+::view-transition-group(nest-content) { animation: none; }
 ::view-transition-old(nest-content),
 ::view-transition-new(nest-content),
 ::view-transition-old(nest-dialog),
@@ -425,8 +429,8 @@ html[data-vt="theme"][data-vt-origin="center"]::view-transition-new(root) { anim
 ::view-transition-old(nest-dialog) { animation: vt-dialog-out 160ms var(--apple-ease) both; }
 ::view-transition-old(nest-dialog-backdrop) { animation: vt-fade-out 160ms var(--motion-ease) both; }
 @keyframes vt-content-fade-out { to { opacity: 0; } }
-@keyframes vt-folder-forward { from { opacity: 0; translate: 16px 0; } to { opacity: 1; translate: 0 0; } }
-@keyframes vt-folder-back { from { opacity: 0; translate: -16px 0; } to { opacity: 1; translate: 0 0; } }
+@keyframes vt-folder-forward { from { opacity: 0; translate: 8px 0; } to { opacity: 1; translate: 0 0; } }
+@keyframes vt-folder-back { from { opacity: 0; translate: -8px 0; } to { opacity: 1; translate: 0 0; } }
 @keyframes vt-fade-out { to { opacity: 0; } }
 @keyframes vt-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes vt-module-out { to { opacity: 0; scale: .99; } }

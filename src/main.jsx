@@ -71,7 +71,7 @@ import "./soft-ui-panels.css";
 import { waitForViewportShift } from "./lib/viewport-settle.js";
 import { withViewTransition } from "./view-transition.js";
 
-import { buildFolderRows, defaultExpandedFolderIds, expandableFolderIds, formatFolderBytes, summarizeFolderAssets, toggleExpandedFolder, toggleExpandedFolderScope } from "./folder-tree.js";
+import { buildFolderRows, collapseFolderSubtree, defaultExpandedFolderIds, expandableFolderIds, expandFolderAncestors, formatFolderBytes, summarizeFolderAssets, toggleExpandedFolder, toggleExpandedFolderScope } from "./folder-tree.js";
 
 import { THEME_EVENT, readableText, themeStyle } from "./theme-utils.js";
 import { audioPreviewManager } from "./audio-preview-manager.js";
@@ -717,12 +717,17 @@ function App() {
   // 文件夹详情：点素材区空白处收起，重新打开文件夹（或换文件夹）时再出现
   const [folderInspectorHidden, setFolderInspectorHidden] = React.useState(false);
   useEffect(() => { setFolderInspectorHidden(false); }, [activeFolder]);
+  React.useLayoutEffect(() => {
+    if (mainScrollRef.current) mainScrollRef.current.scrollTop = 0;
+  }, [activeFolder]);
   const folderInspectorOpen = Boolean(!minimalMode && currentFolder && !selected && !aiPanel && activeModule === "library" && !folderInspectorHidden);
   const hiddenFilterActive = Boolean(aiResultIds || quickTypes.length || quickFormats.length);
   const emptyFolderView = activeModule === "library" && filter === "全部素材" && !query && !currentTag && !hiddenFilterActive && shown.length === 0 && contentFolders.length === 0;
   const treePositions = useMemo(() => folderPositions(orderedFolders), [orderedFolders]);
   const folderPreviewById = useMemo(() => new Map(), []);
-  const openFolder = (folder, event) => withViewTransition(() => {
+  // 文件夹详情面板会改变 app 的网格列宽；View Transition 快照会被重排到新宽度，实机出现跳动，因此文件夹导航直接切换。
+  const openFolder = (folder) => {
+    setExpandedFolderIds(current => expandFolderAncestors(current, library?.folders || [], folder.id));
     setActiveModule("library");
     setFilter("全部素材");
     setAiResultIds(null);
@@ -732,8 +737,8 @@ function App() {
     setFolderInspectorHidden(false);
     setSelected(null);
     setSelectedIds([]);
-  }, { kind: "folder-forward", point: event ? { x: event.clientX, y: event.clientY } : null });
-  const openLibraryRoot = (event) => withViewTransition(() => {
+  };
+  const openLibraryRoot = () => {
     setActiveModule("library");
     setFilter("全部素材");
     setAiResultIds(null);
@@ -742,12 +747,12 @@ function App() {
     setActiveFolder(null);
     setSelected(null);
     setSelectedIds([]);
-  }, { kind: "folder-back", point: event ? { x: event.clientX, y: event.clientY } : null });
-  const openFolderParent = (event) => withViewTransition(() => {
+  };
+  const openFolderParent = () => {
     setActiveFolder(currentFolder?.parentId || null);
     setSelected(null);
     setSelectedIds([]);
-  }, { kind: "folder-back", point: event ? { x: event.clientX, y: event.clientY } : null });
+  };
   const applyLibrary = (lib, { reset = false } = {}) => {
     if (!lib || lib.error) {
       if (lib?.error) showMessage(lib.error);
@@ -1258,7 +1263,9 @@ function App() {
     showMessage(`已为 ${ids.length} 个素材添加标签“${tag}”`, 2500);
   };
   const toggleFolderExpanded = (id) =>
-    setExpandedFolderIds((current) => toggleExpandedFolder(current, id));
+    setExpandedFolderIds(current => current.has(id)
+      ? collapseFolderSubtree(current, library?.folders || [], id)
+      : toggleExpandedFolder(current, id));
   const folderExpansionIds = (folder, scope) => {
     const folders = library?.folders || [];
     if (scope === "current")
@@ -1445,7 +1452,7 @@ function App() {
   const beginMarquee = (event) => {
     if (
       event.button !== 0 ||
-      event.target.closest("article,button,input,select,textarea")
+      event.target.closest("article, button, input, select, textarea, .video-card-controls")
     )
       return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -1730,16 +1737,21 @@ function App() {
     return () =>
       background.forEach((element) => element.removeAttribute("inert"));
   }, [desktop, ready, library]);
-  const selectNav = (n) => withViewTransition(() => {
-    setActiveModule("library");
-    setAiResultIds(null);
-    setFilter(n);
-    setCurrentTag(null);
-    if (n === "全部素材") setQuery("");
-    setActiveFolder(null);
-    setSelected(null);
-    setSelectedIds([]);
-  }, { kind: "fade" });
+  const selectNav = (n) => {
+    const update = () => {
+      setActiveModule("library");
+      setAiResultIds(null);
+      setFilter(n);
+      setCurrentTag(null);
+      if (n === "全部素材") setQuery("");
+      setActiveFolder(null);
+      setSelected(null);
+      setSelectedIds([]);
+    };
+    // 从文件夹切到分类会关闭右侧文件夹详情并扩展主区，避免几何变化期间做快照动画。
+    if (activeFolder) update();
+    else withViewTransition(update, { kind: "fade" });
+  };
   const nav = [
     ["全部素材", "all", LayoutGrid],
     ["未分类", "unclassified", Box],
@@ -1903,7 +1915,8 @@ function App() {
               aria-label="编辑布局"
               onClick={cardLayout.editing ? cardLayout.save : cardLayout.startEditing}
             >
-              <span className="switch-track" aria-hidden="true"><span className="switch-thumb" /></span>
+              <LayoutDashboard size={18} strokeWidth={1.8} />
+              {cardLayout.editing && <span className="soft-layout-toggle-indicator" aria-hidden="true" />}
             </Button>
             <Button className="soft-rail-item" title={recycleBinLabel} aria-label={recycleBinLabel} onClick={async () => { const result = await window.nestDesktop?.openRecycleBin?.(); if (result?.error) showMessage(`无法打开${recycleBinLabel}：${result.error}`, 3500); }}><Trash2 size={18} strokeWidth={1.8} /></Button>
           </div>
@@ -2125,7 +2138,11 @@ function App() {
             onDropAssets={(event, folderId) => dropAssets(event, folderId)}
           />
         ) : (
-        <FlatTree className="compact-folder-tree" aria-label="文件夹" openItems={Array.from(expandedFolderIds)} onOpenChange={(event, data) => setExpandedFolderIds(new Set(data.openItems))}>
+        <FlatTree className="compact-folder-tree" aria-label="文件夹" openItems={Array.from(expandedFolderIds)} onOpenChange={(event, data) => setExpandedFolderIds(current => {
+          let next = new Set(data.openItems);
+          for (const id of current) if (!next.has(id)) next = collapseFolderSubtree(next, library?.folders || [], id);
+          return next;
+        })}>
           {desktop ? (
             orderedFolders.map((f) => (
               <FlatTreeItem

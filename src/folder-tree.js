@@ -33,6 +33,28 @@ export function toggleExpandedFolder(expandedFolderIds, folderId) {
   return next;
 }
 
+export function collapseFolderSubtree(expandedFolderIds, folders, folderId) {
+  const next = new Set(expandedFolderIds || []);
+  for (const id of collectFolderSubtreeIds(folders, folderId)) next.delete(id);
+  return next;
+}
+
+export function expandFolderAncestors(expandedFolderIds, folders, folderId) {
+  const all = Array.isArray(folders) ? folders : [];
+  const byId = new Map(all.filter(folder => folder?.id).map(folder => [folder.id, folder]));
+  const next = collapseFolderSubtree(expandedFolderIds, all, folderId);
+  const visited = new Set([folderId]);
+  let parentId = byId.get(folderId)?.parentId || null;
+  while (parentId && !visited.has(parentId)) {
+    visited.add(parentId);
+    const parent = byId.get(parentId);
+    if (!parent) break;
+    next.add(parentId);
+    parentId = parent.parentId || null;
+  }
+  return next;
+}
+
 export function expandableFolderIds(folders, { parentId } = {}) {
   const all = Array.isArray(folders) ? folders : [];
   const parents = new Set(all.map(folder => folder?.parentId).filter(Boolean));
@@ -62,7 +84,11 @@ export function toggleExpandedFolderScope(expandedFolderIds, folderIds) {
 export function defaultExpandedFolderIds(folders) {
   const all = Array.isArray(folders) ? folders : [];
   const parents = new Set(all.map(folder => folder?.parentId).filter(Boolean));
-  return new Set(all.filter(folder => parents.has(folder?.id)).map(folder => folder.id));
+  return new Set(
+    all
+      .filter(folder => folder?.id && !(folder.parentId || null) && parents.has(folder.id))
+      .map(folder => folder.id),
+  );
 }
 
 export function summarizeFolderAssets(folderId, folders = [], assets = []) {

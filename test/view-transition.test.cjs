@@ -116,6 +116,28 @@ test('页面切换只给内容区命名，减少动态效果和滚动时关闭�
   assert.doesNotMatch(read('src/soft-ui.css'), /@keyframes|@starting-style/);
 });
 
+test('素材内容过渡不动画容器尺寸，避免宽度变化时缩放整张快照', () => {
+  const css = read('src/motion-polish.css');
+  assert.match(css, /::view-transition-group\(nest-content\)\s*\{\s*animation:\s*none\s*;\s*\}/);
+  assert.match(css, /::view-transition-old\(nest-content\)[^{]*\{[^}]*vt-content-fade-out/);
+  assert.match(css, /@keyframes vt-folder-forward\s*\{\s*from\s*\{\s*opacity:\s*0;\s*translate:\s*8px 0;/);
+  assert.match(css, /@keyframes vt-folder-back\s*\{\s*from\s*\{\s*opacity:\s*0;\s*translate:\s*-8px 0;/);
+  const main = read('src/main.jsx');
+  assert.match(main, /useLayoutEffect\(\(\) => \{\s*if \(mainScrollRef\.current\) mainScrollRef\.current\.scrollTop = 0;\s*\}, \[activeFolder\]\)/);
+});
+
+test('文件夹导航和从文件夹切分类时跳过几何变化过渡', () => {
+  const main = read('src/main.jsx');
+  for (const declaration of ['const openFolder =', 'const openLibraryRoot =', 'const openFolderParent =']) {
+    const start = main.indexOf(declaration);
+    assert.notEqual(start, -1);
+    assert.doesNotMatch(main.slice(start, start + 520), /withViewTransition/);
+  }
+  const navStart = main.indexOf('const selectNav =');
+  const selectNav = main.slice(navStart, navStart + 650);
+  assert.match(selectNav, /if \(activeFolder\) update\(\);\s*else withViewTransition\(update, \{ kind: "fade" \}\)/);
+});
+
 test('开关统一使用轨道与圆钮，只动画 transform 和颜色并提供焦点光圈', () => {
   const main = read('src/main.jsx');
   const updates = read('src/components/automatic-update-settings.jsx');
@@ -129,6 +151,16 @@ test('开关统一使用轨道与圆钮，只动画 transform 和颜色并提供
   assert.match(css, /260ms\s+var\(--motion-spring\)/);
   assert.match(css, /120ms\s+var\(--motion-spring\)/);
   assert.match(css, /focus-visible/);
+  assert.match(css, /\.app\.soft-ui\.ready-ui\.ui-refresh \.switch-track\s*\{[^}]*flex:\s*none/);
+  assert.match(css, /\.app\.soft-ui\.ready-ui\.ui-refresh \.switch-thumb\s*\{[^}]*flex:\s*none/);
+  assert.match(css, /width:\s*36px/);
+  assert.match(css, /height:\s*22px/);
+  assert.match(css, /background:\s*#fff/);
+  assert.match(css, /color-mix\(in srgb, var\(--soft-text\) 18%, transparent\)/);
+  const layoutToggle = main.slice(main.indexOf('className={`soft-rail-item soft-layout-toggle'), main.indexOf('className={`soft-rail-item soft-layout-toggle') + 600);
+  assert.match(layoutToggle, /<LayoutDashboard size=\{18\}/);
+  assert.match(layoutToggle, /soft-layout-toggle-indicator/);
+  assert.doesNotMatch(layoutToggle, /switch-track/);
 });
 
 test('选中底色使用独立滑块，颜色标记只补边框过渡', () => {

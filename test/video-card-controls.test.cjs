@@ -5,6 +5,7 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const renderer = require('./source-tree.cjs').readSource(path.join(root, 'src', 'main.jsx'), 'utf8');
+const media = require('./source-tree.cjs').readSource(path.join(root, 'src', 'components', 'media.jsx'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'src', 'styles.css'), 'utf8');
 
 test('video cards expose compact playback, seek, time, and mute controls', () => {
@@ -22,5 +23,19 @@ test('video card controls appear on hover or keyboard focus without permanently 
   assert.match(styles, /\.video-card-media:hover \.video-card-controls/);
   assert.match(styles, /\.video-card-media:focus-within \.video-card-controls/);
   assert.match(styles, /\.video-card-media:hover \.video-card-controls,[^{]*\{[^}]*opacity:\s*1;/s);
+});
+
+test('video scrub controls stop card and grid gestures and temporarily disable article dragging', () => {
+  const start = media.indexOf('className="video-card-controls"');
+  const controls = media.slice(start, start + 1500);
+  assert.match(controls, /onPointerDown=\{beginControlPointer\}/);
+  assert.match(controls, /onMouseDown=\{stopCardAction\}/);
+  assert.match(controls, /onDragStart=\{preventControlDrag\}/);
+  assert.match(media, /const beginControlPointer = \(event\) => \{/);
+  assert.match(media, /article\.setAttribute\("draggable", "false"\)/);
+  assert.match(media, /article\.setAttribute\("draggable", previousDraggable\)/);
+  assert.match(media, /addEventListener\("pointerup", restore/);
+  assert.match(media, /addEventListener\("pointercancel", restore/);
+  assert.match(renderer, /event\.target\.closest\("article, button, input, select, textarea, \.video-card-controls"\)/);
 });
 
