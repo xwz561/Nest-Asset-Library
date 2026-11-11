@@ -3,7 +3,7 @@ import { Wrench, X, Pipette, ExternalLink, Video, Plus } from "lucide-react";
 import { Button } from "../ready-ui.jsx";
 
 // 指针管家、深度视频转换器都只有 Windows 版（.exe）。红果桌面版和 Mineradio 已按用户要求移除（2026-11-04）。
-export function FriendToolsDialog({ platform, close, busy, error, launchCursorPicker, launchDepthVideoConverter }) {
+export function FriendToolsDialog({ presenceProps, platform, close, busy, error, launchCursorPicker, launchDepthVideoConverter }) {
   const windowsOnly = platform !== undefined && platform !== "win32";
   const onlyOnWindows = windowsOnly ? "仅 Windows 可用" : null;
   useEffect(() => {
@@ -14,8 +14,8 @@ export function FriendToolsDialog({ platform, close, busy, error, launchCursorPi
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [busy, close]);
   return (
-    <div className="modal-backdrop friend-tools-backdrop" onMouseDown={event => event.target === event.currentTarget && !busy && close()}>
-      <section className="app-dialog friend-tools-dialog" role="dialog" aria-modal="true" aria-labelledby="friend-tools-title">
+    <div {...presenceProps} className="modal-backdrop friend-tools-backdrop" onMouseDown={event => event.target === event.currentTarget && !busy && close()}>
+      <section data-motion-surface className="app-dialog friend-tools-dialog" role="dialog" aria-modal="true" aria-labelledby="friend-tools-title">
         <header className="friend-tools-heading">
           <div>
             <span className="friend-tools-heading-icon"><Wrench size={18}/></span>

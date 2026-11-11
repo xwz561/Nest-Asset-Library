@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   package:
-    name: macOS x64 and Apple silicon
+    name: macOS Apple silicon
     runs-on: macos-14
     timeout-minutes: 60
     steps:
@@ -77,20 +77,20 @@ jobs:
       - name: Build renderer
         run: npm run build
 
-      - name: Package DMG and ZIP for both architectures
+      - name: Package DMG and ZIP for Apple silicon only
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-          NEST_PACKAGE_OUTPUT: release-4.0.2-macos
+          NEST_PACKAGE_OUTPUT: release-4.0.2-r3-macos-arm64
         run: npm run package:mac
 
       - name: Compute installer sizes and SHA-256 manifest
         shell: bash
         run: |
           set -euo pipefail
-          output_dir="release-4.0.2-macos"
+          output_dir="release-4.0.2-r3-macos-arm64"
           : > "$output_dir/SHA256SUMS.txt"
 
-          for arch in x64 arm64; do
+          for arch in arm64; do
             for extension in dmg zip; do
               archive="$output_dir/NestAssetLibrary-4.0.2-macOS-$arch.$extension"
               test -s "$archive"
@@ -99,29 +99,11 @@ jobs:
             done
           done
 
-      - name: Upload x64 DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: 小旺仔素材库-4.0.2-macOS-x64-dmg
-          path: release-4.0.2-macos/NestAssetLibrary-4.0.2-macOS-x64.dmg
-          if-no-files-found: error
-          retention-days: 14
-          compression-level: 0
-
-      - name: Upload x64 ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: 小旺仔素材库-4.0.2-macOS-x64-zip
-          path: release-4.0.2-macos/NestAssetLibrary-4.0.2-macOS-x64.zip
-          if-no-files-found: error
-          retention-days: 14
-          compression-level: 0
-
       - name: Upload arm64 DMG
         uses: actions/upload-artifact@v4
         with:
-          name: 小旺仔素材库-4.0.2-macOS-arm64-dmg
-          path: release-4.0.2-macos/NestAssetLibrary-4.0.2-macOS-arm64.dmg
+          name: 小旺仔素材库-4.0.2-r3-macOS-arm64-dmg
+          path: release-4.0.2-r3-macos-arm64/NestAssetLibrary-4.0.2-macOS-arm64.dmg
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
@@ -129,8 +111,8 @@ jobs:
       - name: Upload arm64 ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: 小旺仔素材库-4.0.2-macOS-arm64-zip
-          path: release-4.0.2-macos/NestAssetLibrary-4.0.2-macOS-arm64.zip
+          name: 小旺仔素材库-4.0.2-r3-macOS-arm64-zip
+          path: release-4.0.2-r3-macos-arm64/NestAssetLibrary-4.0.2-macOS-arm64.zip
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
@@ -138,8 +120,8 @@ jobs:
       - name: Upload SHA-256 manifest
         uses: actions/upload-artifact@v4
         with:
-          name: 小旺仔素材库-4.0.2-macOS-SHA256
-          path: release-4.0.2-macos/SHA256SUMS.txt
+          name: 小旺仔素材库-4.0.2-r3-macOS-arm64-SHA256
+          path: release-4.0.2-r3-macos-arm64/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
 
@@ -147,7 +129,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          output_dir="release-4.0.2-macos"
+          output_dir="release-4.0.2-r3-macos-arm64"
           temp_root="$RUNNER_TEMP/macos-package-verify"
           mkdir -p "$temp_root"
 
@@ -182,7 +164,7 @@ jobs:
           NODE
           }
 
-          for arch in x64 arm64; do
+          for arch in arm64; do
             dmg="$output_dir/NestAssetLibrary-4.0.2-macOS-$arch.dmg"
             zip="$output_dir/NestAssetLibrary-4.0.2-macOS-$arch.zip"
 

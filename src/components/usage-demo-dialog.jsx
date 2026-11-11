@@ -16,7 +16,7 @@ export function chapterIndexAt(seconds) {
   return index;
 }
 
-export function UsageDemoDialog({ close, openTour }) {
+export function UsageDemoDialog({ presenceProps, close, openTour }) {
   const videoRef = useRef(null);
   const listRef = useRef(null);
   const [active, setActive] = useState(0);
@@ -55,8 +55,8 @@ export function UsageDemoDialog({ close, openTour }) {
   };
 
   return (
-    <div className="modal-backdrop usage-demo-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
-      <section className="app-dialog usage-demo-dialog" role="dialog" aria-modal="true" aria-labelledby="usage-demo-title">
+    <div {...presenceProps} className="modal-backdrop usage-demo-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
+      <section data-motion-surface className="app-dialog usage-demo-dialog" role="dialog" aria-modal="true" aria-labelledby="usage-demo-title">
         <div className="usage-demo-head">
           <div>
             <h2 id="usage-demo-title">演示方法</h2>

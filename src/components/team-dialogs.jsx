@@ -3,12 +3,12 @@ import { Button } from "../ready-ui.jsx";
 import { X, Trash2, Plus } from "lucide-react";
 import { previewBatchName, roleName } from "../lib/app-config.js";
 
-export function BatchRenameDialog({ assets, folders, close, apply }) {
+export function BatchRenameDialog({ presenceProps, assets, folders, close, apply }) {
   const [template, setTemplate] = useState("{name}_{index}"), [busy, setBusy] = useState(false);
   const insert = token => setTemplate(current => `${current}${token}`);
   const submit = async event => { event.preventDefault(); if (busy || !assets.length) return; setBusy(true); if (!(await apply(template))) setBusy(false); };
-  return <div className="modal-backdrop batch-rename-backdrop" onMouseDown={event => event.target === event.currentTarget && close()}>
-    <form className="app-dialog batch-rename-dialog" onSubmit={submit} onKeyDown={event => event.key === "Escape" && close()}>
+  return <div {...presenceProps} className="modal-backdrop batch-rename-backdrop" onMouseDown={event => event.target === event.currentTarget && close()}>
+    <form data-motion-surface className="app-dialog batch-rename-dialog" onSubmit={submit} onKeyDown={event => event.key === "Escape" && close()}>
       <div className="dialog-head"><div><h2>批量重命名</h2><small>将重命名素材标题和本地原文件，共 {assets.length} 项</small></div><Button type="button" aria-label="关闭" onClick={close}><X size={18}/></Button></div>
       <label className="batch-template-field"><span>命名模板</span><input autoFocus value={template} maxLength={180} onChange={event => setTemplate(event.target.value)} /></label>
       <div className="batch-tokens">{[["{name}","原名称"],["{index}","序号"],["{folder}","文件夹"],["{tag}","首个标签"]].map(([token,label])=><Button type="button" key={token} onClick={()=>insert(token)}><code>{token}</code><span>{label}</span></Button>)}</div>
@@ -18,7 +18,7 @@ export function BatchRenameDialog({ assets, folders, close, apply }) {
   </div>;
 }
 
-export function TeamPanel({ library, close, changed }) {
+export function TeamPanel({ presenceProps, library, close, changed }) {
   const [info, setInfo] = useState(null), [name, setName] = useState(""), [role, setRole] = useState("viewer"), [status, setStatus] = useState("");
   const load = () => window.nestDesktop?.teamInfo().then(setInfo);
   useEffect(() => { load(); }, []);
@@ -35,8 +35,8 @@ export function TeamPanel({ library, close, changed }) {
     await load();
   };
   const canManage = ["owner", "admin"].includes(info?.role);
-  return <div className="modal-backdrop team-backdrop" onMouseDown={(event) => event.target === event.currentTarget && close()}>
-    <div className="team-dialog" role="dialog" aria-modal="true" aria-label="成员与权限">
+  return <div {...presenceProps} className="modal-backdrop team-backdrop" onMouseDown={(event) => event.target === event.currentTarget && close()}>
+    <div data-motion-surface className="team-dialog" role="dialog" aria-modal="true" aria-label="成员与权限">
       <div className="team-head"><div><strong>成员与权限</strong><small>共享资源库的本地协作身份与操作范围</small></div><Button onClick={close} aria-label="关闭"><X size={18}/></Button></div>
       <div className="team-notice">角色用于多人协作时防止误操作。真正的读写权限由 NAS 共享文件夹决定，请在 NAS 上给同事设置对应的访问权限。{!canManage && info && " 只有管理员可以修改成员和权限。"}</div>
       <section className="team-current"><span style={{background: info?.profile?.color || "#4f9cf9"}}>{(info?.profile?.name || "我").slice(0,1)}</span><div><b>{info?.profile?.name || "我"}</b><small>当前设备身份 · {roleName(info?.role)}</small></div></section>

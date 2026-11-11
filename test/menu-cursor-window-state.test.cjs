@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const renderer=require('./source-tree.cjs').readSource(path.join(root,'src','main.jsx'),'utf8');
+const menus=require('./source-tree.cjs').readSource(path.join(root,'src','components','menus.jsx'),'utf8');
 const layout=fs.readFileSync(path.join(root,'src','ui-redesign-overrides.css'),'utf8');
 const styles=fs.readFileSync(path.join(root,'src','styles.css'),'utf8');
 const ready=fs.readFileSync(path.join(root,'src','ready-ui.css'),'utf8');
@@ -13,8 +14,9 @@ const main=require('./source-tree.cjs').readSource(path.join(root,'electron','ma
 test('resource switcher is portaled, viewport bounded, and dismisses reliably',()=>{
  assert.match(renderer,/appMenuPanelRef\.current\?\.contains\(event\.target\)/);
  assert.match(renderer,/window\.addEventListener\("blur", close\)/);
- assert.match(renderer,/appMenuOpen && createPortal/);
- assert.match(renderer,/aria-label="关闭资源库面板"/);
+ assert.match(renderer,/appMenuOpen[\s\S]*<PresencePortal[\s\S]*<LibrarySwitcherMenu/);
+ assert.match(menus,/export function PresencePortal\(\{ presenceProps, render, container = document\.body \}\)[\s\S]*return createPortal\(render\(presenceProps\), container\)/);
+ assert.match(menus,/aria-label="关闭资源库面板"/);
  assert.match(layout,/\.app-menu\{[^}]*position:fixed[^}]*z-index:500[^}]*width:min\(416px/);
  assert.match(layout,/\.library-switcher-list\{[^}]*overflow-x:hidden[^}]*overflow-y:auto/);
 });

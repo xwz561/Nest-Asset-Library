@@ -158,6 +158,29 @@ body :where(button, [role="button"], [role="tab"], [role="menuitem"], summary, s
   animation: motion-pop-in 240ms var(--apple-ease) backwards;
 }
 
+@keyframes presence-menu-enter {
+  from { opacity: 0; translate: 0 -4px; scale: .985; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
+}
+
+@keyframes presence-menu-leave {
+  from { opacity: 1; translate: 0 0; scale: 1; }
+  to { opacity: 0; translate: 0 -2px; scale: .99; }
+}
+
+:where(.asset-menu, .app-menu, .move-submenu, .folder-icon-flyout, .ready-ui-menu)[data-motion-kind="menu"][data-motion-phase="entering"] {
+  animation: presence-menu-enter 220ms var(--apple-ease) both;
+}
+
+:where(.asset-menu, .app-menu, .move-submenu, .folder-icon-flyout, .ready-ui-menu)[data-motion-kind="menu"][data-motion-phase="entered"] {
+  animation: none;
+}
+
+:where(.asset-menu, .app-menu, .move-submenu, .folder-icon-flyout, .ready-ui-menu)[data-motion-kind="menu"][data-motion-phase="leaving"] {
+  animation: presence-menu-leave 160ms var(--apple-ease) both;
+  pointer-events: none;
+}
+
 /* 遮罩：淡入 */
 :where(.modal-backdrop, .support-backdrop, .ai-settings-backdrop, .team-library-backdrop, .team-library-preview-backdrop, .theme-backdrop, .onboarding-tour-backdrop, .preview-overlay) {
   animation: motion-fade-in 320ms var(--motion-ease) backwards;
@@ -166,6 +189,57 @@ body :where(button, [role="button"], [role="tab"], [role="menuitem"], summary, s
 /* 弹窗本体：轻微上浮 + 放大 */
 :where(.app-dialog, .support-dialog, .team-dialog, .appearance-dialog, .theme-dialog, .ai-settings-dialog, .folder-dialog) {
   animation: motion-dialog-in 420ms var(--apple-ease) backwards;
+}
+
+/* Presence 管理的遮罩与面板独立动画，保留原有定位 transform。 */
+@keyframes presence-dialog-backdrop-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes presence-dialog-backdrop-leave {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes presence-dialog-surface-enter {
+  from { opacity: 0; translate: 0 6px; scale: .98; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
+}
+
+@keyframes presence-dialog-surface-leave {
+  from { opacity: 1; translate: 0 0; scale: 1; }
+  to { opacity: 0; translate: 0 2px; scale: .98; }
+}
+
+[data-motion-kind="dialog"][data-motion-phase="entering"] {
+  animation: presence-dialog-backdrop-enter 180ms var(--motion-ease) backwards;
+}
+
+[data-motion-kind="dialog"][data-motion-phase="entered"] { animation: none; }
+
+[data-motion-kind="dialog"][data-motion-phase="leaving"] {
+  animation: presence-dialog-backdrop-leave 180ms var(--motion-ease) forwards;
+  pointer-events: none;
+}
+
+/* 遮罩在 180ms 进入 entered 后，面板继续完成同一段 220ms 动画。 */
+[data-motion-kind="dialog"]:is([data-motion-phase="entering"], [data-motion-phase="entered"]) > [data-motion-surface] {
+  animation: presence-dialog-surface-enter 220ms var(--apple-ease) backwards;
+}
+
+[data-motion-kind="dialog"][data-motion-phase="leaving"] > [data-motion-surface] {
+  animation: presence-dialog-surface-leave 160ms var(--apple-ease) forwards;
+}
+
+/* 教程的透明点击遮罩由外层整体淡入淡出，避免重复旧的入场动画。 */
+.onboarding-tour[data-motion-kind="dialog"] > .onboarding-tour-backdrop { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-motion-kind="dialog"],
+  [data-motion-kind="dialog"] > [data-motion-surface] {
+    animation: none !important;
+  }
 }
 
 /* 弹窗内部区块不再逐项错峰：苹果式弹窗是整体一起出现的 */
@@ -452,6 +526,24 @@ html[data-vt="theme"][data-vt-origin="center"]::view-transition-new(root) { anim
 @keyframes batch-bar-enter {
   from { opacity: 0; translate: 0 8px; }
   to { opacity: 1; translate: 0 0; }
+}
+
+/* Headless UI 风格的状态驱动进出场：筛选 / 排序浮层只动画合成属性。 */
+.app.eagle-ui.ready-ui .toolbar:has(.toolbar-popover[data-motion-phase="leaving"]) { overflow: visible; }
+.app.eagle-ui.ready-ui .toolbar-popover[data-motion-kind="menu"][data-motion-phase="entering"] {
+  animation: toolbar-popover-enter 220ms var(--apple-ease) backwards;
+}
+.app.eagle-ui.ready-ui .toolbar-popover[data-motion-kind="menu"][data-motion-phase="entered"] { animation: none; }
+.app.eagle-ui.ready-ui .toolbar-popover[data-motion-kind="menu"][data-motion-phase="leaving"] {
+  animation: toolbar-popover-leave 160ms var(--apple-ease) forwards;
+  pointer-events: none;
+}
+@keyframes toolbar-popover-enter {
+  from { opacity: 0; translate: 0 -4px; scale: .985; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
+}
+@keyframes toolbar-popover-leave {
+  to { opacity: 0; translate: 0 -2px; scale: .99; }
 }
 @media (prefers-reduced-motion: reduce) {
   .app.soft-ui.ready-ui.ui-refresh .rail-selection-highlight,

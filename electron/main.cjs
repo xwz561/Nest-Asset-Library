@@ -26,6 +26,7 @@ const { withLock } = require('./file-lock.cjs');
 const { normalizeMember, roleFor, hasRole } = require('./team-permissions.cjs');
 const { assetPathFromRequest } = require('./asset-protocol.cjs');
 const { createThumbnailCache } = require('./thumbnail-cache.cjs');
+const { fitThumbnailSize } = require('./thumbnail-fit.cjs');
 const { inspectorBounds } = require('./outward-inspector.cjs');
 const { forgetLibrary, libraryIdentity, nextRecentLibraries, rememberLibrary } = require('./recent-libraries.cjs');
 const { AIProviderRouter, normalizeProvider, parseJson, redact } = require('./ai-provider.cjs');
@@ -1157,7 +1158,9 @@ async function listCollectorLibraryAssets(req) {
       if (String(asset.type || '').startsWith('image/') && asset.file) {
         try {
           const image = nativeImage.createFromPath(storedAssetPath(asset.file));
-          if (!image.isEmpty()) thumbnail = image.resize({ width: 120, height: 120, quality: 'good' }).toDataURL();
+          // 保持原图比例；宽高都写死会把非正方形的图压扁（见 thumbnail-fit.cjs）
+          const fitted = image.isEmpty() ? null : fitThumbnailSize(image.getSize());
+          if (fitted) thumbnail = image.resize({ ...fitted, quality: 'good' }).toDataURL();
         } catch {}
       }
       return { id: String(asset.id || ''), name: String(asset.name || asset.originalName || '未命名素材').slice(0, 80), type: String(asset.type || ''), thumbnail };

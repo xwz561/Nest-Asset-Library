@@ -14,6 +14,7 @@ import {
   Minus,
   MousePointer2,
   EyeOff,
+  ExternalLink,
   Plus,
   Redo2,
   RotateCcw,
@@ -22,6 +23,7 @@ import {
   Undo2,
   X,
 } from "lucide-react";
+import { beginCanvasDragOut, canvasDragOutAssetIds, isCanvasDragOutGesture } from "./reference-board-drag-out.js";
 
 const ASSET_DRAG_MIME = "application/x-nest-asset-ids";
 const PICKER_PAGE_SIZE = 120;
@@ -64,6 +66,8 @@ export default function ReferenceBoard({
   folders = [],
   preferredFolderId = null,
   canEdit,
+  startExternalDrag,
+  endExternalDrag,
   activeBoardId,
   setActiveBoardId,
   createBoard,
@@ -73,6 +77,7 @@ export default function ReferenceBoard({
   openAsset,
 }) {
   const board = boards.find((item) => item.id === activeBoardId) || boards[0] || null;
+  const canDragOut = typeof startExternalDrag === "function";
   const [draft, setDraft] = useState(() => cloneBoard(board));
   const [pickerOpen, setPickerOpen] = useState(true);
   const [assetDockHeight, setAssetDockHeight] = useState(178);
@@ -953,12 +958,34 @@ export default function ReferenceBoard({
               className={`reference-board-node ${selectedNodeIds.has(item.id) ? "selected" : ""} ${linkSourceId === item.id ? "link-source" : ""} ${item.locked ? "locked" : ""}`}
               key={item.id}
               style={{ width: item.width, transform: `translate(${item.x}px, ${item.y}px) rotate(${item.rotation}deg)`, zIndex: item.zIndex }}
-              onPointerDown={(event) => startNodeDrag(event, item)}
+              onPointerDown={(event) => {
+                if (isCanvasDragOutGesture(event, canDragOut)) {
+                  event.stopPropagation();
+                  event.currentTarget.draggable = true;
+                  return;
+                }
+                startNodeDrag(event, item);
+              }}
+              onPointerUp={(event) => { event.currentTarget.draggable = false; }}
+              onDragStart={(event) => {
+                if (!event.altKey || !beginCanvasDragOut(event, canvasDragOutAssetIds(currentItems, selectedNodeIds, item), startExternalDrag)) event.preventDefault();
+              }}
+              onDragEnd={(event) => { event.currentTarget.draggable = false; endExternalDrag?.(); }}
               onDoubleClick={(event) => { event.stopPropagation(); openAsset(asset); }}
             >
               <div className="reference-board-node-media"><BoardMedia asset={asset}/></div>
               <div className="reference-board-node-foot"><span title={asset.name}>{asset.name}</span><small>{asset.type?.split("/")[0] || "素材"}</small></div>
               <div className="reference-board-node-actions">
+                {canDragOut && <span
+                  className="reference-board-node-drag-out"
+                  draggable
+                  role="button"
+                  aria-label="拖出软件"
+                  title="从这里拖到桌面、文件夹、其他软件或浏览器（也可按住 Alt 拖动卡片）"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onDragStart={(event) => beginCanvasDragOut(event, canvasDragOutAssetIds(currentItems, selectedNodeIds, item), startExternalDrag)}
+                  onDragEnd={() => endExternalDrag?.()}
+                ><ExternalLink size={14}/></span>}
                 <BoardButton type="button" title={item.locked ? "解除锁定" : "锁定位置"} onPointerDown={(event) => event.stopPropagation()} onClick={() => commitDraft((current) => ({ ...current, items: current.items.map((node) => node.id === item.id ? { ...node, locked: !node.locked } : node) }))}>{item.locked ? <Lock size={14}/> : <LockOpen size={14}/>}</BoardButton>
                 <BoardButton type="button" title="从参考板移除" onPointerDown={(event) => event.stopPropagation()} onClick={() => removeNode(item.id)} disabled={!canEdit}><X size={14}/></BoardButton>
               </div>

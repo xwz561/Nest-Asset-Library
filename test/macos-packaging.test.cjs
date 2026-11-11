@@ -16,9 +16,11 @@ test('macOS packaging declares installable DMG and portable ZIP outputs for both
   assert.equal(pkg.devDependencies.electron, '^44.3.0');
 });
 
-test('macOS packaging script waits for both architecture DMGs and ZIP archives', () => {
+test('macOS packaging script waits for Apple silicon DMG and ZIP archives only', () => {
   const script = fs.readFileSync(path.join(root, 'scripts', 'package-macos-app.cjs'), 'utf8');
-  assert.match(script, /'--mac', 'dmg', 'zip', '--x64', '--arm64'/);
+  assert.match(script, /expectedArchitectures = \['arm64'\]/);
+  assert.match(script, /'--mac', 'dmg', 'zip', '--arm64'/);
+  assert.doesNotMatch(script, /'--x64'/);
   assert.match(script, /\['dmg', 'zip'\]/);
-  assert.match(script, /-macOS-\(x64\|arm64\)\\\.\(dmg\|zip\)/);
+  assert.match(script, /-macOS-arm64\\\.\(dmg\|zip\)/);
 });

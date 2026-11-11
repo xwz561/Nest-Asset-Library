@@ -60,7 +60,7 @@ test('演示方法 plays in a window next to the tutorial text, never fullscreen
   assert.match(dialog, /video\.currentTime = chapter\.start/);
   assert.match(dialog, /onClick=\{openTour\}/);
   const main = read('src', 'main.jsx');
-  assert.match(main, /<UsageDemoDialog\s+close=\{\(\) => setUsageDemoOpen\(false\)\}\s+openTour=\{\(\) => \{\s+setUsageDemoOpen\(false\);\s+startOnboarding\(\);/);
+  assert.match(main, /<UsageDemoDialog\s+presenceProps=\{presenceProps\}\s+close=\{\(\) => setUsageDemoOpen\(false\)\}\s+openTour=\{\(\) => \{\s+setUsageDemoOpen\(false\);\s+startOnboarding\(\);/);
   assert.match(read('src', 'toolbar-layout.js'), /\{ id: "director", label: "演示方法" \}/);
 });
 

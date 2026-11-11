@@ -202,7 +202,8 @@
 .app .reference-board-node-foot span { color: var(--text-primary); font-size: 11px; }
 .app .reference-board-node-foot small { color: var(--text-secondary); font-size: 9px; }
 .app .reference-board-node-actions { gap: 5px; }
-.app .reference-board-node-actions button {
+.app .reference-board-node-actions button,
+.app .reference-board-node-actions .reference-board-node-drag-out {
   display: grid;
   width: 29px;
   height: 29px;
@@ -214,6 +215,8 @@
   box-shadow: 0 2px 8px #00000014;
   backdrop-filter: blur(12px);
 }
+.app .reference-board-node-actions .reference-board-node-drag-out { cursor: alias; }
+.app .reference-board-node-actions .reference-board-node-drag-out:hover,
 .app .reference-board-node-actions button:hover:not(:disabled) { border-color: var(--accent); background: var(--bg-card); color: var(--accent); }
 .app .reference-board-group {
   border-color: color-mix(in srgb, var(--group-color) 62%, var(--ui-border));
@@ -355,6 +358,7 @@
 .app .reference-board-dock-head small { overflow: hidden; color: var(--text-secondary); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .app .reference-board-dock-head button,
 .app .reference-board-node-actions button,
+.app .reference-board-node-actions .reference-board-node-drag-out,
 .app .reference-board-minimap-hide,
 .app .reference-board-minimap-show {
   display: grid;

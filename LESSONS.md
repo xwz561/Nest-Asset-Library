@@ -161,3 +161,23 @@
 - 证据：连接状态、退避、通知去重及扩展回归测试通过；全量测试失败均在既有 Windows 基线名单中。真实 Edge 10 分钟离线与三态界面截图未完成，不能当作实机通过。
 - 边界：本地健康探测不读取素材内容；不在 AI Flow 提交或生成视频。
 - 复审条件：桥接响应格式或 Chrome session storage 生命周期变化。
+
+### LES-016：延长窗口关掉后，"用原窗口"和暂停监听都要跟着复位
+
+- 日期：2026-11-11
+- 状态：隔离测试通过；真实 AI Flow 待用户复测
+- 场景：用户截图反馈"叉掉一次延续再点就回到了原来的了，小旺仔的延续没了"。工作台的 ×、"打开 AI Flow 原窗口"会在 AI Flow 窗口上打 `nestWorkbenchDisabled` 标记，"打开原窗口"和"提交延长"还会断开页面监听。AI Flow 如果只是把窗口藏起来、下次复用，标记一直留着；监听断开后也没人再接上；原窗口模式下藏着的旧工作台还会让新窗口误以为"已经有工作台"。
+- 做法：用"窗口此刻是否真的显示"（祖先 display/visibility + getClientRects）判断开关；窗口关掉就清标记、删旧工作台；工作台记住自己属于哪个窗口，换窗口就重建；"打开原窗口"和"提交延长"后每 300ms 查一次，窗口一关就恢复监听；任意点击后 80/400ms 补查一次（窗口可能只改 style，监听收不到）；延长出来的视频点「重制」打开的也是原生延长窗口（标题「视频延长 · 母版」），要先读任务参数，所以点「重制」「延长」后再补查到 2 秒；提交中不重建工作台。
+- 证据：`test/aiflow-extend-reopen.test.cjs` 及延长相关测试通过。
+- 边界：没能在真 AI Flow 上验证（本机连不上 10.128.30.22）。
+- 复审条件：AI Flow 改变延长窗口的打开/关闭方式。
+
+### LES-017：pointer 实现移动的元素上加原生拖出，要按需临时打开 draggable
+
+- 日期：2026-11-11
+- 状态：已通过单元测试与源码断言确认；Windows 真机拖拽待验
+- 场景：参考板节点靠 `onPointerDown` + 全局 pointermove 移动。若把整张卡片常设 `draggable`，浏览器会在普通拖动时触发 dragstart 并发 pointercancel，打断画布内移动。
+- 做法：拖出把手是独立的 `draggable` 元素，`onPointerDown` 里 stopPropagation，不进入 `startNodeDrag`；Alt 拖动则在 pointerdown 时才给卡片 DOM 设 `draggable = true` 并跳过移动，在 pointerup/dragend 复位。dragstart 里 preventDefault 后调 `startExternalDrag(ids)`，由主进程 `startDrag` 接管。拖出必须走 `beginExternalDrag`，它置 `externalDragActive`，否则文件落回本窗口时会被全局 drop 当作新导入。
+- 证据：`test/reference-board-drag-out.test.cjs` 6 项通过；撤掉本改动的副本与当前树的全量失败名单一致。
+- 边界：Linux 环境下 vite/rolldown 缺原生绑定无法构建，未实际渲染验证。
+- 复审条件：画布交互改用原生拖动或换拖拽库。

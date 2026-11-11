@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Archive, AudioLines, Download, File, Folder, FolderPlus, Image, LayoutGrid, List, LoaderCircle, LogOut, Plus, RefreshCw, Search, Trash2, Upload, Users, Video, X } from "lucide-react";
 import { Button } from "../ready-ui.jsx";
+import { PresenceTransition } from "./presence-transition.jsx";
 import { createThumbnailQueue, generateThumbnail, thumbnailKind } from "../team-thumbnails.js";
 import "./team-library-panel.css";
 
@@ -41,12 +42,12 @@ function TeamThumb({ asset, libraryId, onNeed }) {
   </span>;
 }
 
-function TeamAssetPreview({ asset, libraryId, close, download }) {
+function TeamAssetPreview({ presenceProps, asset, libraryId, close, download }) {
   if (!asset) return null;
   const source = `teamasset://${libraryId}/${asset.id}`;
   const type = String(asset.type || "");
-  return <div className="team-library-preview-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) close(); }}>
-    <section className="team-library-preview" role="dialog" aria-modal="true" aria-label={`预览 ${asset.name}`}>
+  return <div {...presenceProps} className="team-library-preview-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) close(); }}>
+    <section data-motion-surface className="team-library-preview" role="dialog" aria-modal="true" aria-label={`预览 ${asset.name}`}>
       <header><strong title={asset.name}>{asset.name}</strong><div><Button onClick={() => download(asset)} title="下载素材"><Download size={16} /></Button><Button onClick={close} title="关闭预览"><X size={18} /></Button></div></header>
       <main>{type.startsWith("image/") ? <img src={source} alt={asset.name} />
         : type.startsWith("video/") ? <video src={source} controls playsInline />
@@ -57,7 +58,7 @@ function TeamAssetPreview({ asset, libraryId, close, download }) {
   </div>;
 }
 
-export default function TeamLibraryPanel({ close, onLibraryOpened }) {
+export default function TeamLibraryPanel({ presenceProps, close, onLibraryOpened }) {
   const [connection, setConnection] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -394,8 +395,8 @@ export default function TeamLibraryPanel({ close, onLibraryOpened }) {
   const childFolders = folders.filter(folder => (folder.parentId || null) === folderId).sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
   const searchNow = async event => { event.preventDefault(); setSearched(search.trim()); await loadAssets(true, folderId, search.trim()); };
 
-  return <div className="team-library-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) close(); }}>
-    <section className="team-library-window" role="dialog" aria-modal="true" aria-label="NAS 团队素材库">
+  return <div {...presenceProps} className="team-library-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) close(); }}>
+    <section data-motion-surface className="team-library-window" role="dialog" aria-modal="true" aria-label="NAS 团队素材库">
       <header className="team-library-header">
         <div className="team-library-title"><Folder size={19} /><div><strong>团队素材库</strong><span>{connection?.online ? `在线 · ${connection.username}` : connection?.connected ? "服务暂不可达" : "公司局域网共享"}</span></div></div>
         {connection?.online && <>
@@ -507,6 +508,8 @@ export default function TeamLibraryPanel({ close, onLibraryOpened }) {
         <footer className="team-library-footer"><span>变更序号 {revision}</span><span>NAS 原文件 · 服务端目录 · 实时同步</span></footer>
       </>}
     </section>
-    {preview && <TeamAssetPreview asset={preview} libraryId={connection?.library?.id} close={() => setPreview(null)} download={download} />}
+    <PresenceTransition show={Boolean(preview)} kind="dialog">
+      {({ presenceProps }) => preview ? <TeamAssetPreview presenceProps={presenceProps} asset={preview} libraryId={connection?.library?.id} close={() => setPreview(null)} download={download} /> : null}
+    </PresenceTransition>
   </div>;
 }

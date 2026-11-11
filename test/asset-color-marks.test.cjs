@@ -24,7 +24,8 @@ test('素材卡片按 labelColor 画边缘颜色，名字下面显示备注', ()
   assert.match(main, /import \{ assetColor \} from "\.\/asset-colors\.js"/);
   assert.match(main, /assetColor\(a\.labelColor\) \? "has-color-mark" : ""/);
   assert.match(main, /style=\{assetColor\(a\.labelColor\) \? \{ "--asset-mark": assetColor\(a\.labelColor\)\.value \} : undefined\}/);
-  assert.match(main, /<strong title=\{a\.name\}>\{a\.name\}<\/strong>\s*\{a\.note\?\.trim\(\) && <p className="asset-note" title=\{a\.note\.trim\(\)\}>\{a\.note\.trim\(\)\}<\/p>\}/);
+  // 2026-11-11 Eagle 式网格：名字和备注之间加了一行尺寸（meta-dimensions），备注仍紧跟其后
+  assert.match(main, /<strong title=\{a\.name\}>\{a\.name\}<\/strong>\s*<small className="meta-dimensions">[^\n]*<\/small>\s*\{a\.note\?\.trim\(\) && <p className="asset-note" title=\{a\.note\.trim\(\)\}>\{a\.note\.trim\(\)\}<\/p>\}/);
   const css = read('src', 'soft-ui.css');
   assert.match(css, /\.masonry article\.has-color-mark \{ box-shadow: 0 0 0 3px var\(--asset-mark\)/);
   assert.match(css, /article\.has-color-mark\.selected,[\s\S]*?0 0 0 7px var\(--soft-accent\)/);

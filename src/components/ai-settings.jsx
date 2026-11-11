@@ -45,7 +45,7 @@ function ToolbarLayoutSettings({ layout, onChange }) {
   </section>;
 }
 
-export function AISettings({ initialTab = "通用", close, library, diskInfo, resolvedThemeMode = "dark", checkUpdate, updateInfo, updateChecking, deleteCurrentLibrary, autoUpdate = {}, toolbarLayout, onToolbarLayoutChange, floatingCardCount = 0, onResetCardLayout }) {
+export function AISettings({ presenceProps, initialTab = "通用", close, library, diskInfo, resolvedThemeMode = "dark", checkUpdate, updateInfo, updateChecking, deleteCurrentLibrary, autoUpdate = {}, toolbarLayout, onToolbarLayoutChange, floatingCardCount = 0, onResetCardLayout }) {
   const [tab, setTab] = useState(initialTab),
     [settingsSearch, setSettingsSearch] = useState(""),
     [value, setValue] = useState(null),
@@ -70,10 +70,7 @@ export function AISettings({ initialTab = "通用", close, library, diskInfo, re
   const visibleSettingTabs = SETTING_TABS.filter(([name, , keywords]) =>
     `${name} ${keywords}`.toLocaleLowerCase().includes(settingsSearch.trim().toLocaleLowerCase()),
   );
-  const closeWithTransition = (event) => withViewTransition(() => close(), {
-    kind: "fade",
-    point: event ? { x: event.clientX, y: event.clientY } : null,
-  });
+  const closeSettings = () => close();
   useLayoutEffect(() => {
     const nav = settingsNavRef.current;
     if (!nav) return undefined;
@@ -101,15 +98,15 @@ export function AISettings({ initialTab = "通用", close, library, diskInfo, re
     window.nestDesktop.ai.usage().then(setUsage);
   }, []);
   useEffect(() => {
-    const onKeyDown = event => { if (event.key === "Escape") closeWithTransition(event); };
+    const onKeyDown = event => { if (event.key === "Escape") closeSettings(event); };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeWithTransition]);
-  const backdropMouseDown = event => { if (event.target === event.currentTarget) closeWithTransition(event); };
+  }, [closeSettings]);
+  const backdropMouseDown = event => { if (event.target === event.currentTarget) closeSettings(event); };
   if (!value && tab === "AI 与模型")
     return (
-      <div className="ai-settings-backdrop" onMouseDown={backdropMouseDown}>
-        <div className={"ai-settings-page theme-" + resolvedThemeMode} role="dialog" aria-modal="true" aria-label="偏好设置">
+      <div {...presenceProps} className="ai-settings-backdrop" onMouseDown={backdropMouseDown}>
+        <div data-motion-surface className={"ai-settings-page theme-" + resolvedThemeMode} role="dialog" aria-modal="true" aria-label="偏好设置">
           <p className="settings-loading"><span />正在读取 AI 设置…</p>
         </div>
       </div>
@@ -168,8 +165,8 @@ export function AISettings({ initialTab = "通用", close, library, diskInfo, re
     ["allowLowRisk", "允许 AI 执行低风险操作", "标签、备注等操作仍可撤销"],
   ];
   return (
-    <div className="ai-settings-backdrop" onMouseDown={backdropMouseDown}>
-      <div className={"ai-settings-page theme-" + resolvedThemeMode + (tab !== "AI 与模型" ? " no-side" : "")} role="dialog" aria-modal="true" aria-label="偏好设置">
+    <div {...presenceProps} className="ai-settings-backdrop" onMouseDown={backdropMouseDown}>
+      <div data-motion-surface className={"ai-settings-page theme-" + resolvedThemeMode + (tab !== "AI 与模型" ? " no-side" : "")} role="dialog" aria-modal="true" aria-label="偏好设置">
       <header className="ai-settings-top">
         <div className="ai-settings-brand">
           <span>
@@ -179,7 +176,7 @@ export function AISettings({ initialTab = "通用", close, library, diskInfo, re
           <em>专业版</em>
         </div>
         <div className="ai-settings-crumb">
-          <Button onClick={closeWithTransition}>‹</Button>
+          <Button onClick={closeSettings}>‹</Button>
           <span>偏好设置</span>
           <b>›</b>
           <strong>{tab}</strong>
@@ -190,7 +187,7 @@ export function AISettings({ initialTab = "通用", close, library, diskInfo, re
           {settingsSearch && <Button type="button" aria-label="清除设置搜索" onClick={() => setSettingsSearch("")}><X size={14} /></Button>}
         </label>
         <span className="settings-version-badge">v{APP_VERSION}</span>
-        <Button onClick={closeWithTransition}>
+        <Button onClick={closeSettings}>
           <X size={19} />
         </Button>
       </header>
@@ -457,7 +454,7 @@ export function AISettings({ initialTab = "通用", close, library, diskInfo, re
               <section className="settings-generic">
                 <h2>快捷键</h2>
                 <div className="settings-kv">
-                  {[["Ctrl / ⌘ + O", "打开资源库"], ["Ctrl / ⌘ + F", "聚焦素材搜索"], ["Ctrl / ⌘ + Shift + N", "新建文件夹"], ["Ctrl / ⌘ + ,", "打开偏好设置"], ["Ctrl / ⌘ + A", "全选当前视图素材"], ["Ctrl / ⌘ + C", "复制选中文件"], ["空格", "试听 / 暂停音频"], ["Esc", "关闭面板与浮层"], ["← / →", "预览切换上一个 / 下一个"], ["R", "预览旋转 90°"], ["0", "预览复位缩放"], ["双击", "快速预览素材"]].map(([k, d]) => (
+                  {[["Ctrl / ⌘ + O", "打开资源库"], ["Ctrl / ⌘ + F", "聚焦素材搜索"], ["Ctrl / ⌘ + Shift + N", "新建文件夹"], ["Ctrl / ⌘ + ,", "打开偏好设置"], ["Ctrl / ⌘ + A", "全选当前视图素材"], ["Ctrl / ⌘ + C", "复制选中文件"], ["空格", "快速预览选中素材 / 关闭预览（音频预览中为试听 / 暂停）"], ["Esc", "关闭面板与浮层"], ["← / →", "预览切换上一个 / 下一个"], ["R", "预览旋转 90°"], ["0", "预览复位缩放"], ["双击", "快速预览素材"]].map(([k, d]) => (
                     <div key={k}><span>{d}</span><b className="mono">{k}</b></div>
                   ))}
                 </div>

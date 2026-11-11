@@ -51,6 +51,10 @@
   let pageMutationObserver = null;
   const promptHighlighters = new WeakMap();
   const videoExtendReferenceSessions = new Map();
+  // 每个小旺仔延长工作台对应哪一个 AI Flow 延长窗口
+  const videoExtendWorkbenchDialogs = new WeakMap();
+  // 提交延长期间不动 AI Flow 的窗口，等它关掉再恢复
+  let videoExtendSubmitting = false;
   const recentReferenceInsertions = new WeakMap();
   // The right-hand library takes focus when a material is chosen. Keep the
   // left prompt's last explicit caret so a new reference never falls to the
@@ -152,6 +156,38 @@
       container = container.parentElement;
     }
     return null;
+  }
+
+  // AI Flow 关掉延长窗口时，有时只是藏起来、留在页面里，下次点「延长」再拿出来用。
+  // 所以"找到了延长窗口"不等于"窗口开着"，要看它此刻是否真的显示在屏幕上。
+  function isVideoExtendDialogShown(dialog) {
+    if (!(dialog instanceof HTMLElement) || !dialog.isConnected) return false;
+    for (let node = dialog; node && node !== document.documentElement; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      if (style.display === 'none' || style.visibility === 'hidden') return false;
+    }
+    return dialog.getClientRects().length > 0;
+  }
+
+  // 页面里可能同时有一个藏起来的旧窗口和一个新打开的窗口，优先取正在显示的那个。
+  function currentVideoExtendEditor() {
+    const editors = [...document.querySelectorAll('textarea')].filter(isVideoExtendPrompt);
+    return editors.find(editor => isVideoExtendDialogShown(videoExtendContainer(editor))) || editors[0];
+  }
+
+  const PAGE_OBSERVER_OPTIONS = { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] };
+
+  // 「打开 AI Flow 原窗口」和「提交延长」会暂停页面监听，免得和 AI Flow 的重绘打架。
+  // 窗口一关就恢复监听，下次点「延长」才会重新弹出小旺仔延长工作台。
+  function resumeAfterVideoExtendDialogCloses(dialog, onClosed) {
+    const watch = setInterval(() => {
+      if (isVideoExtendDialogShown(dialog)) return;
+      clearInterval(watch);
+      try { onClosed?.(); } catch { /* 清理失败不影响恢复监听 */ }
+      pageMutationObserver?.observe(document.documentElement, PAGE_OBSERVER_OPTIONS);
+      ensureLiveSyncTimer();
+      injectVideoExtendWorkbench();
+    }, 300);
   }
 
   function referenceAssetKey(asset) {
@@ -584,7 +620,7 @@
   const FOLDER_GLYPH = '<svg class="nx-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h3.6a2 2 0 0 1 1.4.6L12 6h6.5A2.5 2.5 0 0 1 21 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>';
 
   function injectVideoExtendLibraryPanel() {
-    const editor = [...document.querySelectorAll('textarea')].find(isVideoExtendPrompt);
+    const editor = currentVideoExtendEditor();
     const dialog = editor && videoExtendContainer(editor);
     const existing = document.getElementById(VIDEO_EXTEND_LIBRARY_PANEL_ID);
     if (!editor || !dialog) { existing?.remove(); return; }
@@ -922,7 +958,7 @@
   }
 
   function isNativeVideoExtendModeOpen() {
-    const editor = [...document.querySelectorAll('textarea')].find(isVideoExtendPrompt);
+    const editor = currentVideoExtendEditor();
     const dialog = editor && videoExtendContainer(editor);
     return Boolean(dialog?.dataset.nestWorkbenchDisabled === 'true');
   }
@@ -1000,14 +1036,23 @@
   }
 
   function injectVideoExtendWorkbench() {
-    const editor = [...document.querySelectorAll('textarea')].find(isVideoExtendPrompt);
+    if (videoExtendSubmitting) return;
+    const editor = currentVideoExtendEditor();
     const dialog = editor && videoExtendContainer(editor);
-    const existing = document.getElementById(VIDEO_EXTEND_WORKBENCH_ID);
-    if (!editor || !dialog) {
+    let existing = document.getElementById(VIDEO_EXTEND_WORKBENCH_ID);
+    if (!editor || !dialog || !isVideoExtendDialogShown(dialog)) {
       existing?.remove();
       document.getElementById(VIDEO_EXTEND_WORKBENCH_RETURN_ID)?.remove();
       document.querySelector('.nest-aiflow-video-extend-native-hidden')?.classList.remove('nest-aiflow-video-extend-native-hidden');
+      // 窗口已经关了：上次选的「用原窗口」只对那一次有效，下次打开仍弹小旺仔延长工作台
+      if (dialog) delete dialog.dataset.nestWorkbenchDisabled;
       return;
+    }
+    if (existing && videoExtendWorkbenchDialogs.get(existing) !== dialog) {
+      // 上一个延长窗口留下的工作台（原窗口模式下是藏起来的），换了新窗口就重建
+      existing.remove();
+      document.getElementById(VIDEO_EXTEND_WORKBENCH_RETURN_ID)?.remove();
+      existing = null;
     }
     if (existing) return;
     // “打开 AI Flow 原窗口” is an explicit opt-out for this modal instance.
@@ -1040,6 +1085,7 @@
     // 用 div 不用 section/header：AI Flow 的"页面配色"会给所有 section/header 强行刷底色
     const workbench = document.createElement('div');
     workbench.id = VIDEO_EXTEND_WORKBENCH_ID;
+    videoExtendWorkbenchDialogs.set(workbench, dialog);
     workbench.setAttribute('role', 'dialog');
     workbench.setAttribute('aria-label', '小旺仔延长工作台');
     workbench.innerHTML = `<div class="nx-head" data-nest-workbench-drag><span class="nx-mark" aria-hidden="true">▶</span><div class="nx-title"><b>小旺仔延长工作台<span class="nx-ver"></span></b><small data-nest-workbench-source>AI Flow 视频延长</small></div><button type="button" class="nx-btn nx-round" data-nest-workbench-close title="关闭（AI Flow 的延长窗口一起关闭）" aria-label="关闭">×</button></div><div class="nx-body"><div class="nx-col"><div class="nx-preview" data-nest-workbench-preview><div class="nx-empty">正在读取视频预览…</div></div></div><div class="nx-col"><div class="nx-field"><span class="nx-label">延长方向</span><div class="nx-dirs" role="group" aria-label="延长方向"><button type="button" class="nx-btn" data-nest-workbench-direction="end">向后延长<small>接结尾</small></button><button type="button" class="nx-btn" data-nest-workbench-direction="start">向前延长<small>补开头</small></button></div></div><div class="nx-row"><div class="nx-field"><span class="nx-label">延长秒数</span><div class="nx-stepper"><button type="button" class="nx-btn" data-nest-workbench-seconds-step="-1" aria-label="少 1 秒">−</button><input type="number" data-nest-workbench-seconds aria-label="延长秒数"><button type="button" class="nx-btn" data-nest-workbench-seconds-step="1" aria-label="多 1 秒">+</button><span class="nx-unit">秒</span></div></div><button type="button" class="nx-btn" data-nest-workbench-match title="识别提示词里的人物，替换成对应的 @图片 引用">自动匹配人物</button></div><div class="nx-field"><span class="nx-label">延长参考素材</span><div class="nx-chips" data-nest-workbench-chips>暂无参考素材</div></div><div class="nx-field nx-grow"><div class="nx-prompt-head"><span class="nx-label">延长提示词</span><span data-nest-workbench-count>0</span><button type="button" class="nx-btn nx-mini" data-nest-workbench-clear>清空</button></div><div class="nx-prompt-wrap"><textarea data-nest-workbench-prompt placeholder="写接着做什么，例如人物转身走向门口；可直接输入 @图片1、@视频1 等引用…"></textarea></div><div data-nest-workbench-reference-hints></div></div></div></div><div class="nx-foot"><button type="button" class="nx-btn nx-ghost" data-nest-workbench-native>打开 AI Flow 原窗口</button><button type="button" class="nx-btn nx-go" data-nest-workbench-submit>提交延长</button></div>`;
@@ -1242,6 +1288,7 @@
       // AI Flow re-renders its dialog during submit. Stop all extension DOM
       // work first so that re-render cannot race the native submit handler.
       workbench.dataset.nestWorkbenchSubmitting = 'true';
+      videoExtendSubmitting = true;
       pageMutationObserver?.disconnect();
       if (liveSyncTimer) { clearInterval(liveSyncTimer); liveSyncTimer = null; }
       document.getElementById(VIDEO_EXTEND_LIBRARY_PANEL_ID)?.remove();
@@ -1250,6 +1297,7 @@
       dialog.classList.remove('nest-aiflow-video-extend-native-hidden');
       workbench.remove();
       nativeSubmit.click();
+      resumeAfterVideoExtendDialogCloses(dialog, () => { videoExtendSubmitting = false; });
     });
     workbench.querySelector('[data-nest-workbench-close]')?.addEventListener('click', () => {
       const nativeRoot = dialog.closest('[role="dialog"], .modal, .dialog') || dialog;
@@ -1292,11 +1340,16 @@
         delete dialog.dataset.nestWorkbenchDisabled;
         dialog.classList.add('nest-aiflow-video-extend-native-hidden');
         workbench.style.removeProperty('display');
-        pageMutationObserver?.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+        pageMutationObserver?.observe(document.documentElement, PAGE_OBSERVER_OPTIONS);
         ensureLiveSyncTimer();
         back.remove();
       });
       document.body.appendChild(back);
+      resumeAfterVideoExtendDialogCloses(dialog, () => {
+        delete dialog.dataset.nestWorkbenchDisabled;
+        back.remove();
+        workbench.remove();
+      });
     });
     const nestWorkbenchDrag = workbench.querySelector('[data-nest-workbench-drag]');
     nestWorkbenchDrag?.addEventListener('pointerdown', event => {
@@ -1454,7 +1507,7 @@
   }
 
   function injectVideoExtendAutoMatchButton() {
-    const editor = [...document.querySelectorAll('textarea')].find(isVideoExtendPrompt);
+    const editor = currentVideoExtendEditor();
     const dialog = editor && videoExtendContainer(editor);
     if (!editor || !dialog) return;
     const sourceButton = dialog.querySelector('#sd25RefAdd')
@@ -1927,7 +1980,7 @@
   async function attachUploadedVideoExtendReferences(remoteAssetIds) {
     const ids = [...new Set((Array.isArray(remoteAssetIds) ? remoteAssetIds : [])
       .map(id => String(id || '').trim()).filter(id => /^\d{1,18}$/.test(id)))];
-    const editor = [...document.querySelectorAll('textarea')].find(isVideoExtendPrompt);
+    const editor = currentVideoExtendEditor();
     const dialog = editor && videoExtendContainer(editor);
     if (!ids.length || !dialog) return null;
     const sourceButton = [...dialog.querySelectorAll('button')].find(button => /^@?素材$/.test(String(button.textContent || '').trim()));
@@ -2445,6 +2498,14 @@
       || (event.target instanceof Element ? event.target.closest('.task-card[data-taskid]') : null);
     const taskId = String(AI_FLOW_DOM?.taskId?.(card) || card?.dataset?.taskid || '').trim();
     if (taskId) lastVideoExtendTaskId = taskId;
+    // AI Flow 重新拿出藏起来的延长窗口时，可能只改 style，页面监听收不到；点完稍后再查一次
+    setTimeout(injectVideoExtendWorkbench, 80);
+    setTimeout(injectVideoExtendWorkbench, 400);
+    // 延长出来的视频点「重制」也会打开 AI Flow 的延长窗口，但它要先读任务参数，窗口来得晚；
+    // 点「重制」「延长」后多查到 2 秒，保证弹出的是小旺仔延长工作台
+    const actionButton = event.target instanceof Element ? event.target.closest('button, [role="button"]') : null;
+    const actionText = String(actionButton?.textContent || actionButton?.getAttribute('title') || '').replace(/\s+/g, '');
+    if (/^(重制|延长)$/.test(actionText)) for (const delay of [800, 1300, 2000]) setTimeout(injectVideoExtendWorkbench, delay);
   }, true);
 
   document.addEventListener('contextmenu', event => {
@@ -2485,7 +2546,8 @@
   });
 
   pageMutationObserver = new MutationObserver(() => {
-    injectButton();        injectFolderSyncButton();
+    injectButton();
+        injectFolderSyncButton();
         injectFolderStructureLinkButton();
         injectFolderStructureSyncButton();
         injectPromptReferenceHighlights();
@@ -2497,15 +2559,11 @@
     document.getElementById(LEGACY_UPLOAD_BUTTON_ID)?.remove();
     ensureLiveSyncTimer();
   });
-  pageMutationObserver.observe(document.documentElement, {
-    subtree: true,
-    childList: true,
-    attributes: true,
-    attributeFilter: ['class'],
-  });
+  pageMutationObserver.observe(document.documentElement, PAGE_OBSERVER_OPTIONS);
   injectFolderSyncButton();
   injectFolderStructureLinkButton();
-  injectFolderStructureSyncButton();      injectPromptReferenceHighlights();
+  injectFolderStructureSyncButton();
+      injectPromptReferenceHighlights();
       injectVideoExtendLibraryPanel();
       injectVideoExtendAutoMatchButton();
       injectVideoExtendWorkbench();

@@ -1,5 +1,8 @@
 # Historical Windows baseline from the 3.0.55 r9 worktree before the first macOS run.
 # The macOS workflow compares names literally and reports platform-specific differences.
+# Known stale source-shape assertions retained after the UI and extension refactors.
+browser extension declares AI Flow video, two-way folder sync, upload, and manual web-asset links behind the paired bridge
+the sidebar version opens an accessible community-support dialog without a third-party payment target
 Eagle graphite is the default palette with blue selection accent
 Eagle graphite remains the first available palette
 HTTP endpoint rejects browser origins, unknown peers and invalid message IDs

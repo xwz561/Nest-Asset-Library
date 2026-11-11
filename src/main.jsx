@@ -1,6 +1,7 @@
 import { APP_VERSION, TETRIS_ACCESS_CODE, INTERNAL_DRAG, FOLDER_DRAG, isTxtAsset, isTextEditableAsset, clampSidebarWidth, SIDEBAR_WIDTH_KEY, VIEW_MODES, VIEW_MODE_KEY, ROOT_FOLDER_DROP, SORT_OPTIONS, isExternalEditableAsset } from "./lib/app-config.js";
 import { saveAsset, clearPending, writePending, removeAsset } from "./lib/browser-library.js";
-import { LibrarySwitcherMenu, FolderMark, SortMenu, FilterPopover, FolderContextMenu, BlankContextMenu, AssetContextMenu } from "./components/menus.jsx";
+import { LibrarySwitcherMenu, PresencePortal, FolderMark, SortMenu, FilterPopover, FolderContextMenu, BlankContextMenu, AssetContextMenu } from "./components/menus.jsx";
+import { PresenceTransition } from "./components/presence-transition.jsx";
 import { SidebarFooter } from "./components/sidebar-footer.jsx";
 import { SoftCard } from "./components/soft-card.jsx";
 import { ErrorBoundary } from "./components/error-boundary.jsx";
@@ -32,6 +33,7 @@ import {Button, ReadyUI} from './ready-ui.jsx';
 import {FlatTree, FlatTreeItem} from '@fluentui/react-components';
 
 import { folderPositions } from "./file-manager-adapter.cjs";
+import { resolveSpacePreviewAction, isSpaceKey } from "./lib/space-preview.cjs";
 
 import { LanChat } from './lan-chat.jsx';
 import { loadToolbarLayout, normalizeToolbarLayout, TOOLBAR_LAYOUT_KEY } from "./toolbar-layout.js";
@@ -228,7 +230,9 @@ function App() {
     lastSelectedId = useRef(null),
     sidebarResizing = useRef(false),
     contextMenuRef = useRef(null),
-    contextMenuFlyoutRef = useRef(null),
+    contextMenuFriendFlyoutRef = useRef(null),
+    contextMenuMoveFlyoutRef = useRef(null),
+    contextMenuFolderIconRef = useRef(null),
     appMenuRef = useRef(null),
     appMenuPanelRef = useRef(null),
     searchInputRef = useRef(null),
@@ -264,11 +268,9 @@ function App() {
         resolve,
       }),
     );
-  const resolveDialog = (value, event) => {
-    withViewTransition(() => {
-      dialogState?.resolve(value);
-      setDialogState(null);
-    }, { kind: "fade", point: event ? { x: event.clientX, y: event.clientY } : null });
+  const resolveDialog = (value) => {
+    dialogState?.resolve(value);
+    setDialogState(null);
   };
 
   useEffect(() => {
@@ -454,7 +456,10 @@ function App() {
   useEffect(() => {
     if (!contextMenu) return;
     let closeTimer = null;
-    const insideMenu = (target) => contextMenuRef.current?.contains(target) || contextMenuFlyoutRef.current?.contains(target);
+    const insideMenu = (target) => contextMenuRef.current?.contains(target)
+      || contextMenuFriendFlyoutRef.current?.contains(target)
+      || contextMenuMoveFlyoutRef.current?.contains(target)
+      || contextMenuFolderIconRef.current?.contains(target);
     const close = (event) => {
       if (event && insideMenu(event.target)) return;
       setContextMenu(null);
@@ -1190,16 +1195,23 @@ function App() {
     const result = await window.nestDesktop.copyAsset(asset.id);
     showMessage(result?.error ? result.error : "文件已复制，可粘贴到其他位置", 2500);
   };
-  const startExternalAssetDrag = (event, asset) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const ids = selectedIds.includes(asset.id) ? selectedIds : [asset.id];
+  const beginExternalDrag = (ids) => {
     externalDragActive.current = true;
     clearTimeout(externalDragTimer.current);
     externalDragTimer.current = setTimeout(() => {
       externalDragActive.current = false;
     }, 30000);
     window.nestDesktop?.startExternalDrag(ids);
+  };
+  const endExternalDrag = () => {
+    externalDragActive.current = false;
+    clearTimeout(externalDragTimer.current);
+  };
+  const startExternalAssetDrag = (event, asset) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const ids = selectedIds.includes(asset.id) ? selectedIds : [asset.id];
+    beginExternalDrag(ids);
   };
   const startAssetDrag = (event, asset) => {
     if (event.target.closest("button,input")) {
@@ -1692,19 +1704,24 @@ function App() {
           copyAssetToClipboard(asset);
         }
       }
-      if (
-        event.code === "Space" &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey
-      ) {
-        const asset = previewId
-          ? assetsRef.current.find(item => item.id === previewId && item.type?.startsWith("audio"))
-          : null;
-        if (asset) {
-          event.preventDefault();
-          audioPreviewManager.toggle(asset);
+      if (isSpaceKey(event)) {
+        // 空格快速预览：选中素材按空格打开，再按空格（或 Esc）关闭；音频预览里空格仍是试听 / 暂停。
+        const currentPreview = previewId ? shown.find(item => item.id === previewId) || null : null;
+        const selectedAsset = selected || assetsRef.current.find((item) => selectedIds.includes(item.id)) || null;
+        const action = resolveSpacePreviewAction({
+          event,
+          previewAsset: currentPreview,
+          selectedAsset,
+          canQuickLook: (asset) => !isTxtAsset(asset) && !isExternalEditableAsset(asset) && shown.some(item => item.id === asset.id),
+        });
+        if (action) event.preventDefault();
+        if (action === "toggle-audio") audioPreviewManager.toggle(currentPreview);
+        else if (action === "close") setPreviewId(null);
+        else if (action === "open") {
+          setPreviewId(selectedAsset.id);
+          resetPreviewView();
         }
+        if (action) return;
       }
       const previewAudio = previewId ? assetsRef.current.find(item => item.id === previewId && item.type?.startsWith("audio")) : null;
       if (previewAudio && event.key === "ArrowLeft") { event.preventDefault(); audioPreviewManager.seekBy(previewAudio, -5); }
@@ -1946,8 +1963,8 @@ function App() {
           >
             <Menu size={19} />
           </Button>
-          {appMenuOpen && createPortal(
-            <LibrarySwitcherMenu
+          <PresenceTransition show={appMenuOpen} kind="menu">
+            {({ presenceProps }) => <PresencePortal presenceProps={presenceProps} render={portalProps => <LibrarySwitcherMenu
               panelRef={appMenuPanelRef}
               position={appMenuPosition}
               themeVariables={themeStyle(renderedTheme, resolvedThemeMode)}
@@ -1963,9 +1980,9 @@ function App() {
               onMerge={mergeOtherLibrary}
               onDelete={deleteCurrentLibrary}
               onDismiss={() => setAppMenuOpen(false)}
-            />,
-            document.body,
-          )}
+              presenceProps={portalProps}
+            />} />}
+          </PresenceTransition>
         </div>
         </SoftCard>
         <SoftCard id="import" cards={cardLayout}>
@@ -2502,6 +2519,8 @@ function App() {
             folders={library?.folders || []}
             preferredFolderId={activeFolder}
             canEdit={canEdit}
+            startExternalDrag={desktop ? beginExternalDrag : undefined}
+            endExternalDrag={endExternalDrag}
             activeBoardId={activeReferenceBoardId}
             setActiveBoardId={setActiveReferenceBoardId}
             createBoard={createReferenceBoard}
@@ -2570,15 +2589,16 @@ function App() {
                 <ChevronDown size={15} />{" "}
                 {SORT_OPTIONS.find((item) => item[0] === sortOrder)?.[1]}
               </Button>
-              {sortPanel && (
-                <SortMenu
+              <PresenceTransition show={sortPanel} kind="menu">
+                {({ presenceProps }) => <SortMenu
                   value={sortOrder}
+                  presenceProps={presenceProps}
                   choose={(value) => {
                     setSortOrder(value);
                     setSortPanel(false);
                   }}
-                />
-              )}
+                />}
+              </PresenceTransition>
             </div>
             <div className="popover-anchor">
               <Button
@@ -2599,15 +2619,16 @@ function App() {
                   </b>
                 )}
               </Button>
-              {filterPanel && (
-                <FilterPopover
+              <PresenceTransition show={filterPanel} kind="menu">
+                {({ presenceProps }) => <FilterPopover
                   types={quickTypes}
                   formats={quickFormats}
                   setTypes={setQuickTypes}
                   setFormats={setQuickFormats}
                   close={() => setFilterPanel(false)}
-                />
-              )}
+                  presenceProps={presenceProps}
+                />}
+              </PresenceTransition>
             </div>
             <Button
               className="view-mode-button"
@@ -2767,6 +2788,7 @@ function App() {
                 </div>
                   <div className="meta" title="拖动名称可移动到内部文件夹">
                     <strong title={a.name}>{a.name}</strong>
+                    <small className="meta-dimensions">{a.width && a.height ? `${a.width} × ${a.height}` : ""}</small>
                     {a.note?.trim() && <p className="asset-note" title={a.note.trim()}>{a.note.trim()}</p>}
                     <div>
                       {(() => {
@@ -2977,12 +2999,13 @@ function App() {
           </div>
         </div>
       )}
-      {contextMenu?.kind === "folder" ? (
+      <PresenceTransition show={Boolean(contextMenu)} kind="menu">
+        {({ presenceProps }) => contextMenu ? (contextMenu?.kind === "folder" ? (
         <FolderContextMenu
           readOnly={!canEdit}
           menu={contextMenu}
           menuRef={contextMenuRef}
-          flyoutRef={contextMenuFlyoutRef}
+          flyoutRef={contextMenuFolderIconRef}
           close={() => setContextMenu(null)}
           actions={{
             open: () => {
@@ -3009,6 +3032,7 @@ function App() {
             expandedFolderIds,
           }}
           liveSyncEnabled={aiFlowLiveSyncEnabledForFolder(contextMenu.folder)}
+          presenceProps={presenceProps}
         />
       ) : contextMenu?.kind === "blank" ? (
         <BlankContextMenu
@@ -3016,6 +3040,7 @@ function App() {
           menuRef={contextMenuRef}
           close={() => setContextMenu(null)}
           create={(kind) => createDocument(kind, contextMenu.folderId)}
+          presenceProps={presenceProps}
         />
       ) : (
         contextMenu && (
@@ -3023,7 +3048,8 @@ function App() {
             readOnly={!canEdit}
             menu={contextMenu}
             menuRef={contextMenuRef}
-            submenuRef={contextMenuFlyoutRef}
+            friendSubmenuRef={contextMenuFriendFlyoutRef}
+            moveSubmenuRef={contextMenuMoveFlyoutRef}
             folders={allOrderedFolders}
             friends={lanFriends.filter(peer => peer.online)}
             close={() => setContextMenu(null)}
@@ -3077,160 +3103,204 @@ function App() {
               forward: desktop ? () => openForward({ assetIds: selectedIds.includes(contextMenu.asset.id) ? selectedIds : [contextMenu.asset.id] }) : null,
               delete: () => contextDelete(contextMenu.asset),
             }}
+            presenceProps={presenceProps}
           />
         )
-      )}
-      {dialogState && <AppDialog state={dialogState} resolve={resolveDialog} />}
-      {tetrisPasswordOpen && (
-        <TetrisAccessDialog
-          password={tetrisPassword}
-          error={tetrisPasswordError}
-          changePassword={(value) => {
-            setTetrisPassword(value);
-            setTetrisPasswordError("");
-          }}
-          close={() => {
-            setTetrisPasswordOpen(false);
-            setTetrisPasswordError("");
-          }}
-          unlock={unlockTetris}
-        />
-      )}
-      {aiFlowImportPanel && (
-        <AIFlowImportDialog
-          close={() => !importing && setAiFlowImportPanel(false)}
-          importing={importing}
-          importItems={importAIFlowItems}
-          folderName={activeFolder ? library?.folders?.find((folder) => folder.id === activeFolder)?.name || "当前文件夹" : "未选择文件夹"}
-          hasTargetFolder={Boolean(activeFolder)}
-          applyLibrary={applyLibrary}
-        />
-      )}
-      {extensionPanel && (
-        <ExtensionPanel
-          busy={extensionBusy}
-          result={extensionResult}
-          install={prepareExtension}
-          uninstall={uninstallExtension}
-          plugins={plugins}
-          mcpConfig={mcpConfig}
-          openPluginsFolder={() => window.nestDesktop.openPluginsFolder()}
-          togglePlugin={async (id, enabled) => {
-            const result = await window.nestDesktop.setPluginEnabled(id, enabled);
-            if (result?.error) showMessage(result.error);
-            else setPlugins(result.plugins || []);
-          }}
-          close={() => setExtensionPanel(false)}
-        />
-      )}
-      {friendToolsOpen && (
-        <FriendToolsDialog
-          platform={window.nestDesktop?.platform}
-          close={() => { if (!friendToolBusy) setFriendToolsOpen(false); }}
-          busy={friendToolBusy}
-          error={friendToolError}
-          launchCursorPicker={async () => {
-            setFriendToolBusy(true);
-            setFriendToolError("");
-            try {
-              const result = await window.nestDesktop.openCursorPicker();
-              if (result?.error) setFriendToolError(result.error);
-              else {
-                setFriendToolsOpen(false);
-                showMessage("已启动 macOS 指针管家", 2500);
+      )) : null}
+      </PresenceTransition>
+      <PresenceTransition show={Boolean(dialogState)} kind="dialog">
+        {({ presenceProps }) => dialogState ? <AppDialog presenceProps={presenceProps} state={dialogState} resolve={resolveDialog} /> : null}
+      </PresenceTransition>
+      <PresenceTransition show={tetrisPasswordOpen} kind="dialog">
+        {({ presenceProps }) => tetrisPasswordOpen ? (
+          <TetrisAccessDialog
+            presenceProps={presenceProps}
+            password={tetrisPassword}
+            error={tetrisPasswordError}
+            changePassword={(value) => {
+              setTetrisPassword(value);
+              setTetrisPasswordError("");
+            }}
+            close={() => {
+              setTetrisPasswordOpen(false);
+              setTetrisPasswordError("");
+            }}
+            unlock={unlockTetris}
+          />
+        ) : null}
+      </PresenceTransition>
+      <PresenceTransition show={aiFlowImportPanel} kind="dialog">
+        {({ presenceProps }) => aiFlowImportPanel ? (
+          <AIFlowImportDialog
+            presenceProps={presenceProps}
+            close={() => !importing && setAiFlowImportPanel(false)}
+            importing={importing}
+            importItems={importAIFlowItems}
+            folderName={activeFolder ? library?.folders?.find((folder) => folder.id === activeFolder)?.name || "当前文件夹" : "未选择文件夹"}
+            hasTargetFolder={Boolean(activeFolder)}
+            applyLibrary={applyLibrary}
+          />
+        ) : null}
+      </PresenceTransition>
+      <PresenceTransition show={extensionPanel} kind="dialog">
+        {({ presenceProps }) => extensionPanel ? (
+          <ExtensionPanel
+            presenceProps={presenceProps}
+            busy={extensionBusy}
+            result={extensionResult}
+            install={prepareExtension}
+            uninstall={uninstallExtension}
+            plugins={plugins}
+            mcpConfig={mcpConfig}
+            openPluginsFolder={() => window.nestDesktop.openPluginsFolder()}
+            togglePlugin={async (id, enabled) => {
+              const result = await window.nestDesktop.setPluginEnabled(id, enabled);
+              if (result?.error) showMessage(result.error);
+              else setPlugins(result.plugins || []);
+            }}
+            close={() => setExtensionPanel(false)}
+          />
+        ) : null}
+      </PresenceTransition>
+      <PresenceTransition show={friendToolsOpen} kind="dialog">
+        {({ presenceProps }) => friendToolsOpen ? (
+          <FriendToolsDialog
+            presenceProps={presenceProps}
+            platform={window.nestDesktop?.platform}
+            close={() => { if (!friendToolBusy) setFriendToolsOpen(false); }}
+            busy={friendToolBusy}
+            error={friendToolError}
+            launchCursorPicker={async () => {
+              setFriendToolBusy(true);
+              setFriendToolError("");
+              try {
+                const result = await window.nestDesktop.openCursorPicker();
+                if (result?.error) setFriendToolError(result.error);
+                else {
+                  setFriendToolsOpen(false);
+                  showMessage("已启动 macOS 指针管家", 2500);
+                }
+              } catch (error) {
+                setFriendToolError(error.message || "启动失败");
+              } finally {
+                setFriendToolBusy(false);
               }
-            } catch (error) {
-              setFriendToolError(error.message || "启动失败");
-            } finally {
-              setFriendToolBusy(false);
-            }
-          }}
-          launchDepthVideoConverter={async () => {
-            setFriendToolBusy(true);
-            setFriendToolError("");
-            try {
-              const result = await window.nestDesktop.openDepthVideoConverter();
-              if (result?.error) setFriendToolError(result.error);
-              else {
-                setFriendToolsOpen(false);
-                showMessage("已启动深度视频转换器，将自动识别随包模型", 4500);
+            }}
+            launchDepthVideoConverter={async () => {
+              setFriendToolBusy(true);
+              setFriendToolError("");
+              try {
+                const result = await window.nestDesktop.openDepthVideoConverter();
+                if (result?.error) setFriendToolError(result.error);
+                else {
+                  setFriendToolsOpen(false);
+                  showMessage("已启动深度视频转换器，将自动识别随包模型", 4500);
+                }
+              } catch (error) {
+                setFriendToolError(error.message || "深度视频转换器启动失败");
+              } finally {
+                setFriendToolBusy(false);
               }
-            } catch (error) {
-              setFriendToolError(error.message || "深度视频转换器启动失败");
-            } finally {
-              setFriendToolBusy(false);
-            }
-          }}
-        />
-      )}
-      {aiSettingsPanel && (
-        <AISettings
-          initialTab={settingsInitialTab}
-          close={() => {
-            setAiSettingsPanel(false);
-          }}
-          library={library}
-          diskInfo={diskInfo}
-          resolvedThemeMode={resolvedThemeMode}
-          checkUpdate={checkUpdate}
-          updateInfo={updateInfo}
-          updateChecking={updateChecking}
-          deleteCurrentLibrary={deleteCurrentLibrary}
-          autoUpdate={autoUpdate}
-          toolbarLayout={toolbarLayout}
-          onToolbarLayoutChange={saveToolbarLayout}
-          floatingCardCount={cardLayout.floatingCount}
-          onResetCardLayout={cardLayout.resetAll}
-        />
-      )}
-      {aboutPanel && <AboutDialog close={() => setAboutPanel(false)} version={APP_VERSION} />}
-      {updatePanel && updateInfo && (
-        <UpdatePanel
-          info={updateInfo}
-          progress={updateProgress}
-          file={updateFile}
-          error={updateError}
-          close={() => setUpdatePanel(false)}
-          download={downloadUpdate}
-          install={installUpdate}
-        />
-      )}
-      {supportPanel && <SupportPanel close={closeSupportPanel} />}
-      {usageDemoOpen && (
-        <UsageDemoDialog
-          close={() => setUsageDemoOpen(false)}
-          openTour={() => {
-            setUsageDemoOpen(false);
-            startOnboarding();
-          }}
-        />
-      )}
-      {onboardingOpen && (
-        <OnboardingTour
-          onClose={() => {
-            localStorage.setItem(onboardingSeenKey, "seen");
-            setOnboardingOpen(false);
-          }}
-        />
-      )}
-      {finderOpen && <LibraryFinderDialog
-        close={() => setFinderOpen(false)}
-        added={() => { void refreshRecentLibraries().catch(() => {}); }}
-        openFound={async (item) => {
-          setFinderOpen(false);
-          await chooseLibrary(() => window.nestDesktop.libraryFinder.open(item.path));
-        }}
-      />}
-      {forwardPanel && <ForwardDialog
-        libraries={recentLibraries.filter(item => !item.current)}
-        assetCount={forwardPanel.assetIds.length}
-        folderCount={forwardPanel.folderIds.length}
-        assetIds={forwardPanel.assetIds}
-        folderIds={forwardPanel.folderIds}
-        close={() => setForwardPanel(null)}
-        done={(result) => showMessage(`已转发 ${result.copied} 个素材到「${result.targetName}」`, 4000)}
-      />}
-      {teamPanel && <TeamPanel library={library} close={() => setTeamPanel(false)} changed={(team) => setLibrary((current) => current ? {...current, team} : current)} />}
+            }}
+          />
+        ) : null}
+      </PresenceTransition>
+      <PresenceTransition show={aiSettingsPanel} kind="dialog">
+        {({ presenceProps }) => aiSettingsPanel ? (
+          <AISettings
+            presenceProps={presenceProps}
+            initialTab={settingsInitialTab}
+            close={() => {
+              setAiSettingsPanel(false);
+            }}
+            library={library}
+            diskInfo={diskInfo}
+            resolvedThemeMode={resolvedThemeMode}
+            checkUpdate={checkUpdate}
+            updateInfo={updateInfo}
+            updateChecking={updateChecking}
+            deleteCurrentLibrary={deleteCurrentLibrary}
+            autoUpdate={autoUpdate}
+            toolbarLayout={toolbarLayout}
+            onToolbarLayoutChange={saveToolbarLayout}
+            floatingCardCount={cardLayout.floatingCount}
+            onResetCardLayout={cardLayout.resetAll}
+          />
+        ) : null}
+      </PresenceTransition>
+      <PresenceTransition show={aboutPanel} kind="dialog">
+        {({ presenceProps }) => aboutPanel ? <AboutDialog presenceProps={presenceProps} close={() => setAboutPanel(false)} version={APP_VERSION} /> : null}
+      </PresenceTransition>
+      <PresenceTransition show={Boolean(updatePanel && updateInfo)} kind="dialog">
+        {({ presenceProps }) => updatePanel && updateInfo ? (
+          <UpdatePanel
+            presenceProps={presenceProps}
+            info={updateInfo}
+            progress={updateProgress}
+            file={updateFile}
+            error={updateError}
+            close={() => setUpdatePanel(false)}
+            download={downloadUpdate}
+            install={installUpdate}
+          />
+        ) : null}
+      </PresenceTransition>
+      <PresenceTransition show={supportPanel} kind="dialog">
+        {({ presenceProps }) => supportPanel ? <SupportPanel presenceProps={presenceProps} close={closeSupportPanel} /> : null}
+      </PresenceTransition>
+      <PresenceTransition show={usageDemoOpen} kind="dialog">
+        {({ presenceProps }) => usageDemoOpen ? (
+          <UsageDemoDialog
+            presenceProps={presenceProps}
+            close={() => setUsageDemoOpen(false)}
+            openTour={() => {
+              setUsageDemoOpen(false);
+              startOnboarding();
+            }}
+          />
+        ) : null}
+      </PresenceTransition>
+      <PresenceTransition show={onboardingOpen} kind="dialog">
+        {({ presenceProps }) => onboardingOpen ? (
+          <OnboardingTour
+            presenceProps={presenceProps}
+            onClose={() => {
+              localStorage.setItem(onboardingSeenKey, "seen");
+              setOnboardingOpen(false);
+            }}
+          />
+        ) : null}
+      </PresenceTransition>
+      <PresenceTransition show={finderOpen} kind="dialog">
+        {({ presenceProps }) => finderOpen ? (
+          <LibraryFinderDialog
+            presenceProps={presenceProps}
+            close={() => setFinderOpen(false)}
+            added={() => { void refreshRecentLibraries().catch(() => {}); }}
+            openFound={async (item) => {
+              setFinderOpen(false);
+              await chooseLibrary(() => window.nestDesktop.libraryFinder.open(item.path));
+            }}
+          />
+        ) : null}
+      </PresenceTransition>
+      <PresenceTransition show={Boolean(forwardPanel)} kind="dialog">
+        {({ presenceProps }) => forwardPanel ? (
+          <ForwardDialog
+            presenceProps={presenceProps}
+            libraries={recentLibraries.filter(item => !item.current)}
+            assetCount={forwardPanel.assetIds.length}
+            folderCount={forwardPanel.folderIds.length}
+            assetIds={forwardPanel.assetIds}
+            folderIds={forwardPanel.folderIds}
+            close={() => setForwardPanel(null)}
+            done={(result) => showMessage(`已转发 ${result.copied} 个素材到「${result.targetName}」`, 4000)}
+          />
+        ) : null}
+      </PresenceTransition>
+      <PresenceTransition show={teamPanel} kind="dialog">
+        {({ presenceProps }) => teamPanel ? <TeamPanel presenceProps={presenceProps} library={library} close={() => setTeamPanel(false)} changed={(team) => setLibrary((current) => current ? {...current, team} : current)} /> : null}
+      </PresenceTransition>
       <div className="soft-float-layer" ref={cardLayout.setLayer} />
       {cardLayout.editing && (
         <div className="soft-layout-bar" role="toolbar" aria-label="编辑布局">
@@ -3253,12 +3323,22 @@ function App() {
         </div>
       )}
       {desktop && window.nestDesktop?.platform === "win32" && <WindowControls />}
-      {teamLibraryOpen && <TeamLibraryPanel close={() => setTeamLibraryOpen(false)} onLibraryOpened={(lib) => {
-        applyLibrary(lib, { reset: true });
-        setTeamLibraryOpen(false);
-        void refreshRecentLibraries().catch(() => {});
-      }} />}
-      {batchRenamePanel && <BatchRenameDialog assets={selectedIds.map(id => assets.find(asset => asset.id === id)).filter(Boolean)} folders={library?.folders || []} close={() => setBatchRenamePanel(false)} apply={batchRename} />}
+      <PresenceTransition show={teamLibraryOpen} kind="dialog">
+        {({ presenceProps }) => teamLibraryOpen ? (
+          <TeamLibraryPanel
+            presenceProps={presenceProps}
+            close={() => setTeamLibraryOpen(false)}
+            onLibraryOpened={(lib) => {
+              applyLibrary(lib, { reset: true });
+              setTeamLibraryOpen(false);
+              void refreshRecentLibraries().catch(() => {});
+            }}
+          />
+        ) : null}
+      </PresenceTransition>
+      <PresenceTransition show={batchRenamePanel} kind="dialog">
+        {({ presenceProps }) => batchRenamePanel ? <BatchRenameDialog presenceProps={presenceProps} assets={selectedIds.map(id => assets.find(asset => asset.id === id)).filter(Boolean)} folders={library?.folders || []} close={() => setBatchRenamePanel(false)} apply={batchRename} /> : null}
+      </PresenceTransition>
       {shouldShowBugFeedback && (
         <Button
           className="bug-feedback"

@@ -1,15 +1,20 @@
 import { SORT_OPTIONS, FILTER_TYPES, FILTER_FORMATS, folderIcon, FOLDER_ICONS, FOLDER_COLORS } from "../lib/app-config.js";
 import { Button, ReadyUI } from "../ready-ui.jsx";
 import { Check, FolderOpen, Plus, RotateCw, Link2, Search, X, Folder, MoreHorizontal, Eye, Tag, StickyNote, Archive, Copy, Pencil, Import, ClipboardCopy, Download, Trash2, ChevronDown, List, LayoutGrid, Send, Share2, Palette } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { LIBRARY_MENU_ACTIONS } from "../app-menu.js";
 import { createPortal } from "react-dom";
 import { folderExpansionState } from "../folder-tree.js";
 import { AssetColorPicker } from "./asset-color-picker.jsx";
+import { PresenceTransition } from "./presence-transition.jsx";
 
-export function SortMenu({ value, choose }) {
+export function PresencePortal({ presenceProps, render, container = document.body }) {
+  return createPortal(render(presenceProps), container);
+}
+
+export function SortMenu({ value, choose, presenceProps }) {
   return (
-    <div className="toolbar-popover sort-popover">
+    <div className="toolbar-popover sort-popover" {...presenceProps}>
       <small>排序方式</small>
       {SORT_OPTIONS.map(([key, label, Icon]) => (
         <Button
@@ -26,7 +31,7 @@ export function SortMenu({ value, choose }) {
   );
 }
 
-export function FilterPopover({ types, formats, setTypes, setFormats, close }) {
+export function FilterPopover({ types, formats, setTypes, setFormats, close, presenceProps }) {
   const toggle = (list, setList, value) =>
     setList(
       list.includes(value)
@@ -34,7 +39,7 @@ export function FilterPopover({ types, formats, setTypes, setFormats, close }) {
         : [...list, value],
     );
   return (
-    <div className="toolbar-popover filter-popover">
+    <div className="toolbar-popover filter-popover" {...presenceProps}>
       <div className="popover-title">
         <strong>筛选素材</strong>
         <Button
@@ -100,7 +105,7 @@ export function FolderMark({ folder, expanded = false }) {
   );
 }
 
-export function LibrarySwitcherMenu({ panelRef, position, themeVariables, libraries, currentLibrary, busy, onSwitch, onForget, onCreate, onOpen, onFind, onClearCache, onMerge, onDelete, onDismiss }) {
+export function LibrarySwitcherMenu({ panelRef, position, themeVariables, libraries, currentLibrary, busy, onSwitch, onForget, onCreate, onOpen, onFind, onClearCache, onMerge, onDelete, onDismiss, presenceProps }) {
   const [search, setSearch] = useState("");
   const query = search.trim().toLocaleLowerCase();
   const visibleLibraries = (libraries || []).filter(item => !query || `${item.name} ${item.path}`.toLocaleLowerCase().includes(query));
@@ -126,6 +131,7 @@ export function LibrarySwitcherMenu({ panelRef, position, themeVariables, librar
       aria-label="资源库切换"
       style={{ ...themeVariables, ...position }}
       onClick={event => event.stopPropagation()}
+      {...presenceProps}
     >
       <label className="app-menu-search">
         <Search size={15} />
@@ -158,7 +164,7 @@ export function LibrarySwitcherMenu({ panelRef, position, themeVariables, librar
   );
 }
 
-export function BlankContextMenu({ menu, menuRef, close, create }) {
+export function BlankContextMenu({ menu, menuRef, close, create, presenceProps }) {
   const menuLeft = Math.max(8, Math.min(menu.x, window.innerWidth - 252));
   const menuTop = Math.max(8, Math.min(menu.y, window.innerHeight - 226));
   const items = [
@@ -181,6 +187,7 @@ export function BlankContextMenu({ menu, menuRef, close, create }) {
       aria-label="新建文档"
       onClick={(event) => event.stopPropagation()}
       onContextMenu={(event) => event.preventDefault()}
+      {...presenceProps}
     >
       <div className="blank-document-menu-title">新建文档</div>
       {items.map(([kind, badge, tone, label]) => (
@@ -193,10 +200,16 @@ export function BlankContextMenu({ menu, menuRef, close, create }) {
   );
 }
 
-export function AssetContextMenu({ menu, menuRef, submenuRef, folders, friends = [], actions, close, readOnly }) {
+export function AssetContextMenu({ menu, menuRef, friendSubmenuRef, moveSubmenuRef, folders, friends = [], actions, close, readOnly, presenceProps }) {
   const [moving, setMoving] = useState(false);
   const [sending, setSending] = useState(false);
   const [moveAnchor, setMoveAnchor] = useState(null);
+  useLayoutEffect(() => {
+    if (presenceProps?.["data-motion-phase"] !== "leaving") return;
+    setMoving(false);
+    setSending(false);
+    setMoveAnchor(null);
+  }, [presenceProps?.["data-motion-phase"]]);
   const anchorMove = event => {const rect=event.currentTarget.getBoundingClientRect();setMoveAnchor(rect.top);};
   const menuLeft = Math.max(8, Math.min(menu.x, window.innerWidth - 250));
   const menuTop = Math.max(8, Math.min(menu.y, window.innerHeight - 600));
@@ -224,6 +237,7 @@ export function AssetContextMenu({ menu, menuRef, submenuRef, folders, friends =
       }}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
+      {...presenceProps}
     >
       {rows.map(([Icon, label, fn]) => (
         <Button key={label} onClick={() => run(fn)}>
@@ -240,20 +254,20 @@ export function AssetContextMenu({ menu, menuRef, submenuRef, folders, friends =
       {actions.sendToFriend && <Button aria-haspopup="menu" aria-expanded={sending} onMouseEnter={event => { anchorMove(event); setMoving(false); setSending(true); }} onClick={event => { anchorMove(event); setMoving(false); setSending(value => !value); }}>
         <Send size={16} /><span>发送给好友</span><b>›</b>
       </Button>}
-      {sending && createPortal(
-        <ReadyUI><div ref={submenuRef} className="move-submenu move-submenu-floating ready-ui-menu lan-friend-submenu" role="menu" aria-label="发送给好友" style={{ left: flyoutLeft, top: flyoutTop, width: flyoutWidth }} onClick={event => event.stopPropagation()}>
+      <PresenceTransition show={sending && presenceProps?.["data-motion-phase"] !== "leaving"} kind="menu">
+        {({ presenceProps: submenuPresenceProps }) => <PresencePortal presenceProps={submenuPresenceProps} render={portalProps => <ReadyUI><div {...portalProps} ref={friendSubmenuRef} className="move-submenu move-submenu-floating ready-ui-menu lan-friend-submenu" role="menu" aria-label="发送给好友" style={{ left: flyoutLeft, top: flyoutTop, width: flyoutWidth }} onClick={event => event.stopPropagation()}>
           {friends.length ? friends.map(peer => <Button key={peer.id} disabled={!peer.canChat} aria-label={`发送给${peer.name}`} onClick={() => run(() => actions.sendToFriend(peer.id))} title={peer.canChat ? `发送原文件给 ${peer.name}` : '对方需要更新素材库'}>
             <span className="lan-menu-avatar">{peer.avatar ? <img src={peer.avatar} alt="" /> : (peer.name || '用').slice(0, 1).toUpperCase()}</span><span>{peer.name}</span>{!peer.canChat && <small>需更新</small>}
           </Button>) : <p className="lan-menu-empty">暂无在线好友。请让另一台电脑打开素材库，并连接同一局域网。</p>}
-        </div></ReadyUI>, document.body,
-      )}
+        </div></ReadyUI>} />}
+      </PresenceTransition>
       {!readOnly && <Button aria-haspopup="menu" aria-expanded={moving} onMouseEnter={event => {anchorMove(event);setSending(false);setMoving(true);}} onClick={event => {anchorMove(event);setSending(false);setMoving(x => !x);}}>
         <Folder size={16} />
         <span>移动到文件夹</span>
         <b>›</b>
       </Button>}
-      {moving && createPortal(
-        <ReadyUI><div ref={submenuRef} className="move-submenu move-submenu-floating ready-ui-menu" role="menu" aria-label="移动到文件夹" style={{ left: flyoutLeft, top: flyoutTop, width: flyoutWidth }} onClick={(event) => event.stopPropagation()}>
+      <PresenceTransition show={moving && presenceProps?.["data-motion-phase"] !== "leaving"} kind="menu">
+        {({ presenceProps: submenuPresenceProps }) => <PresencePortal presenceProps={submenuPresenceProps} render={portalProps => <ReadyUI><div {...portalProps} ref={moveSubmenuRef} className="move-submenu move-submenu-floating ready-ui-menu" role="menu" aria-label="移动到文件夹" style={{ left: flyoutLeft, top: flyoutTop, width: flyoutWidth }} onClick={(event) => event.stopPropagation()}>
           <Button onClick={() => run(() => actions.move(null))}>
             <Archive size={15} />
             未分类
@@ -268,9 +282,8 @@ export function AssetContextMenu({ menu, menuRef, submenuRef, folders, friends =
               <span>{f.name}</span>
             </Button>
           ))}
-        </div></ReadyUI>,
-        document.body,
-      )}
+        </div></ReadyUI>} />}
+      </PresenceTransition>
       {!readOnly && <Button onClick={() => run(actions.duplicate)}>
         <Copy size={16} />
         <span>复制素材</span>
@@ -317,10 +330,15 @@ export function AssetContextMenu({ menu, menuRef, submenuRef, folders, friends =
   );
 }
 
-export function FolderContextMenu({ menu, menuRef, flyoutRef, actions, close, readOnly, liveSyncEnabled = false, expansion }) {
+export function FolderContextMenu({ menu, menuRef, flyoutRef, actions, close, readOnly, liveSyncEnabled = false, expansion, presenceProps }) {
   const [iconsOpen, setIconsOpen] = useState(false);
   const [iconAnchorTop, setIconAnchorTop] = useState(null);
   const iconTriggerRef = useRef(null);
+  useLayoutEffect(() => {
+    if (presenceProps?.["data-motion-phase"] !== "leaving") return;
+    setIconsOpen(false);
+    setIconAnchorTop(null);
+  }, [presenceProps?.["data-motion-phase"]]);
   const menuLeft = Math.max(8, Math.min(menu.x, window.innerWidth - 228));
   const menuTop = Math.max(8, Math.min(menu.y, window.innerHeight - 550));
   const pickerWidth = Math.min(286, window.innerWidth - 16);
@@ -369,6 +387,7 @@ export function FolderContextMenu({ menu, menuRef, flyoutRef, actions, close, re
       }}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
+      {...presenceProps}
     >
       <Button onClick={() => run(actions.open)}>
         <FolderOpen size={16} />
@@ -405,16 +424,15 @@ export function FolderContextMenu({ menu, menuRef, flyoutRef, actions, close, re
         <span>文件夹图标</span>
         <b>›</b>
       </Button>}
-      {iconsOpen && createPortal(
-        <ReadyUI><div ref={flyoutRef} className="folder-icon-flyout ready-ui-menu" role="menu" aria-label="选择文件夹图标" style={{ left: pickerLeft, top: pickerTop, width: pickerWidth }} onClick={(event) => event.stopPropagation()}>
+      <PresenceTransition show={iconsOpen && presenceProps?.["data-motion-phase"] !== "leaving"} kind="menu">
+        {({ presenceProps: pickerPresenceProps }) => <PresencePortal presenceProps={pickerPresenceProps} render={portalProps => <ReadyUI><div {...portalProps} ref={flyoutRef} className="folder-icon-flyout ready-ui-menu" role="menu" aria-label="选择文件夹图标" style={{ left: pickerLeft, top: pickerTop, width: pickerWidth }} onClick={(event) => event.stopPropagation()}>
           {FOLDER_ICONS.map(([key, Icon]) => (
             <Button key={key} className={menu.folder.icon === key ? "chosen" : ""} aria-label={`使用 ${key} 图标`} title={key} onClick={() => run(() => actions.appearance({ icon: key }))}>
               <Icon size={18} />
             </Button>
           ))}
-        </div></ReadyUI>,
-        document.body,
-      )}
+        </div></ReadyUI>} />}
+      </PresenceTransition>
       {!readOnly && <div className="folder-menu-colors" role="group" aria-label="文件夹颜色">
         {FOLDER_COLORS.map((color) => (
           <Button key={color} className={String(menu.folder.color || "").toLowerCase() === color.toLowerCase() ? "chosen" : ""} aria-label={`使用颜色 ${color}`} title={color} style={{ "--folder-color": color }} onClick={() => run(() => actions.appearance({ color }))}>

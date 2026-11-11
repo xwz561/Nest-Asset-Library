@@ -3,7 +3,7 @@ import { Button } from "../ready-ui.jsx";
 import { X, Folder, Search } from "lucide-react";
 
 // 在某个目录（如 NAS 上的素材文件夹）里查找素材库，可直接打开或加入“最近素材库”。查找本身只读。
-export function LibraryFinderDialog({ close, openFound, added }) {
+export function LibraryFinderDialog({ presenceProps, close, openFound, added }) {
   const api = window.nestDesktop?.libraryFinder;
   const [roots, setRoots] = useState([]), [root, setRoot] = useState(""), [scanning, setScanning] = useState(false);
   const [results, setResults] = useState([]), [progress, setProgress] = useState(null), [summary, setSummary] = useState(null), [notice, setNotice] = useState("");
@@ -47,8 +47,8 @@ export function LibraryFinderDialog({ close, openFound, added }) {
     }
   };
   const status = scanning ? `正在查找…已看 ${progress?.scannedDirs || 0} 个文件夹，找到 ${results.length} 个` : summary?.error ? summary.error : summary ? `${summary.cancelled ? "已停止" : "查找完成"}：看了 ${summary.scannedDirs} 个文件夹，找到 ${results.length} 个素材库${summary.truncated ? "（目录太多，只查了一部分，可换更小的目录再查）" : ""}${summary.unreadable ? `，${summary.unreadable} 个文件夹无法读取` : ""}` : "";
-  return <div className="modal-backdrop finder-backdrop" onMouseDown={event => event.target === event.currentTarget && !scanning && close()}>
-    <div className="app-dialog finder-dialog" role="dialog" aria-label="查找素材库" onKeyDown={event => event.key === "Escape" && !scanning && close()}>
+  return <div {...presenceProps} className="modal-backdrop finder-backdrop" onMouseDown={event => event.target === event.currentTarget && !scanning && close()}>
+    <div data-motion-surface className="app-dialog finder-dialog" role="dialog" aria-label="查找素材库" onKeyDown={event => event.key === "Escape" && !scanning && close()}>
       <div className="dialog-head"><div><h2>查找素材库</h2><small>在一个目录（比如 NAS 上的素材文件夹）里找出所有素材库。只读查找，不会改动任何文件。</small></div><Button type="button" aria-label="关闭" onClick={close}><X size={16} /></Button></div>
       <div className="finder-roots">
         {api?.scanLocal && <Button className={`finder-local ${root === "本机磁盘" ? "chosen" : ""}`} disabled={scanning} title="查找本机所有磁盘（不含网络盘/NAS 映射盘），只读" onClick={scanLocal}><Search size={14} /><span>重新查找本机素材库</span></Button>}

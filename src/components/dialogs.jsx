@@ -7,7 +7,7 @@ import { ThemeSettings } from "../theme-settings.jsx";
 import communitySupportAvatar from "../assets/community-support-avatar.png";
 import communitySupportPaymentQr from "../assets/community-support-payment-qr.png";
 
-export function AppDialog({ state, resolve }) {
+export function AppDialog({ presenceProps, state, resolve }) {
   const isFolder = state.kind === "folder";
   const [value, setValue] = useState(state.defaultValue || ""),
     [parentId, setParentId] = useState(state.parentId || ""),
@@ -27,12 +27,14 @@ export function AppDialog({ state, resolve }) {
   };
   return (
     <div
+      {...presenceProps}
       className="modal-backdrop app-dialog-backdrop"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) resolve(cancelValue, e);
       }}
     >
       <form
+        data-motion-surface
         className={`app-dialog ${isFolder ? "folder-dialog" : ""}`}
         onSubmit={submit}
         onKeyDown={(e) => {
@@ -135,15 +137,16 @@ export function AppDialog({ state, resolve }) {
   );
 }
 
-export function ExtensionPanel({ busy, result, install, uninstall, plugins, mcpConfig, openPluginsFolder, togglePlugin, close }) {
+export function ExtensionPanel({ presenceProps, busy, result, install, uninstall, plugins, mcpConfig, openPluginsFolder, togglePlugin, close }) {
   return (
     <div
+      {...presenceProps}
       className="modal-backdrop"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !busy) close();
       }}
     >
-      <div className="app-dialog extension-dialog">
+      <div data-motion-surface className="app-dialog extension-dialog">
         <div className="dialog-head">
           <h2>扩展、插件与 MCP</h2>
           <Button aria-label="关闭" onClick={close} disabled={busy}>
@@ -223,10 +226,10 @@ export function ExtensionPanel({ busy, result, install, uninstall, plugins, mcpC
   );
 }
 
-export function AboutDialog({ close, version }) {
+export function AboutDialog({ presenceProps, close, version }) {
   return (
-    <div className="modal-backdrop app-about-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) close(); }}>
-      <section className="app-dialog app-about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-title">
+    <div {...presenceProps} className="modal-backdrop app-about-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) close(); }}>
+      <section data-motion-surface className="app-dialog app-about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-title">
         <Button className="app-about-close" type="button" aria-label="关闭关于窗口" onClick={close}><X size={17} /></Button>
         <img src={appIcon} alt="" />
         <h2 id="about-title">小旺仔素材库</h2>
@@ -241,6 +244,7 @@ export function AboutDialog({ close, version }) {
 export function ThemePanel(props) {return <ThemeSettings {...props}/>;}
 
 export function UpdatePanel({
+  presenceProps,
   info,
   progress,
   file,
@@ -252,12 +256,13 @@ export function UpdatePanel({
   const downloading = progress && progress.percent < 100 && !file;
   return (
     <div
+      {...presenceProps}
       className="modal-backdrop"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !downloading) close();
       }}
     >
-      <div className="app-dialog update-dialog">
+      <div data-motion-surface className="app-dialog update-dialog">
         <div className="dialog-head">
           <h2>{info.available ? "发现新版本" : "已经是最新版"}</h2>
           <Button aria-label="关闭" disabled={downloading} onClick={close}>
@@ -367,15 +372,17 @@ export function ReleaseNotes({ remoteNotes = "" }) {
   );
 }
 
-export function SupportPanel({ close }) {
+export function SupportPanel({ presenceProps, close }) {
   return (
     <div
+      {...presenceProps}
       className="support-backdrop"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) close();
       }}
     >
       <section
+        data-motion-surface
         className="support-dialog"
         role="dialog"
         aria-modal="true"
@@ -410,7 +417,7 @@ export function SupportPanel({ close }) {
   );
 }
 
-export function TetrisAccessDialog({ password, error, changePassword, close, unlock }) {
+export function TetrisAccessDialog({ presenceProps, password, error, changePassword, close, unlock }) {
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -419,6 +426,7 @@ export function TetrisAccessDialog({ password, error, changePassword, close, unl
 
   return (
     <div
+      {...presenceProps}
       className="modal-backdrop tetris-access-backdrop"
       role="presentation"
       onMouseDown={(event) => {
@@ -426,6 +434,7 @@ export function TetrisAccessDialog({ password, error, changePassword, close, unl
       }}
     >
       <form
+        data-motion-surface
         className="app-dialog tetris-access-dialog"
         aria-labelledby="tetris-access-title"
         onSubmit={(event) => {

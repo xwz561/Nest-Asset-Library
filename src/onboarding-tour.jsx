@@ -8,7 +8,7 @@ const STEPS = TUTORIAL_STEPS;
 
 const clamp = (value, min, max) => Math.max(min, Math.min(value, max));
 
-export function OnboardingTour({ onClose }) {
+export function OnboardingTour({ onClose, presenceProps }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [geometry, setGeometry] = useState(null);
   const nextRef = useRef(null);
@@ -78,7 +78,7 @@ export function OnboardingTour({ onClose }) {
   }, [onClose, stepIndex]);
 
   const content = (
-    <div className="onboarding-tour" role="dialog" aria-modal="true" aria-labelledby="onboarding-title" aria-describedby="onboarding-body">
+    <div {...presenceProps} className="onboarding-tour" role="dialog" aria-modal="true" aria-labelledby="onboarding-title" aria-describedby="onboarding-body">
       <button type="button" className="onboarding-tour-backdrop" aria-label="跳过新手教程" onClick={onClose} />
       {geometry?.rect && (
         <div
@@ -87,7 +87,7 @@ export function OnboardingTour({ onClose }) {
           style={{ top: geometry.rect.top, left: geometry.rect.left, width: geometry.rect.width, height: geometry.rect.height }}
         />
       )}
-      <section className="onboarding-tour-card" style={{ left: geometry?.left ?? 16, top: geometry?.top ?? 16 }}>
+      <section data-motion-surface className="onboarding-tour-card" style={{ left: geometry?.left ?? 16, top: geometry?.top ?? 16 }}>
         <div className="onboarding-tour-head">
           <span>新手教程</span>
           <button type="button" aria-label="关闭新手教程" title="按 Esc 关闭" onClick={onClose}><X size={16} /></button>

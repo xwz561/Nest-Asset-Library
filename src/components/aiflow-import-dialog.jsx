@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "../ready-ui.jsx";
 import { X, Video, HardDrive, ShieldCheck, LogIn, LogOut, RotateCw, Image as ImageIcon, Music, FileText, Import } from "lucide-react";
 
-export function AIFlowImportDialog({ close, importing, importItems, folderName, hasTargetFolder, applyLibrary }) {
+export function AIFlowImportDialog({ presenceProps, close, importing, importItems, folderName, hasTargetFolder, applyLibrary }) {
   const [source, setSource] = useState("server");
   const [settings, setSettings] = useState(null);
   const [token, setToken] = useState("");
@@ -319,10 +319,11 @@ export function AIFlowImportDialog({ close, importing, importItems, folderName, 
   const accountLabel = settings?.account?.displayName || settings?.account?.username || "";
   return (
     <div
+      {...presenceProps}
       className="modal-backdrop aiflow-import-backdrop"
       onMouseDown={(event) => event.target === event.currentTarget && !importing && close()}
     >
-      <section className="app-dialog aiflow-import-dialog" role="dialog" aria-modal="true" aria-label="导入 AI Flow 素材">
+      <section data-motion-surface className="app-dialog aiflow-import-dialog" role="dialog" aria-modal="true" aria-label="导入 AI Flow 素材">
         <div className="dialog-head">
           <div>
             <h2>导入 AI Flow 素材</h2>

@@ -46,6 +46,8 @@ body.soft-ui-body {
   --soft-shadow-sm: 0 6px 16px rgba(31, 35, 51, .07);
   --soft-shadow-lg: 0 18px 44px rgba(31, 35, 51, .14);
   --soft-shadow-hover: 0 16px 36px rgba(31, 35, 51, .1);
+  /* 素材网格的图片投影（Eagle 式：没有卡片底，只有图片本身带一层静态投影） */
+  --soft-thumb-shadow: 0 1px 2px rgba(31, 35, 51, .12), 0 4px 12px rgba(31, 35, 51, .12);
   --soft-shadow-dialog: 0 24px 64px rgba(31, 35, 51, .18);
   --soft-backdrop: rgba(31, 35, 51, .26);
   --soft-glow-orange: 0 8px 20px color-mix(in srgb, var(--soft-accent) 38%, transparent);
@@ -63,6 +65,7 @@ body.soft-ui-body.soft-ui-dark {
   --soft-shadow-sm: 0 6px 16px rgba(0, 0, 0, .24);
   --soft-shadow-lg: 0 18px 44px rgba(0, 0, 0, .42);
   --soft-shadow-hover: 0 16px 36px rgba(0, 0, 0, .36);
+  --soft-thumb-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 5px 14px rgba(0, 0, 0, .34);
   --soft-shadow-dialog: 0 24px 64px rgba(0, 0, 0, .5);
   --soft-backdrop: rgba(0, 0, 0, .42);
   --soft-btn-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 3px 8px rgba(0, 0, 0, .22);
@@ -472,6 +475,49 @@ html[data-platform=darwin] .app.soft-ui.ready-ui.ui-refresh .soft-side-panel > .
 .app.soft-ui.ready-ui.ui-refresh .view-list .masonry article .meta .asset-note { margin-top: 1px; -webkit-line-clamp: 1; }
 /* 网格视图里名字固定占两行高（卡片对齐）；有备注时名字按实际行数，备注紧贴在名字下面 */
 .app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry .meta:has(.asset-note) strong { height: auto; max-height: 3.2em; }
+/* ---------- 素材网格：Eagle 式（没有卡片底和边框，只有图片圆角 + 投影） -------------------------
+   网格视图里卡片本身透明、无内边距；图片保留圆角并带一层静态投影（--soft-thumb-shadow），
+   名字和尺寸直接写在图片下面。悬停 / 选中 / 颜色标记都画成图片外圈的描边环，不再靠卡片底色。
+   投影是静态的，悬停只换环的颜色、不位移不放大投影；滚动时卡片 pointer-events: none（LES-007）。
+   列表视图（main.view-list）保持原来的行卡片样式，不受这一段影响。 */
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article,
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article:hover:not(.selected):not(.multi-selected),
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article.selected,
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article.multi-selected,
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article.has-color-mark,
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article.has-color-mark:hover:not(.selected):not(.multi-selected),
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article.has-color-mark.selected,
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article.has-color-mark.multi-selected {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+  transition: none !important;
+}
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article .thumb {
+  margin: 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  border-radius: 10px !important;
+  box-shadow: var(--soft-thumb-shadow) !important;
+  transition: box-shadow .14s ease !important;
+}
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article:hover:not(.selected):not(.multi-selected) .thumb { box-shadow: 0 0 0 2px color-mix(in srgb, var(--soft-text) 34%, transparent), var(--soft-thumb-shadow) !important; }
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article.selected .thumb,
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article.multi-selected .thumb { box-shadow: 0 0 0 3px var(--soft-accent), var(--soft-thumb-shadow) !important; }
+/* 颜色标记：图片外圈一圈素材自己的颜色；选中时再往外套一圈强调色 */
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article.has-color-mark .thumb,
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article.has-color-mark:hover:not(.selected):not(.multi-selected) .thumb { box-shadow: 0 0 0 3px var(--asset-mark), var(--soft-thumb-shadow) !important; }
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article.has-color-mark.selected .thumb,
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article.has-color-mark.multi-selected .thumb { box-shadow: 0 0 0 3px var(--asset-mark), 0 0 0 6px var(--soft-accent), var(--soft-thumb-shadow) !important; }
+/* 名字、尺寸在图片下面居中；尺寸已经写在下面，图片上悬停出现的尺寸角标就不再显示 */
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article .meta { padding: 8px 2px 0 !important; text-align: center; }
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article .meta > div { justify-content: center; }
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article .meta .meta-dimensions { display: block; min-height: 1.5em; margin-top: 1px; color: var(--soft-text-3); font-size: 11px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.app.soft-ui.ready-ui.ui-refresh main:not(.view-list) .masonry article .thumb .dimensions { display: none !important; }
+.app.soft-ui.ready-ui.ui-refresh main.view-list .masonry article .meta .meta-dimensions { display: none; }
 /* 颜色色点（右键菜单、详情面板） */
 .app.soft-ui.ready-ui.ui-refresh .asset-color-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .app.soft-ui.ready-ui.ui-refresh .asset-color-picker > button {
