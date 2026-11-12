@@ -21,7 +21,7 @@ test('两个浮窗和人物替换面板用 div，不用会被"页面配色"刷�
 
 test('配色跟着 AI Flow「页面配色」走，样式全部以窗口 ID 开头并加 !important', () => {
   const style = between('function ensureVideoExtendWorkbenchStyle()', 'function isNativeVideoExtendModeOpen()');
-  assert.match(style, /--nx-accent: var\(--nest-theme-accent, #2f7dff\)/);
+  assert.match(style, /--nx-accent: var\(--nest-theme-accent, #6f9bff\)/);
   assert.match(style, /--nx-primary: var\(--nest-theme-primary, var\(--nx-accent\)\)/);
   assert.match(style, /:is\(\$\{W\}, \$\{L\}\) \.nx-title b \{[^}]*white-space: nowrap !important/);
   assert.match(style, /:is\(\$\{W\}, \$\{L\}, \$\{P\}\) \.nx-btn, \$\{R\} \{/);

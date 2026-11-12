@@ -42,6 +42,9 @@ import { createPortal } from "react-dom";
 import { createRoot } from "react-dom/client";
 
 import { formatImportResultMessage } from "./import-summary.js";
+import { attachMagneticPull } from "./magnetic-pull.js";
+// 空素材库彩蛋：空状态里的按钮被鼠标轻轻吸住。模块级函数，回调 ref 身份稳定，不会每次渲染重挂监听。
+const magneticEmptyActions = (node) => attachMagneticPull(node, { selector: ".empty-library-actions button" });
 import { Archive, Box, Bug, CalendarDays, Check, CircleHelp, ChevronDown, CirclePlay, Clock, ExternalLink, FileText, Filter, Folder, FolderOpen, FolderPlus, Grid2X2, Heart, Image as ImageIcon, Import, Infinity as InfinityIcon, LayoutDashboard, LayoutGrid, List, Menu, MoreHorizontal, Music, PanelLeftClose, PanelLeftOpen, Pencil, Play, Plus, Puzzle, Radio, RotateCcw, RotateCw, Search, Settings, Sparkles, Star, StickyNote, Tag, Trash2, Users, Video, Wrench, X, Zap } from "lucide-react";
 import "./styles.css";
 import "./eagle-ui.css";
@@ -2807,7 +2810,7 @@ function App() {
           </section>
         ) : (
           !contentFolders.length && (
-                        <section className="empty-library-state" data-tour="assets" aria-label="空文件夹">
+                        <section ref={magneticEmptyActions} className="empty-library-state" data-tour="assets" aria-label="空文件夹">
               <SoftEmptyIllustration />
               {query || currentTag || filter !== "全部素材" || hiddenFilterActive ? (
                 <>

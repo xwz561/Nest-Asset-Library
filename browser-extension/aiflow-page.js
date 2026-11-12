@@ -34,10 +34,36 @@
   const AIFLOW_THEME_SWITCHER_ID = 'nest-aiflow-theme-switcher';
   const AIFLOW_THEME_STYLE_ID = 'nest-aiflow-theme-style';
   const AIFLOW_THEME_KEY = 'nest-aiflow-theme';
+  const AIFLOW_ORIGINAL_THEME = 'aiflow-original';
   const FOCUS_LAYOUT_STYLE_ID = 'nest-aiflow-focus-layout-style';
   const FOCUS_LAYOUT_TOGGLE_ID = 'nest-aiflow-focus-layout-toggle';
   const FOCUS_LAYOUT_CLASS = 'nest-aiflow-focus-layout';
   const FOCUS_LAYOUT_STORAGE_KEY = 'nest-aiflow-focus-layout-enabled';
+  const WORKS_CANVAS_STYLE_ID = 'nest-aiflow-works-canvas-style';
+  const WORKS_CANVAS_TOGGLE_ID = 'nest-aiflow-works-canvas-toggle';
+  const WORKS_CANVAS_HUD_ID = 'nest-aiflow-works-canvas-hud';
+  const WORKS_CANVAS_GROUPS_ID = 'nest-aiflow-works-canvas-groups';
+  const WORKS_CANVAS_MINIMAP_ID = 'nest-aiflow-works-canvas-minimap';
+  const WORKS_CANVAS_MARQUEE_ID = 'nest-aiflow-works-canvas-marquee';
+  const WORKS_CANVAS_ORDER_ID = 'nest-aiflow-works-canvas-order';
+  const WORKS_CANVAS_ENABLED_KEY = 'nest-aiflow-works-canvas-enabled';
+  const WORKS_CANVAS_LAYOUT_PREFIX = 'nest-aiflow-works-canvas-layout:';
+  // 这几个类名加在 AI Flow 自己的节点上，故意不用 nest-aiflow- 前缀（见 isNestOwnedNode）
+  const WORKS_CANVAS_VIEWPORT_CLASS = 'nest-works-canvas-viewport';
+  const WORKS_CANVAS_WORLD_CLASS = 'nest-works-canvas-world';
+  const WORKS_CANVAS_PASSTHROUGH_CLASS = 'nest-works-canvas-passthrough';
+  const WORKS_CANVAS_MIN_ZOOM = 0.2;
+  const WORKS_CANVAS_MAX_ZOOM = 2.5;
+  const WORKS_CANVAS_GAP = 20;
+  const WORKS_CANVAS_DEFAULT_CARD_WIDTH = 244;
+  const WORKS_CANVAS_DEFAULT_CARD_HEIGHT = 420;
+  const WORKS_CANVAS_MAX_SAVED_CARDS = 1000;
+  const WORKS_CANVAS_GROUP_PAD = 16;
+  const WORKS_CANVAS_GROUP_HEADER = 34;
+  const WORKS_CANVAS_MINIMAP_WIDTH = 184;
+  const WORKS_CANVAS_MINIMAP_HEIGHT = 124;
+  const WORKS_CANVAS_ROW_TOLERANCE = 120;
+  const WORKS_CANVAS_TITLE_RETRY_MS = 1500;
   // A long-poll wake-up makes imports immediate; this remains the recovery poll.
   const LIVE_SYNC_INTERVAL_MS = 3 * 1000;
   let pendingTaskId = '';
@@ -110,7 +136,7 @@
         position: relative !important; z-index: 1 !important;
         caret-color: #f4f8ff !important; text-shadow: none !important;
       }
-      .${PROMPT_HIGHLIGHT_CLASS}::selection { background: rgba(88, 147, 255, .42) !important; }
+      .${PROMPT_HIGHLIGHT_CLASS}::selection { background: color-mix(in srgb, var(--nest-theme-accent, #6f9bff) 38%, transparent) !important; }
       .${PROMPT_HIGHLIGHT_LAYER_CLASS} .nest-aiflow-reference-token {
         border-radius: 3px !important; font: inherit !important; font-weight: inherit !important;
         font-style: inherit !important; font-stretch: inherit !important; font-kerning: inherit !important;
@@ -120,9 +146,9 @@
         text-decoration-thickness: 1px !important; text-underline-offset: 2px !important;
         box-shadow: inset 0 -1px 0 currentColor !important;
       }
-      .${PROMPT_HIGHLIGHT_LAYER_CLASS} .nest-aiflow-reference-image { color: #65d8ff !important; background: rgba(47, 161, 220, .20) !important; }
-      .${PROMPT_HIGHLIGHT_LAYER_CLASS} .nest-aiflow-reference-video { color: #c39bff !important; background: rgba(133, 86, 232, .22) !important; }
-      .${PROMPT_HIGHLIGHT_LAYER_CLASS} .nest-aiflow-reference-audio { color: #7cf0bc !important; background: rgba(39, 179, 126, .20) !important; }
+      .${PROMPT_HIGHLIGHT_LAYER_CLASS} .nest-aiflow-reference-image { color: #8cc8ff !important; background: rgba(140, 200, 255, .14) !important; }
+      .${PROMPT_HIGHLIGHT_LAYER_CLASS} .nest-aiflow-reference-video { color: #bfb0ff !important; background: rgba(191, 176, 255, .14) !important; }
+      .${PROMPT_HIGHLIGHT_LAYER_CLASS} .nest-aiflow-reference-audio { color: #8fdcb8 !important; background: rgba(143, 220, 184, .13) !important; }
     `;
     (document.head || document.documentElement).appendChild(style);
   }
@@ -187,7 +213,35 @@
     return editors.find(editor => isVideoExtendDialogShown(videoExtendContainer(editor))) || editors[0];
   }
 
-  const PAGE_OBSERVER_OPTIONS = { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] };
+  const PAGE_OBSERVER_OPTIONS = { subtree: true, childList: true, attributes: true, attributeFilter: ['class'], attributeOldValue: true };
+  // 页面扫描节流：AI Flow 进度条、计时器会持续改 class，以前每条变动都同步跑一整轮注入（十几次全页 querySelectorAll），
+  // 浏览器明显发卡（LES-021）。现在一轮变动最多每 PAGE_SCAN_MIN_INTERVAL_MS 扫一次，并忽略扩展自己造成的变动。
+  const PAGE_SCAN_MIN_INTERVAL_MS = 250;
+
+  function isNestClassToken(token) { return token.startsWith('nest-'); }
+
+  function isNestOwnedMutationNode(node) {
+    if (!(node instanceof Element)) return node?.nodeType === 3 ? isNestOwnedNode(node.parentElement) : false;
+    if (String(node.id || '').startsWith('nest-aiflow-')) return true;
+    if (String(node.id || '').startsWith('nest-') || [...node.classList].some(isNestClassToken)) return true;
+    return isNestOwnedNode(node);
+  }
+
+  // 只由扩展自己引起的变动（我们的浮窗、样式、高亮层、加在 AI Flow 节点上的 nest-* class）不触发重扫，避免自激循环。
+  function isNestOnlyMutation(record) {
+    const target = record.target instanceof Element ? record.target : record.target?.parentElement;
+    if (target && isNestOwnedNode(target)) return true;
+    if (record.type === 'attributes') {
+      const before = String(record.oldValue || '').split(/\s+/).filter(token => token && !isNestClassToken(token)).sort().join(' ');
+      const after = String(target?.getAttribute?.('class') || '').split(/\s+/).filter(token => token && !isNestClassToken(token)).sort().join(' ');
+      return before === after;
+    }
+    if (record.type === 'childList') {
+      const nodes = [...record.addedNodes, ...record.removedNodes];
+      return nodes.length > 0 && nodes.every(isNestOwnedMutationNode);
+    }
+    return false;
+  }
 
   // 「打开 AI Flow 原窗口」和「提交延长」会暂停页面监听，免得和 AI Flow 的重绘打架。
   // 窗口一关就恢复监听，下次点「延长」才会重新弹出小旺仔延长工作台。
@@ -818,19 +872,19 @@
     style.textContent = `
       .nest-aiflow-video-extend-native-hidden { opacity: 0 !important; pointer-events: none !important; }
       ${W}, ${L}, ${P}, ${R} {
-        --nx-bg: var(--nest-theme-overlay, #141a23);
-        --nx-raise: var(--nest-theme-surface, #1c2430);
-        --nx-field: var(--nest-theme-field, #0e131a);
-        --nx-line: color-mix(in srgb, var(--nest-theme-border, #2d3a4c) 75%, transparent);
-        --nx-text: var(--nest-theme-text, #e6edf7);
-        --nx-muted: var(--nest-theme-muted, #8f9cb0);
-        --nx-accent: var(--nest-theme-accent, #2f7dff);
+        --nx-bg: var(--nest-theme-overlay, #1c1f26);
+        --nx-raise: var(--nest-theme-surface, #181b21);
+        --nx-field: var(--nest-theme-field, #0b0d10);
+        --nx-line: color-mix(in srgb, var(--nest-theme-border, #2a2f38) 75%, transparent);
+        --nx-text: var(--nest-theme-text, #e8eaee);
+        --nx-muted: var(--nest-theme-muted, #8b919c);
+        --nx-accent: var(--nest-theme-accent, #6f9bff);
         --nx-primary: var(--nest-theme-primary, var(--nx-accent));
         --nx-on-primary: var(--nest-theme-primary-text, #ffffff);
         --nx-soft: color-mix(in srgb, var(--nx-text) 7%, transparent);
         --nx-soft-hover: color-mix(in srgb, var(--nx-text) 13%, transparent);
         --nx-tint: color-mix(in srgb, var(--nx-accent) 16%, transparent);
-        --nx-danger: #ff6b6b;
+        --nx-danger: #f0717a;
         --nx-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
       ${W}, ${L} {
@@ -849,7 +903,7 @@
 
       /* 标题栏 */
       :is(${W}, ${L}) .nx-head { display: flex !important; align-items: center !important; gap: 10px !important; flex: none !important; margin: 0 !important; padding: 14px 14px 10px 16px !important; border: 0 !important; background: transparent !important; cursor: move !important; user-select: none !important; }
-      :is(${W}, ${L}) .nx-mark { flex: none !important; display: grid !important; place-items: center !important; width: 34px !important; height: 34px !important; border-radius: 12px !important; background: linear-gradient(135deg, color-mix(in srgb, var(--nx-primary) 70%, #fff), var(--nx-primary)) !important; color: var(--nx-on-primary) !important; font-size: 13px !important; font-weight: 800 !important; }
+      :is(${W}, ${L}) .nx-mark { flex: none !important; display: grid !important; place-items: center !important; width: 34px !important; height: 34px !important; border-radius: 12px !important; background: var(--nx-primary) !important; color: var(--nx-on-primary) !important; font-size: 13px !important; font-weight: 800 !important; }
       :is(${W}, ${L}) .nx-title { flex: 1 1 auto !important; display: grid !important; gap: 1px !important; min-width: 0 !important; margin: 0 !important; }
       :is(${W}, ${L}) .nx-title b { display: block !important; overflow: hidden !important; color: var(--nx-text) !important; font-size: 15px !important; font-weight: 750 !important; line-height: 1.3 !important; white-space: nowrap !important; text-overflow: ellipsis !important; }
       :is(${W}, ${L}) .nx-ver:empty { display: none !important; }
@@ -874,8 +928,8 @@
       :is(${W}, ${L}, ${P}) .nx-mini { min-height: 24px !important; padding: 3px 10px !important; font-size: 11px !important; }
       :is(${W}, ${L}, ${P}) .nx-ghost { background: transparent !important; color: var(--nx-muted) !important; box-shadow: inset 0 0 0 1px var(--nx-line) !important; }
       :is(${W}, ${L}, ${P}) .nx-ghost:hover:not(:disabled) { background: var(--nx-soft) !important; color: var(--nx-text) !important; }
-      :is(${W}, ${L}, ${P}) .nx-go { background: linear-gradient(135deg, color-mix(in srgb, var(--nx-primary) 78%, #fff), var(--nx-primary)) !important; color: var(--nx-on-primary) !important; box-shadow: 0 10px 24px color-mix(in srgb, var(--nx-primary) 32%, transparent) !important; }
-      :is(${W}, ${L}, ${P}) .nx-go:hover:not(:disabled) { background: var(--nx-primary) !important; color: var(--nx-on-primary) !important; transform: translateY(-1px) !important; }
+      :is(${W}, ${L}, ${P}) .nx-go { background: var(--nx-primary) !important; color: var(--nx-on-primary) !important; box-shadow: 0 10px 24px color-mix(in srgb, var(--nx-primary) 32%, transparent) !important; }
+      :is(${W}, ${L}, ${P}) .nx-go:hover:not(:disabled) { background: color-mix(in srgb, var(--nx-primary) 88%, #fff) !important; color: var(--nx-on-primary) !important; transform: translateY(-1px) !important; }
       ${R} { position: fixed !important; right: 20px !important; bottom: 20px !important; z-index: 2147483647 !important; min-height: 40px !important; padding: 10px 18px !important; background: var(--nx-primary) !important; color: var(--nx-on-primary) !important; box-shadow: 0 12px 30px rgba(0, 0, 0, .45) !important; font-size: 13px !important; }
       ${R}:hover { background: var(--nx-primary) !important; color: var(--nx-on-primary) !important; transform: translateY(-1px) !important; }
 
@@ -1540,12 +1594,12 @@
     const style = document.createElement('style');
     style.id = AIFLOW_THEME_STYLE_ID;
     style.textContent = `
-      body[data-nest-aiflow-theme] { --nest-theme-bg:#07101d; --nest-theme-sidebar:#091729; --nest-theme-surface:#122238; --nest-theme-field:#07101d; --nest-theme-overlay:#102239; --nest-theme-border:#29435f; --nest-theme-text:#dce7f7; --nest-theme-muted:#8298b3; --nest-theme-accent:#2f7dff; --nest-theme-button:#122238; --nest-theme-button-hover:#142b47; --nest-theme-selected:#17365a; --nest-theme-primary:#2f7dff; --nest-theme-primary-text:#ffffff; }
-      body[data-nest-aiflow-theme="polar-purple"] { --nest-theme-bg:#0d0b18; --nest-theme-sidebar:#131023; --nest-theme-surface:#1b1730; --nest-theme-field:#0d0b18; --nest-theme-overlay:#211b38; --nest-theme-border:#40375c; --nest-theme-text:#eeeaff; --nest-theme-muted:#a099bb; --nest-theme-accent:#8b6cff; --nest-theme-button:#1b1730; --nest-theme-button-hover:#292145; --nest-theme-selected:#352963; --nest-theme-primary:#8b6cff; --nest-theme-primary-text:#ffffff; }
-      body[data-nest-aiflow-theme="emerald"] { --nest-theme-bg:#071512; --nest-theme-sidebar:#0a1d19; --nest-theme-surface:#102923; --nest-theme-field:#071512; --nest-theme-overlay:#14322b; --nest-theme-border:#285548; --nest-theme-text:#e0f7f0; --nest-theme-muted:#86aa9f; --nest-theme-accent:#26c99a; --nest-theme-button:#102923; --nest-theme-button-hover:#173a31; --nest-theme-selected:#1a4c3f; --nest-theme-primary:#26c99a; --nest-theme-primary-text:#09111c; }
-      body[data-nest-aiflow-theme="graphite"] { --nest-theme-bg:#111315; --nest-theme-sidebar:#171a1e; --nest-theme-surface:#20242a; --nest-theme-field:#111315; --nest-theme-overlay:#252a31; --nest-theme-border:#3b424b; --nest-theme-text:#edf1f5; --nest-theme-muted:#949da8; --nest-theme-accent:#8ea4be; --nest-theme-button:#20242a; --nest-theme-button-hover:#2a3037; --nest-theme-selected:#35404c; --nest-theme-primary:#8ea4be; --nest-theme-primary-text:#09111c; }
-      body[data-nest-aiflow-theme="twilight-orange"] { --nest-theme-bg:#15100d; --nest-theme-sidebar:#1d1511; --nest-theme-surface:#2a1d17; --nest-theme-field:#15100d; --nest-theme-overlay:#34231b; --nest-theme-border:#5b3b2d; --nest-theme-text:#fff0e8; --nest-theme-muted:#b9a092; --nest-theme-accent:#ff8a45; --nest-theme-button:#2a1d17; --nest-theme-button-hover:#3a261d; --nest-theme-selected:#55311f; --nest-theme-primary:#ff8a45; --nest-theme-primary-text:#09111c; }
-      body[data-nest-aiflow-theme="sakura"] { --nest-theme-bg:#160d14; --nest-theme-sidebar:#20121d; --nest-theme-surface:#2c1928; --nest-theme-field:#160d14; --nest-theme-overlay:#362031; --nest-theme-border:#5c3850; --nest-theme-text:#fff0f7; --nest-theme-muted:#b99aaa; --nest-theme-accent:#f47cab; --nest-theme-button:#2c1928; --nest-theme-button-hover:#3d2337; --nest-theme-selected:#592a47; --nest-theme-primary:#f47cab; --nest-theme-primary-text:#09111c; }
+      body[data-nest-aiflow-theme] { --nest-theme-bg:#0f1115; --nest-theme-sidebar:#13161b; --nest-theme-surface:#181b21; --nest-theme-field:#0b0d10; --nest-theme-overlay:#1c1f26; --nest-theme-border:#2a2f38; --nest-theme-text:#e8eaee; --nest-theme-muted:#8b919c; --nest-theme-accent:#6f9bff; --nest-theme-button:#1d2027; --nest-theme-button-hover:#262b34; --nest-theme-selected:#202b42; --nest-theme-primary:#3f6fe6; --nest-theme-primary-text:#ffffff; }
+      body[data-nest-aiflow-theme="polar-purple"] { --nest-theme-bg:#111015; --nest-theme-sidebar:#15141a; --nest-theme-surface:#1a1920; --nest-theme-field:#0c0b10; --nest-theme-overlay:#1f1d26; --nest-theme-border:#2e2b37; --nest-theme-text:#ece9f2; --nest-theme-muted:#928e9f; --nest-theme-accent:#a898ff; --nest-theme-button:#201e27; --nest-theme-button-hover:#29263a; --nest-theme-selected:#2a2542; --nest-theme-primary:#7a64e6; --nest-theme-primary-text:#ffffff; }
+      body[data-nest-aiflow-theme="emerald"] { --nest-theme-bg:#0e1211; --nest-theme-sidebar:#121716; --nest-theme-surface:#171c1b; --nest-theme-field:#0a0d0c; --nest-theme-overlay:#1b2120; --nest-theme-border:#29302e; --nest-theme-text:#e6ece9; --nest-theme-muted:#8a9592; --nest-theme-accent:#4fd3a5; --nest-theme-button:#1c2220; --nest-theme-button-hover:#242b29; --nest-theme-selected:#19302a; --nest-theme-primary:#3fbf92; --nest-theme-primary-text:#06130e; }
+      body[data-nest-aiflow-theme="graphite"] { --nest-theme-bg:#111111; --nest-theme-sidebar:#161616; --nest-theme-surface:#1b1b1b; --nest-theme-field:#0b0b0b; --nest-theme-overlay:#202020; --nest-theme-border:#2f2f2f; --nest-theme-text:#ededed; --nest-theme-muted:#8f8f8f; --nest-theme-accent:#d6d6d6; --nest-theme-button:#222222; --nest-theme-button-hover:#2b2b2b; --nest-theme-selected:#303030; --nest-theme-primary:#ececec; --nest-theme-primary-text:#121212; }
+      body[data-nest-aiflow-theme="twilight-orange"] { --nest-theme-bg:#12100e; --nest-theme-sidebar:#171412; --nest-theme-surface:#1c1916; --nest-theme-field:#0c0b0a; --nest-theme-overlay:#221e1a; --nest-theme-border:#332d27; --nest-theme-text:#efe9e3; --nest-theme-muted:#9b9188; --nest-theme-accent:#f2ab66; --nest-theme-button:#231f1b; --nest-theme-button-hover:#2c2722; --nest-theme-selected:#352a1d; --nest-theme-primary:#e89a52; --nest-theme-primary-text:#1b1006; }
+      body[data-nest-aiflow-theme="sakura"] { --nest-theme-bg:#131012; --nest-theme-sidebar:#181417; --nest-theme-surface:#1d181c; --nest-theme-field:#0d0b0c; --nest-theme-overlay:#231d22; --nest-theme-border:#352c32; --nest-theme-text:#f1e9ed; --nest-theme-muted:#9d9097; --nest-theme-accent:#f297b8; --nest-theme-button:#241e23; --nest-theme-button-hover:#2d252b; --nest-theme-selected:#3a2431; --nest-theme-primary:#e283a8; --nest-theme-primary-text:#1b0811; }
       body[data-nest-aiflow-theme] { background:var(--nest-theme-bg) !important; color:var(--nest-theme-text) !important; accent-color:var(--nest-theme-accent) !important; }
       body[data-nest-aiflow-theme] * { scrollbar-color:var(--nest-theme-accent) var(--nest-theme-surface) !important; }
       body[data-nest-aiflow-theme] :is([class*="sidebar"], [class*="panel"], [class*="header"], [class*="card"], [class*="modal"], [class*="drawer"], [class*="toolbar"], [class*="menu"], [class*="option"], [class*="setting"], [class*="param"], [class*="ratio"], [class*="switch"]) { border-color:var(--nest-theme-border) !important; }
@@ -1572,24 +1626,41 @@
       body[data-nest-aiflow-theme] :is([class*="Item"][class*="active"], [class*="item"][class*="active"], [class*="Item"][class*="selected"], [class*="item"][class*="selected"], [aria-selected="true"], [data-state="active"], [data-active="true"]) { background:var(--nest-theme-selected) !important; border-color:var(--nest-theme-accent) !important; color:var(--nest-theme-text) !important; }
       body[data-nest-aiflow-theme] :is(svg, [class*="Icon"], [class*="icon"]) { color:var(--nest-theme-muted) !important; }
       body[data-nest-aiflow-theme] :is(button:hover svg, button[aria-pressed="true"] svg, button[class*="active"] svg, [aria-selected="true"] svg, [class*="active"] [class*="Icon"], [class*="selected"] [class*="Icon"]) { color:var(--nest-theme-primary-text) !important; }
-      body[data-nest-aiflow-theme] :is([class*="Create"], [class*="create"], [class*="Generate"], [class*="generate"], [class*="Submit"], [class*="submit"]) button, body[data-nest-aiflow-theme] button:has(:is(svg, span)):is([class*="primary"], [class*="submit"], [class*="generate"]) { background:linear-gradient(135deg,color-mix(in srgb,var(--nest-theme-primary) 90%,#fff),var(--nest-theme-primary)) !important; border-color:var(--nest-theme-primary) !important; color:var(--nest-theme-primary-text) !important; }
+      body[data-nest-aiflow-theme] :is([class*="Create"], [class*="create"], [class*="Generate"], [class*="generate"], [class*="Submit"], [class*="submit"]) button, body[data-nest-aiflow-theme] button:has(:is(svg, span)):is([class*="primary"], [class*="submit"], [class*="generate"]) { background:var(--nest-theme-primary) !important; border-color:var(--nest-theme-primary) !important; color:var(--nest-theme-primary-text) !important; }
       body[data-nest-aiflow-theme] :is([style*="rgb(168"], [style*="#a855"], [style*="#9333"], [style*="purple"], [style*="violet"], [style*="rgba(168"], [style*="rgba(147"]) { background-color:var(--nest-theme-selected) !important; border-color:var(--nest-theme-accent) !important; color:var(--nest-theme-text) !important; }
       #${AIFLOW_THEME_SWITCHER_ID} { position:fixed;right:18px;bottom:62px;z-index:2147483647;font:600 12px/1.1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-      #${AIFLOW_THEME_SWITCHER_ID} button { border:1px solid var(--nest-theme-border,#29435f);border-radius:8px;background:var(--nest-theme-button,#122238);color:var(--nest-theme-text,#dce7f7);padding:8px 10px;cursor:pointer;box-shadow:0 5px 18px #0007; }
-      #${AIFLOW_THEME_SWITCHER_ID} [data-nest-theme-options] { display:none;position:absolute;right:0;bottom:42px;width:126px;padding:6px;border:1px solid var(--nest-theme-border,#29435f);border-radius:8px;background:var(--nest-theme-overlay,#102239);box-shadow:0 10px 26px #000a; }
-      #${AIFLOW_THEME_SWITCHER_ID}[data-open="true"] [data-nest-theme-options] { display:grid;gap:4px; }
-      #${AIFLOW_THEME_SWITCHER_ID} [data-nest-theme-options] button { width:100%;text-align:left;padding:7px 8px;background:var(--nest-theme-surface,#122238);color:var(--nest-theme-text,#dce7f7); }
-      #${AIFLOW_THEME_SWITCHER_ID} [data-nest-theme-options] button[data-active="true"] { background:var(--nest-theme-primary,#2f7dff) !important;color:var(--nest-theme-primary-text,#fff) !important;border-color:var(--nest-theme-primary,#2f7dff) !important; }
+      #${AIFLOW_THEME_SWITCHER_ID} button { display:flex;align-items:center;gap:8px;border:1px solid var(--nest-theme-border,#2a2f38);border-radius:999px;background:var(--nest-theme-overlay,#1c1f26);color:var(--nest-theme-text,#e8eaee);padding:8px 13px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.4); }
+      #${AIFLOW_THEME_SWITCHER_ID} [data-nest-theme-toggle]::before { content:"";width:9px;height:9px;border-radius:50%;background:var(--nest-theme-accent,#6f9bff); }
+      #${AIFLOW_THEME_SWITCHER_ID} [data-nest-theme-options] { display:none;position:absolute;right:0;bottom:44px;width:148px;padding:6px;border:1px solid var(--nest-theme-border,#2a2f38);border-radius:14px;background:var(--nest-theme-overlay,#1c1f26);box-shadow:0 16px 40px rgba(0,0,0,.5); }
+      #${AIFLOW_THEME_SWITCHER_ID}[data-open="true"] [data-nest-theme-options] { display:grid;gap:2px; }
+      #${AIFLOW_THEME_SWITCHER_ID} [data-nest-theme-options] button { width:100%;text-align:left;padding:7px 9px;border:0;border-radius:9px;background:transparent;color:var(--nest-theme-text,#e8eaee);box-shadow:none; }
+      #${AIFLOW_THEME_SWITCHER_ID} [data-nest-theme-options] button:hover { background:var(--nest-theme-button-hover,#262b34) !important; }
+      #${AIFLOW_THEME_SWITCHER_ID} [data-nest-theme-options] button::before { content:"";flex:none;width:10px;height:10px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18); }
+      #${AIFLOW_THEME_SWITCHER_ID} [data-nest-theme="aiflow-original"]::before { background:transparent;box-shadow:inset 0 0 0 1.5px var(--nest-theme-muted,#8b919c); }
+      #${AIFLOW_THEME_SWITCHER_ID} [data-nest-theme="deep-blue"]::before { background:#6f9bff; }
+      #${AIFLOW_THEME_SWITCHER_ID} [data-nest-theme="polar-purple"]::before { background:#a898ff; }
+      #${AIFLOW_THEME_SWITCHER_ID} [data-nest-theme="emerald"]::before { background:#4fd3a5; }
+      #${AIFLOW_THEME_SWITCHER_ID} [data-nest-theme="graphite"]::before { background:#d6d6d6; }
+      #${AIFLOW_THEME_SWITCHER_ID} [data-nest-theme="twilight-orange"]::before { background:#f2ab66; }
+      #${AIFLOW_THEME_SWITCHER_ID} [data-nest-theme="sakura"]::before { background:#f297b8; }
+      #${AIFLOW_THEME_SWITCHER_ID} [data-nest-theme-options] button[data-active="true"] { background:var(--nest-theme-selected,#202b42) !important;color:var(--nest-theme-text,#e8eaee) !important; }
     `;
     (document.head || document.documentElement).appendChild(style);
+  }
+
+  // 「AI Flow 原版」：去掉 body 上的主题标记，所有 body[data-nest-aiflow-theme] 规则失效，页面回到 AI Flow 自己的颜色；
+  // 小旺仔自己的浮窗用 --nest-theme-* 的兜底色（夜蓝）。
+  function applyAIFlowTheme(value) {
+    if (value === AIFLOW_ORIGINAL_THEME) delete document.body.dataset.nestAiflowTheme;
+    else document.body.dataset.nestAiflowTheme = value;
   }
 
   function injectAIFlowThemeSwitcher() {
     ensureAIFlowThemeStyle();
     let theme = 'deep-blue';
     try { theme = localStorage.getItem(AIFLOW_THEME_KEY) || 'deep-blue'; } catch {}
-    if (!['deep-blue', 'polar-purple', 'emerald', 'graphite', 'twilight-orange', 'sakura'].includes(theme)) theme = 'deep-blue';
-    document.body.dataset.nestAiflowTheme = theme;
+    if (!['deep-blue', 'polar-purple', 'emerald', 'graphite', 'twilight-orange', 'sakura', AIFLOW_ORIGINAL_THEME].includes(theme)) theme = 'deep-blue';
+    applyAIFlowTheme(theme);
     const existing = document.getElementById(AIFLOW_THEME_SWITCHER_ID);
     if (existing) {
       existing.querySelectorAll('[data-nest-theme]').forEach(button => { button.dataset.active = button.getAttribute('data-nest-theme') === theme ? 'true' : 'false'; });
@@ -1597,13 +1668,13 @@
     }
     const switcher = document.createElement('div');
     switcher.id = AIFLOW_THEME_SWITCHER_ID;
-    switcher.innerHTML = '<button type="button" data-nest-theme-toggle>页面配色</button><div data-nest-theme-options><button type="button" data-nest-theme="deep-blue">深海蓝</button><button type="button" data-nest-theme="polar-purple">极夜紫</button><button type="button" data-nest-theme="emerald">翡翠青</button><button type="button" data-nest-theme="graphite">石墨灰</button><button type="button" data-nest-theme="twilight-orange">暮光橙</button><button type="button" data-nest-theme="sakura">樱粉</button></div>';
+    switcher.innerHTML = '<button type="button" data-nest-theme-toggle>页面配色</button><div data-nest-theme-options><button type="button" data-nest-theme="aiflow-original">AI Flow 原版</button><button type="button" data-nest-theme="deep-blue">夜蓝</button><button type="button" data-nest-theme="polar-purple">雾紫</button><button type="button" data-nest-theme="emerald">松石</button><button type="button" data-nest-theme="graphite">石墨</button><button type="button" data-nest-theme="twilight-orange">琥珀</button><button type="button" data-nest-theme="sakura">玫瑰</button></div>';
     const syncActiveTheme = value => switcher.querySelectorAll('[data-nest-theme]').forEach(button => { button.dataset.active = button.getAttribute('data-nest-theme') === value ? 'true' : 'false'; });
     syncActiveTheme(theme);
     switcher.querySelector('[data-nest-theme-toggle]')?.addEventListener('click', () => { switcher.dataset.open = switcher.dataset.open === 'true' ? 'false' : 'true'; });
     switcher.querySelectorAll('[data-nest-theme]').forEach(button => button.addEventListener('click', () => {
       const value = button.getAttribute('data-nest-theme') || 'deep-blue';
-      document.body.dataset.nestAiflowTheme = value;
+      applyAIFlowTheme(value);
       try { localStorage.setItem(AIFLOW_THEME_KEY, value); } catch {}
       syncActiveTheme(value);
       switcher.dataset.open = 'false';
@@ -1623,12 +1694,12 @@
       }
       #${FOCUS_LAYOUT_TOGGLE_ID} {
         position: fixed !important; right: 18px !important; bottom: 18px !important; z-index: 2147483646 !important;
-        border: 1px solid rgba(225, 182, 75, .82) !important; border-radius: 8px !important;
-        background: rgba(33, 27, 15, .96) !important; color: #ffe5a0 !important;
-        padding: 8px 11px !important; font: 600 12px/1.1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
-        cursor: pointer !important; box-shadow: 0 5px 18px rgba(0, 0, 0, .42) !important;
+        border: 1px solid var(--nest-theme-border, #2a2f38) !important; border-radius: 999px !important;
+        background: var(--nest-theme-overlay, #1c1f26) !important; color: var(--nest-theme-text, #e8eaee) !important;
+        padding: 8px 13px !important; font: 600 12px/1.1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+        cursor: pointer !important; box-shadow: 0 8px 24px rgba(0, 0, 0, .4) !important;
       }
-      #${FOCUS_LAYOUT_TOGGLE_ID}[data-enabled="true"] { background: rgba(76, 59, 17, .98) !important; color: #fff3cb !important; }
+      #${FOCUS_LAYOUT_TOGGLE_ID}[data-enabled="true"] { border-color: var(--nest-theme-accent, #6f9bff) !important; background: var(--nest-theme-selected, #202b42) !important; color: var(--nest-theme-text, #e8eaee) !important; }
     `;
     (document.head || document.documentElement).appendChild(style);
   }
@@ -1659,6 +1730,1617 @@
     button.addEventListener('click', () => setAIFlowFocusLayout(!document.body.classList.contains(FOCUS_LAYOUT_CLASS)));
     document.body.appendChild(button);
     setAIFlowFocusLayout(focusLayoutEnabled());
+  }
+
+  // ===== 「作品」区无限画布（DEC-014）=====
+  // 不搬动、不克隆 AI Flow 的作品卡片：只给作品网格和它的滚动容器加类名和内联样式，
+  // 卡片仍是 AI Flow 自己的节点，下载、增强、重制、延长等按钮照常工作；关掉后把类名和样式全部撤掉。
+  // 注意：网格和卡片不能套 nest-aiflow- 前缀的 id，否则全局点击监听和 isNestOwnedNode 会把它们当成扩展自己的浮窗（LES-019）。
+  // 画布上另有三样小旺仔自己的东西：分组框层（放在视口里、卡片下面）、右下角小地图、左下角浮条里的搜索框。
+  function clampWorksCanvas(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function finiteWorksCanvasNumber(value, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  }
+
+  function worksCanvasStoredEnabled() {
+    try { return localStorage.getItem(WORKS_CANVAS_ENABLED_KEY) === 'true'; } catch { return false; }
+  }
+
+  const worksCanvas = {
+    enabled: worksCanvasStoredEnabled(),
+    viewport: null,
+    world: null,
+    layout: null,
+    layoutKey: '',
+    savedScrollTop: 0,
+    savedMinHeight: false,
+    scheduled: false,
+    interaction: null,
+    suppressClickUntil: 0,
+    saveTimer: 0,
+    idleTimer: 0,
+    resizeObserver: null,
+    titleSearchAt: 0,
+    titleRetries: 0,
+    topZ: 1,
+    // 按住空格时左键拖空白处改为平移
+    spaceHeld: false,
+    // 框选 / Shift+点选中的作品 id
+    selected: new Set(),
+    // 卡片高度缓存：拖动时不读 offsetHeight，免得每帧强制排版
+    heights: new Map(),
+    search: { query: '', hits: [], index: -1 },
+    minimapScheduled: false,
+    minimapGeometry: null,
+    flyFrame: 0,
+  };
+
+  function ensureWorksCanvasStyle() {
+    if (document.getElementById(WORKS_CANVAS_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = WORKS_CANVAS_STYLE_ID;
+    // 选择器写成 html body .x.x，压过 body[data-nest-aiflow-theme] :is([class*="panel"]…) 的整页配色规则。
+    style.textContent = `
+      html body .${WORKS_CANVAS_VIEWPORT_CLASS}.${WORKS_CANVAS_VIEWPORT_CLASS} {
+        position:relative !important; overflow:hidden !important; overscroll-behavior:contain !important; touch-action:none !important; cursor:default;
+        background-color:var(--nest-theme-bg,#0f1115) !important;
+        background-image:
+          radial-gradient(color-mix(in srgb,var(--nest-theme-muted,#8b919c) 30%,transparent) .8px,transparent .8px),
+          linear-gradient(90deg,color-mix(in srgb,var(--nest-theme-border,#2a2f38) 45%,transparent) 1px,transparent 1px),
+          linear-gradient(color-mix(in srgb,var(--nest-theme-border,#2a2f38) 45%,transparent) 1px,transparent 1px) !important;
+        background-size:20px 20px,100px 100px,100px 100px;
+      }
+      html body .${WORKS_CANVAS_PASSTHROUGH_CLASS}.${WORKS_CANVAS_PASSTHROUGH_CLASS} { position:static !important; overflow:visible !important; transform:none !important; contain:none !important; }
+      html body .${WORKS_CANVAS_WORLD_CLASS}.${WORKS_CANVAS_WORLD_CLASS} {
+        position:absolute !important; left:0 !important; top:0 !important; z-index:1 !important; display:block !important;
+        width:0 !important; height:0 !important; min-width:0 !important; min-height:0 !important; max-width:none !important;
+        margin:0 !important; padding:0 !important; overflow:visible !important; transform-origin:0 0 !important;
+        columns:auto !important; grid-template-columns:none !important;
+      }
+      html body .${WORKS_CANVAS_VIEWPORT_CLASS}.${WORKS_CANVAS_VIEWPORT_CLASS}[data-nest-wc-space="true"] { cursor:grab; }
+      html body .${WORKS_CANVAS_VIEWPORT_CLASS}[data-nest-wc-moving="true"] :is(.${WORKS_CANVAS_WORLD_CLASS}, #${WORKS_CANVAS_GROUPS_ID}) { will-change:transform; }
+      html body .${WORKS_CANVAS_WORLD_CLASS}.${WORKS_CANVAS_WORLD_CLASS} > .task-card {
+        position:absolute !important; left:var(--nest-wc-cx,0px) !important; top:var(--nest-wc-cy,0px) !important;
+        width:var(--nest-wc-card-w,244px) !important; max-width:none !important; box-sizing:border-box !important; margin:0 !important;
+        z-index:var(--nest-wc-z,1) !important; cursor:grab; box-shadow:0 10px 28px rgba(0,0,0,.35);
+        -webkit-user-drag:none;
+      }
+      html body .${WORKS_CANVAS_WORLD_CLASS} > .task-card :is(img, video) { -webkit-user-drag:none; }
+      /* 悬停只描边，不缩放（LES-020） */
+      html body .${WORKS_CANVAS_WORLD_CLASS} > .task-card:hover { outline:1px solid color-mix(in srgb,var(--nest-theme-accent,#6f9bff) 70%,transparent); outline-offset:2px; }
+      html body .${WORKS_CANVAS_WORLD_CLASS} > .task-card[data-nest-wc-selected="true"] { outline:2px solid var(--nest-theme-accent,#6f9bff); outline-offset:3px; }
+      html body .${WORKS_CANVAS_WORLD_CLASS} > .task-card[data-nest-wc-dragging="true"] { cursor:grabbing; outline:2px solid var(--nest-theme-accent,#6f9bff); box-shadow:0 18px 42px rgba(0,0,0,.5); }
+      html body .${WORKS_CANVAS_WORLD_CLASS}[data-nest-wc-searching="true"] > .task-card:not([data-nest-wc-hit]) { opacity:.32; }
+      html body .${WORKS_CANVAS_WORLD_CLASS} > .task-card[data-nest-wc-hit="match"] { outline:2px dashed var(--nest-theme-accent,#6f9bff); outline-offset:3px; }
+      html body .${WORKS_CANVAS_WORLD_CLASS} > .task-card[data-nest-wc-hit="current"] { outline:3px solid var(--nest-theme-accent,#6f9bff); outline-offset:4px; box-shadow:0 0 0 10px color-mix(in srgb,var(--nest-theme-accent,#6f9bff) 22%,transparent),0 18px 42px rgba(0,0,0,.5); }
+      body[data-nest-wc-interacting="true"], body[data-nest-wc-interacting="true"] * { user-select:none !important; cursor:grabbing !important; }
+      #${WORKS_CANVAS_GROUPS_ID} { position:absolute; left:0; top:0; width:0; height:0; z-index:0; transform-origin:0 0; pointer-events:none; }
+      #${WORKS_CANVAS_GROUPS_ID} [data-nest-wc-group] {
+        position:absolute; box-sizing:border-box; pointer-events:none; border-radius:18px;
+        border:1.5px solid color-mix(in srgb,var(--nest-theme-accent,#6f9bff) 55%,transparent);
+        background:color-mix(in srgb,var(--nest-theme-accent,#6f9bff) 7%,transparent);
+      }
+      #${WORKS_CANVAS_GROUPS_ID} [data-nest-wc-group-head] {
+        position:absolute; left:0; right:0; top:0; height:${WORKS_CANVAS_GROUP_HEADER}px; display:flex; align-items:center; gap:8px; padding:0 8px 0 14px;
+        pointer-events:auto; cursor:grab; color:var(--nest-theme-text,#e8eaee); font:600 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        border-bottom:1px solid color-mix(in srgb,var(--nest-theme-accent,#6f9bff) 30%,transparent);
+      }
+      #${WORKS_CANVAS_GROUPS_ID} [data-nest-wc-group-name] { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:text; }
+      #${WORKS_CANVAS_GROUPS_ID} [data-nest-wc-group-name][hidden] { display:none; }
+      #${WORKS_CANVAS_GROUPS_ID} [data-nest-wc-rename] {
+        flex:none; width:22px; height:22px; padding:0; border:0 !important; border-radius:7px !important; cursor:pointer;
+        background:transparent !important; color:var(--nest-theme-muted,#8b919c) !important; font:13px/1 sans-serif; box-shadow:none !important;
+      }
+      #${WORKS_CANVAS_GROUPS_ID} [data-nest-wc-rename]:hover { background:var(--nest-theme-button-hover,#262b34) !important; color:var(--nest-theme-text,#e8eaee) !important; }
+      #${WORKS_CANVAS_GROUPS_ID} input[data-nest-wc-group-input] {
+        flex:0 1 220px; min-width:80px; height:24px; box-sizing:border-box; padding:0 8px; border-radius:7px !important; cursor:text;
+        border:1px solid var(--nest-theme-accent,#6f9bff) !important; background:var(--nest-theme-field,#0b0d10) !important;
+        color:var(--nest-theme-text,#e8eaee) !important; font:600 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; outline:none; box-shadow:none !important;
+      }
+      #${WORKS_CANVAS_GROUPS_ID} [data-nest-wc-group-count] { color:var(--nest-theme-muted,#8b919c); font-weight:500; }
+      #${WORKS_CANVAS_GROUPS_ID} [data-nest-wc-ungroup] {
+        margin-left:auto; height:22px; padding:0 8px; border:0 !important; border-radius:7px !important; cursor:pointer;
+        background:transparent !important; color:var(--nest-theme-muted,#8b919c) !important; font:inherit; box-shadow:none !important;
+      }
+      #${WORKS_CANVAS_GROUPS_ID} [data-nest-wc-ungroup]:hover { background:var(--nest-theme-button-hover,#262b34) !important; color:var(--nest-theme-text,#e8eaee) !important; }
+      #${WORKS_CANVAS_MARQUEE_ID} { position:fixed; z-index:2147483645; pointer-events:none; border:1px solid var(--nest-theme-accent,#6f9bff); background:color-mix(in srgb,var(--nest-theme-accent,#6f9bff) 12%,transparent); border-radius:4px; }
+      #${WORKS_CANVAS_MINIMAP_ID} {
+        position:fixed; z-index:2147483644; width:${WORKS_CANVAS_MINIMAP_WIDTH}px; height:${WORKS_CANVAS_MINIMAP_HEIGHT}px; overflow:hidden; cursor:pointer;
+        border:1px solid var(--nest-theme-border,#2a2f38); border-radius:12px; background:color-mix(in srgb,var(--nest-theme-overlay,#1c1f26) 94%,transparent);
+        box-shadow:0 8px 24px rgba(0,0,0,.4);
+      }
+      #${WORKS_CANVAS_MINIMAP_ID} canvas { display:block; width:100%; height:100%; }
+      #${WORKS_CANVAS_TOGGLE_ID} {
+        display:inline-flex !important; align-items:center !important; gap:6px !important; margin:0 0 0 10px !important; vertical-align:middle !important;
+        border:1px solid var(--nest-theme-border,#2a2f38) !important; border-radius:999px !important;
+        background:var(--nest-theme-button,#1d2027) !important; color:var(--nest-theme-text,#e8eaee) !important;
+        padding:4px 11px !important; font:600 12px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important; cursor:pointer !important; box-shadow:none !important;
+      }
+      #${WORKS_CANVAS_TOGGLE_ID}::before { content:""; width:8px; height:8px; border-radius:2px; box-shadow:inset 0 0 0 1.5px var(--nest-theme-muted,#8b919c); }
+      #${WORKS_CANVAS_TOGGLE_ID}:hover { background:var(--nest-theme-button-hover,#262b34) !important; border-color:var(--nest-theme-accent,#6f9bff) !important; }
+      #${WORKS_CANVAS_TOGGLE_ID}[data-enabled="true"] { background:var(--nest-theme-selected,#202b42) !important; border-color:var(--nest-theme-accent,#6f9bff) !important; }
+      #${WORKS_CANVAS_TOGGLE_ID}[data-enabled="true"]::before { background:var(--nest-theme-accent,#6f9bff); box-shadow:none; }
+      #${WORKS_CANVAS_ORDER_ID} {
+        display:inline-flex !important; align-items:center !important; margin:0 0 0 6px !important; vertical-align:middle !important;
+        border:1px solid var(--nest-theme-border,#2a2f38) !important; border-radius:999px !important;
+        background:transparent !important; color:var(--nest-theme-muted,#8b919c) !important;
+        padding:4px 10px !important; font:600 12px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important; cursor:pointer !important; box-shadow:none !important;
+      }
+      #${WORKS_CANVAS_ORDER_ID}:hover { background:var(--nest-theme-button-hover,#262b34) !important; color:var(--nest-theme-text,#e8eaee) !important; border-color:var(--nest-theme-accent,#6f9bff) !important; }
+      #${WORKS_CANVAS_TOGGLE_ID}[data-placement="floating"] { position:fixed !important; z-index:2147483645 !important; margin:0 !important; box-shadow:0 8px 24px rgba(0,0,0,.4) !important; }
+      #${WORKS_CANVAS_HUD_ID} {
+        position:fixed; z-index:2147483645; display:flex; align-items:center; gap:4px; padding:5px; max-width:calc(100vw - 32px);
+        border:1px solid var(--nest-theme-border,#2a2f38); border-radius:12px;
+        background:color-mix(in srgb,var(--nest-theme-overlay,#1c1f26) 94%,transparent); color:var(--nest-theme-muted,#8b919c);
+        box-shadow:0 8px 24px rgba(0,0,0,.4); font:600 11px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      }
+      #${WORKS_CANVAS_HUD_ID} button {
+        min-width:28px; height:26px; padding:0 8px; border:0 !important; border-radius:8px !important;
+        background:transparent !important; color:var(--nest-theme-text,#e8eaee) !important; font:inherit; cursor:pointer; box-shadow:none !important; white-space:nowrap;
+      }
+      #${WORKS_CANVAS_HUD_ID} button:hover { background:var(--nest-theme-button-hover,#262b34) !important; }
+      #${WORKS_CANVAS_HUD_ID} button[hidden] { display:none !important; }
+      #${WORKS_CANVAS_HUD_ID} [data-nest-wc-act="group"] { background:var(--nest-theme-primary,#3f6fe6) !important; color:var(--nest-theme-primary-text,#ffffff) !important; }
+      #${WORKS_CANVAS_HUD_ID} [data-nest-wc-act="zoom"] { min-width:52px; font-variant-numeric:tabular-nums; }
+      #${WORKS_CANVAS_HUD_ID} [data-nest-wc-sep] { width:1px; align-self:stretch; margin:3px 4px; background:var(--nest-theme-border,#2a2f38); }
+      #${WORKS_CANVAS_HUD_ID} input[data-nest-wc-search] {
+        width:170px; height:26px; box-sizing:border-box; padding:0 9px; border-radius:8px !important;
+        border:1px solid var(--nest-theme-border,#2a2f38) !important; background:var(--nest-theme-field,#0b0d10) !important;
+        color:var(--nest-theme-text,#e8eaee) !important; font:500 12px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; outline:none; box-shadow:none !important;
+      }
+      #${WORKS_CANVAS_HUD_ID} input[data-nest-wc-search]:focus { border-color:var(--nest-theme-accent,#6f9bff) !important; }
+      #${WORKS_CANVAS_HUD_ID} [data-nest-wc-count] { min-width:34px; text-align:center; font-variant-numeric:tabular-nums; white-space:nowrap; }
+      #${WORKS_CANVAS_HUD_ID} [data-nest-wc-hint] { padding:0 6px; white-space:nowrap; }
+    `;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  function worksTaskCards() {
+    const cards = AI_FLOW_DOM?.tasks ? AI_FLOW_DOM.tasks() : [...document.querySelectorAll('.task-card[data-taskid]')];
+    return cards.filter(card => card instanceof HTMLElement && !isNestOwnedNode(card));
+  }
+
+  function worksCardId(card) {
+    return String(AI_FLOW_DOM?.taskId?.(card) || card?.dataset?.taskid || card?.dataset?.taskId || '').trim();
+  }
+
+  // 作品网格 = 装着最多作品卡片的那个父元素
+  function worksGridFromCards(cards) {
+    const counts = new Map();
+    for (const card of cards) if (card.parentElement) counts.set(card.parentElement, (counts.get(card.parentElement) || 0) + 1);
+    let grid = null;
+    let most = 0;
+    for (const [parent, count] of counts) if (count > most) { grid = parent; most = count; }
+    return grid;
+  }
+
+  // 画布视口 = 网格外面最近的滚动容器（开着画布时它已被改成 overflow:hidden，所以先认类名）
+  function worksViewportFor(grid) {
+    for (let node = grid?.parentElement; node && node !== document.body; node = node.parentElement) {
+      if (node.classList.contains(WORKS_CANVAS_VIEWPORT_CLASS)) return node;
+      if (/(auto|scroll)/.test(getComputedStyle(node).overflowY) && node.clientHeight > 0) return node;
+    }
+    return grid?.parentElement || null;
+  }
+
+  function worksCanvasTitle(grid) {
+    let scope = worksViewportFor(grid);
+    for (let depth = 0; scope && scope !== document.documentElement && depth < 4; depth += 1, scope = scope.parentElement) {
+      const title = [...scope.querySelectorAll('h1, h2, h3, h4, h5, h6, span, div, strong, b, p')]
+        .find(node => node.childElementCount === 0 && String(node.textContent || '').trim() === '作品' && !grid.contains(node) && !isNestOwnedNode(node));
+      if (title) return title;
+    }
+    return null;
+  }
+
+  function worksCanvasLayoutKey() {
+    return WORKS_CANVAS_LAYOUT_PREFIX + (currentProjectId() || 'default');
+  }
+
+  function loadWorksCanvasLayout(key) {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(key) || 'null'); } catch { saved = null; }
+    const camera = saved?.camera || {};
+    const cards = {};
+    if (saved?.cards && typeof saved.cards === 'object') {
+      for (const [id, pos] of Object.entries(saved.cards)) {
+        const x = Number(pos?.x);
+        const y = Number(pos?.y);
+        if (Number.isFinite(x) && Number.isFinite(y)) cards[id] = { x, y, z: finiteWorksCanvasNumber(pos?.z, 1) };
+      }
+    }
+    const groups = (Array.isArray(saved?.groups) ? saved.groups : [])
+      .map(group => ({
+        id: String(group?.id || ''),
+        // name 是用户自己起的名字，空 = 用 defaultName（打组时按镜头号生成的「镜头 S01」）
+        // 早期存档只有 name，那时 name 就是默认名
+        name: group?.defaultName ? String(group?.name || '').slice(0, 60) : '',
+        defaultName: String(group?.defaultName || group?.name || '').slice(0, 60),
+        ids: [...new Set((Array.isArray(group?.ids) ? group.ids : []).map(String).filter(Boolean))],
+      }))
+      .filter(group => group.id && group.ids.length >= 2);
+    return {
+      cards,
+      groups,
+      camera: {
+        x: finiteWorksCanvasNumber(camera.x, 24),
+        y: finiteWorksCanvasNumber(camera.y, 24),
+        zoom: clampWorksCanvas(finiteWorksCanvasNumber(camera.zoom, 1), WORKS_CANVAS_MIN_ZOOM, WORKS_CANVAS_MAX_ZOOM),
+      },
+      cardWidth: finiteWorksCanvasNumber(saved?.cardWidth, 0),
+      columns: finiteWorksCanvasNumber(saved?.columns, 0),
+      // 退出画布后列表的排法：canvas = 按画布位置，original = AI Flow 原顺序
+      listOrder: saved?.listOrder === 'original' ? 'original' : 'canvas',
+    };
+  }
+
+  function writeWorksCanvasLayout() {
+    clearTimeout(worksCanvas.saveTimer);
+    const { layout, layoutKey, world } = worksCanvas;
+    if (!layout || !layoutKey) return;
+    // 只留得住最近的位置：超过上限时丢掉页面上已不存在的作品
+    if (Object.keys(layout.cards).length > WORKS_CANVAS_MAX_SAVED_CARDS && world) {
+      const present = new Set([...world.children].map(worksCardId).filter(Boolean));
+      for (const id of Object.keys(layout.cards)) if (!present.has(id)) delete layout.cards[id];
+    }
+    try { localStorage.setItem(layoutKey, JSON.stringify(layout)); } catch { /* 存储被页面禁用时只在本次会话生效 */ }
+  }
+
+  function saveWorksCanvasLayout() {
+    clearTimeout(worksCanvas.saveTimer);
+    worksCanvas.saveTimer = setTimeout(writeWorksCanvasLayout, 250);
+  }
+
+  // 卡片位置变了（拖动、打组、重排）：退出画布后列表重新跟着画布排
+  function markWorksCanvasOrderChanged() {
+    if (worksCanvas.layout) worksCanvas.layout.listOrder = 'canvas';
+  }
+
+  // ---- 退出画布后的列表顺序 ----
+  // 按位置排：先按 y 分行（相差不到半张卡算同一行），行内按 x
+  function sortWorksByPosition(items) {
+    const sorted = [...items].sort((a, b) => a.y - b.y || a.x - b.x);
+    const rows = [];
+    for (const item of sorted) {
+      const row = rows[rows.length - 1];
+      if (row && item.y - row.y < WORKS_CANVAS_ROW_TOLERANCE) row.items.push(item);
+      else rows.push({ y: item.y, items: [item] });
+    }
+    return rows.flatMap(row => row.items.sort((a, b) => a.x - b.x));
+  }
+
+  // ids 为 AI Flow 当前的卡片顺序。还没在画布里摆过的新作品按原顺序放最前面；
+  // 其余按画布位置，同一分组的卡片连在一起，分组按组内最靠上、最靠左的位置参与排序。
+  function worksCanvasListSequence(ids, layout) {
+    const fresh = ids.filter(id => !layout.cards[id]);
+    const positioned = ids.filter(id => layout.cards[id]);
+    const present = new Set(positioned);
+    const grouped = new Set();
+    const units = [];
+    for (const group of layout.groups || []) {
+      const members = group.ids.filter(id => present.has(id) && !grouped.has(id));
+      if (!members.length) continue;
+      members.forEach(id => grouped.add(id));
+      const items = members.map(id => ({ id, x: layout.cards[id].x, y: layout.cards[id].y }));
+      units.push({ x: Math.min(...items.map(item => item.x)), y: Math.min(...items.map(item => item.y)), ids: sortWorksByPosition(items).map(item => item.id) });
+    }
+    for (const id of positioned) if (!grouped.has(id)) units.push({ x: layout.cards[id].x, y: layout.cards[id].y, ids: [id] });
+    return [...fresh, ...sortWorksByPosition(units).flatMap(unit => unit.ids)];
+  }
+
+  function clearWorksListOrder(cards) {
+    for (const card of cards) {
+      if (!card.dataset?.nestWcOrdered) continue;
+      card.style.removeProperty('order');
+      delete card.dataset.nestWcOrdered;
+    }
+  }
+
+  function updateWorksOrderButton(visible, listOrder) {
+    const toggle = document.getElementById(WORKS_CANVAS_TOGGLE_ID);
+    let button = document.getElementById(WORKS_CANVAS_ORDER_ID);
+    // 只跟在「作品」标题旁的开关后面；开关浮在作品区上时不放这个按钮
+    if (!visible || !toggle || toggle.dataset.placement !== 'title') {
+      button?.remove();
+      return;
+    }
+    if (!button) {
+      button = document.createElement('button');
+      button.id = WORKS_CANVAS_ORDER_ID;
+      button.type = 'button';
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        setWorksListOrder(button.dataset.order === 'original' ? 'canvas' : 'original');
+      });
+    }
+    if (toggle.nextElementSibling !== button) toggle.insertAdjacentElement('afterend', button);
+    const text = listOrder === 'original' ? '按画布顺序' : '恢复原顺序';
+    if (button.dataset.order !== listOrder) button.dataset.order = listOrder;
+    if (button.textContent !== text) button.textContent = text;
+    button.title = listOrder === 'original'
+      ? '列表按无限画布里的位置排（从上到下、从左到右，同组连在一起）'
+      : '列表回到 AI Flow 原来的顺序；画布里的位置和分组不变';
+  }
+
+  function setWorksListOrder(value) {
+    const key = worksCanvasLayoutKey();
+    const layout = loadWorksCanvasLayout(key);
+    layout.listOrder = value === 'original' ? 'original' : 'canvas';
+    try { localStorage.setItem(key, JSON.stringify(layout)); } catch { /* 存储被禁用时只在本次生效 */ }
+    worksCanvas.listCache = { key, layout, signature: '' };
+    syncWorksListOrder();
+  }
+
+  // 列表模式：用 CSS order 给 AI Flow 的卡片排顺序，不移动它的 DOM 节点
+  function syncWorksListOrder() {
+    const cards = worksTaskCards();
+    const grid = worksGridFromCards(cards);
+    if (!grid || worksCanvas.enabled) {
+      updateWorksOrderButton(false);
+      return;
+    }
+    const key = worksCanvasLayoutKey();
+    if (worksCanvas.listCache?.key !== key) worksCanvas.listCache = { key, layout: loadWorksCanvasLayout(key), signature: '' };
+    const cache = worksCanvas.listCache;
+    const { layout } = cache;
+    const gridCards = cards.filter(card => card.parentElement === grid);
+    const ids = gridCards.map(worksCardId);
+    const hasCanvasLayout = ids.some(id => id && layout.cards[id]);
+    updateWorksOrderButton(hasCanvasLayout, layout.listOrder);
+    if (!hasCanvasLayout || layout.listOrder === 'original') {
+      clearWorksListOrder(gridCards);
+      cache.signature = '';
+      return;
+    }
+    // 卡片和顺序都没变时什么都不写（AI Flow 刷新进度等频繁变动不重排）
+    const signature = ids.join('|');
+    if (signature === cache.signature && gridCards.every(card => card.dataset.nestWcOrdered)) return;
+    cache.signature = signature;
+    const byId = new Map(gridCards.map((card, index) => [ids[index], card]));
+    worksCanvasListSequence(ids.filter(Boolean), layout).forEach((id, index) => {
+      const card = byId.get(id);
+      if (!card) return;
+      if (card.style.getPropertyValue('order') !== String(index)) card.style.setProperty('order', String(index));
+      card.dataset.nestWcOrdered = 'true';
+    });
+  }
+
+  function worksGridCards() {
+    const { world } = worksCanvas;
+    return world ? [...world.children].filter(card => card.classList?.contains('task-card')) : [];
+  }
+
+  function worksCardsById() {
+    const map = new Map();
+    for (const card of worksGridCards()) {
+      const id = worksCardId(card);
+      if (id) map.set(id, card);
+    }
+    return map;
+  }
+
+  function worksCardHeight(id) {
+    return worksCanvas.heights.get(id) || WORKS_CANVAS_DEFAULT_CARD_HEIGHT;
+  }
+
+  function worksCellSize() {
+    const width = worksCanvas.layout?.cardWidth || WORKS_CANVAS_DEFAULT_CARD_WIDTH;
+    const tallest = Math.max(WORKS_CANVAS_DEFAULT_CARD_HEIGHT, ...worksCanvas.heights.values());
+    return { width, cellWidth: width + WORKS_CANVAS_GAP, cellHeight: tallest + WORKS_CANVAS_GAP };
+  }
+
+  function worksRectsOverlap(a, b, gap = WORKS_CANVAS_GAP / 2) {
+    return a.x < b.x + b.w + gap && a.x + a.w + gap > b.x && a.y < b.y + b.h + gap && a.y + a.h + gap > b.y;
+  }
+
+  // 分组框 = 组内（页面上还在的）卡片的外接矩形 + 内边距 + 标题栏
+  function worksGroupFrame(group, present = null) {
+    const { layout } = worksCanvas;
+    const width = layout?.cardWidth || WORKS_CANVAS_DEFAULT_CARD_WIDTH;
+    const members = group.ids.filter(id => layout?.cards[id] && (!present || present.has(id)));
+    if (!members.length) return null;
+    const left = Math.min(...members.map(id => layout.cards[id].x));
+    const top = Math.min(...members.map(id => layout.cards[id].y));
+    const right = Math.max(...members.map(id => layout.cards[id].x + width));
+    const bottom = Math.max(...members.map(id => layout.cards[id].y + worksCardHeight(id)));
+    const pad = WORKS_CANVAS_GROUP_PAD;
+    return {
+      x: left - pad,
+      y: top - pad - WORKS_CANVAS_GROUP_HEADER,
+      w: right - left + pad * 2,
+      h: bottom - top + pad * 2 + WORKS_CANVAS_GROUP_HEADER,
+      count: members.length,
+    };
+  }
+
+  // 按网格槽位从左到右、换行找第一个放得下 w×h 且不压住 occupied 的位置
+  function findWorksFreeSpot(w, h, occupied) {
+    const columns = Math.max(1, worksCanvas.layout?.columns || 4);
+    const { cellWidth, cellHeight } = worksCellSize();
+    const rowWidth = Math.max(columns * cellWidth, w);
+    for (let slot = 0; slot < 40000; slot += 1) {
+      const x = (slot % columns) * cellWidth;
+      const y = Math.floor(slot / columns) * cellHeight;
+      if (x + w > rowWidth + 1) continue;
+      const rect = { x, y, w, h };
+      if (!occupied.some(other => worksRectsOverlap(rect, other))) return rect;
+    }
+    return { x: 0, y: (occupied.reduce((max, r) => Math.max(max, r.y + r.h), 0)) + cellHeight, w, h };
+  }
+
+  function setWorksCardPosition(card, pos) {
+    const x = `${Math.round(pos.x)}px`;
+    const y = `${Math.round(pos.y)}px`;
+    const z = String(pos.z || 1);
+    if (card.style.getPropertyValue('--nest-wc-cx') !== x) card.style.setProperty('--nest-wc-cx', x);
+    if (card.style.getPropertyValue('--nest-wc-cy') !== y) card.style.setProperty('--nest-wc-cy', y);
+    if (card.style.getPropertyValue('--nest-wc-z') !== z) card.style.setProperty('--nest-wc-z', z);
+  }
+
+  // 新作品（还没有位置的）按网格顺序从左到右、换行，放进第一个空位，不压住已经摆好的卡片和分组框
+  function placeWorksCards(cards) {
+    const { layout } = worksCanvas;
+    if (!layout) return;
+    const width = layout.cardWidth || WORKS_CANVAS_DEFAULT_CARD_WIDTH;
+    // 先统一读高度，再统一写样式，避免读写交替反复触发排版
+    const entries = cards.map(card => ({ card, id: worksCardId(card), height: card.offsetHeight || WORKS_CANVAS_DEFAULT_CARD_HEIGHT })).filter(entry => entry.id);
+    for (const entry of entries) worksCanvas.heights.set(entry.id, entry.height);
+    const present = new Set(entries.map(entry => entry.id));
+    const occupied = [];
+    const pending = [];
+    for (const entry of entries) {
+      const pos = layout.cards[entry.id];
+      if (pos) {
+        occupied.push({ x: pos.x, y: pos.y, w: width, h: entry.height });
+        worksCanvas.topZ = Math.max(worksCanvas.topZ, pos.z || 1);
+      } else pending.push(entry);
+    }
+    for (const group of layout.groups) {
+      const frame = worksGroupFrame(group, present);
+      if (frame) occupied.push(frame);
+    }
+    for (const entry of pending) {
+      const spot = findWorksFreeSpot(width, entry.height, occupied);
+      layout.cards[entry.id] = { x: spot.x, y: spot.y, z: 1 };
+      occupied.push(spot);
+    }
+    for (const entry of entries) if (layout.cards[entry.id]) setWorksCardPosition(entry.card, layout.cards[entry.id]);
+    if (pending.length) saveWorksCanvasLayout();
+  }
+
+  // 把一组卡片紧凑地排成一块（frameX/frameY 是分组框左上角）
+  function arrangeWorksGroupMembers(ids, frameX, frameY) {
+    const { layout } = worksCanvas;
+    const { cellWidth } = worksCellSize();
+    const columns = Math.max(1, Math.min(ids.length, layout.columns || 4));
+    const rowHeight = Math.max(...ids.map(worksCardHeight)) + WORKS_CANVAS_GAP;
+    ids.forEach((id, index) => {
+      layout.cards[id] = {
+        x: frameX + WORKS_CANVAS_GROUP_PAD + (index % columns) * cellWidth,
+        y: frameY + WORKS_CANVAS_GROUP_HEADER + WORKS_CANVAS_GROUP_PAD + Math.floor(index / columns) * rowHeight,
+        z: layout.cards[id]?.z || 1,
+      };
+    });
+  }
+
+  function worksGroupBlockSize(ids) {
+    const { cellWidth } = worksCellSize();
+    const columns = Math.max(1, Math.min(ids.length, worksCanvas.layout.columns || 4));
+    const rows = Math.ceil(ids.length / columns);
+    const rowHeight = Math.max(...ids.map(worksCardHeight)) + WORKS_CANVAS_GAP;
+    return {
+      w: columns * cellWidth - WORKS_CANVAS_GAP + WORKS_CANVAS_GROUP_PAD * 2,
+      h: rows * rowHeight - WORKS_CANVAS_GAP + WORKS_CANVAS_GROUP_PAD * 2 + WORKS_CANVAS_GROUP_HEADER,
+    };
+  }
+
+  // 镜头号取自 AI Flow 卡片上的任务名，例如 liwang_E09_S02_v01_HZ → 2
+  function worksCardShotNumber(card) {
+    const text = String(card?.textContent || '');
+    // 优先认「E09_S02」这种集号+镜头号的任务名，避免被提示词里零散的 S 编号带偏
+    const match = text.match(/E\d{1,3}_S(\d{1,3})(?![0-9])/) || text.match(/(?:^|[^A-Za-z0-9])S(\d{1,3})(?![0-9])/);
+    return match ? Number(match[1]) : null;
+  }
+
+  function worksDefaultGroupName(cards) {
+    const shots = new Set(cards.map(worksCardShotNumber).filter(value => value !== null));
+    if (shots.size === 1) return `镜头 S${String([...shots][0]).padStart(2, '0')}`;
+    return `分组 ${(worksCanvas.layout?.groups.length || 0) + 1}`;
+  }
+
+  function groupSelectedWorks() {
+    const { layout, selected } = worksCanvas;
+    if (!layout) return;
+    const byId = worksCardsById();
+    const ids = [...byId.keys()].filter(id => selected.has(id) && layout.cards[id]);
+    if (ids.length < 2) return;
+    // 一张卡只属于一个组
+    for (const group of layout.groups) group.ids = group.ids.filter(id => !ids.includes(id));
+    layout.groups = layout.groups.filter(group => group.ids.length >= 2);
+    const frameX = Math.min(...ids.map(id => layout.cards[id].x)) - WORKS_CANVAS_GROUP_PAD;
+    const frameY = Math.min(...ids.map(id => layout.cards[id].y)) - WORKS_CANVAS_GROUP_PAD - WORKS_CANVAS_GROUP_HEADER;
+    const group = { id: `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name: '', defaultName: worksDefaultGroupName(ids.map(id => byId.get(id))), ids };
+    layout.groups.push(group);
+    arrangeWorksGroupMembers(ids, frameX, frameY);
+    // 被新分组框压住的其它卡片挪到空位
+    const frame = worksGroupFrame(group);
+    const width = layout.cardWidth || WORKS_CANVAS_DEFAULT_CARD_WIDTH;
+    const grouped = new Set(layout.groups.flatMap(item => item.ids));
+    for (const [id, card] of byId) {
+      if (grouped.has(id) || !layout.cards[id]) continue;
+      const pos = layout.cards[id];
+      if (worksRectsOverlap({ x: pos.x, y: pos.y, w: width, h: worksCardHeight(id) }, frame)) {
+        delete layout.cards[id];
+        card.style.removeProperty('--nest-wc-cx');
+      }
+    }
+    placeWorksCards([...byId.values()]);
+    setWorksSelection(new Set());
+    renderWorksGroups();
+    scheduleWorksMinimap();
+    markWorksCanvasOrderChanged();
+    saveWorksCanvasLayout();
+  }
+
+  function ungroupWorks(groupId) {
+    const { layout } = worksCanvas;
+    if (!layout) return;
+    layout.groups = layout.groups.filter(group => group.id !== groupId);
+    renderWorksGroups();
+    scheduleWorksMinimap();
+    saveWorksCanvasLayout();
+  }
+
+  function worksGroupDisplayName(group) {
+    return group.name || group.defaultName || '分组';
+  }
+
+  // 保存分组名：空或与默认名相同 = 恢复默认（「镜头 S01」）
+  function renameWorksGroup(groupId, value) {
+    const group = worksCanvas.layout?.groups.find(item => item.id === groupId);
+    if (!group) return;
+    const name = String(value || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    group.name = name === group.defaultName ? '' : name;
+    renderWorksGroups();
+    scheduleWorksMinimap();
+    saveWorksCanvasLayout();
+  }
+
+  // 双击组名或点铅笔：组名就地变成输入框；回车或点别处保存，Esc 取消
+  function startWorksGroupRename(groupId) {
+    const node = document.getElementById(WORKS_CANVAS_GROUPS_ID)?.querySelector(`[data-nest-wc-group="${CSS.escape(groupId)}"]`);
+    const group = worksCanvas.layout?.groups.find(item => item.id === groupId);
+    const label = node?.querySelector('[data-nest-wc-group-name]');
+    if (!node || !group || !label || node.querySelector('[data-nest-wc-group-input]')) return;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 60;
+    input.value = worksGroupDisplayName(group);
+    input.placeholder = group.defaultName || '分组名称';
+    input.setAttribute('data-nest-wc-group-input', '');
+    input.setAttribute('aria-label', '分组名称');
+    label.hidden = true;
+    label.insertAdjacentElement('afterend', input);
+    let done = false;
+    // 画布上按下鼠标会 preventDefault（框选、平移），焦点不一定离开输入框，所以「点别处保存」另外监听
+    const outside = event => { if (event.target !== input) finish(true); };
+    const finish = save => {
+      if (done) return;
+      done = true;
+      document.removeEventListener('pointerdown', outside, true);
+      const value = input.value;
+      input.remove();
+      label.hidden = false;
+      if (save) renameWorksGroup(groupId, value);
+    };
+    // 输入框里的按键全部到此为止：不触发空格平移，也不触发 AI Flow 的快捷键
+    input.addEventListener('keydown', event => {
+      event.stopPropagation();
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        finish(true);
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        finish(false);
+      }
+    });
+    for (const type of ['keyup', 'keypress']) input.addEventListener(type, event => event.stopPropagation());
+    input.addEventListener('blur', () => finish(true));
+    document.addEventListener('pointerdown', outside, true);
+    input.focus();
+    input.select();
+  }
+
+  function ensureWorksGroupsLayer() {
+    const { viewport } = worksCanvas;
+    if (!viewport) return null;
+    let layer = document.getElementById(WORKS_CANVAS_GROUPS_ID);
+    if (layer && layer.parentElement === viewport) return layer;
+    layer?.remove();
+    layer = document.createElement('div');
+    layer.id = WORKS_CANVAS_GROUPS_ID;
+    layer.addEventListener('click', event => {
+      const target = event.target instanceof Element ? event.target : null;
+      const groupId = target?.closest('[data-nest-wc-group]')?.getAttribute('data-nest-wc-group');
+      if (!groupId) return;
+      if (target.closest('[data-nest-wc-ungroup]')) ungroupWorks(groupId);
+      else if (target.closest('[data-nest-wc-rename]')) startWorksGroupRename(groupId);
+    });
+    layer.addEventListener('dblclick', event => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target?.closest('[data-nest-wc-group-name]')) return;
+      startWorksGroupRename(target.closest('[data-nest-wc-group]')?.getAttribute('data-nest-wc-group'));
+    });
+    viewport.appendChild(layer);
+    return layer;
+  }
+
+  // 分组框只在缺元素时才建 DOM；位置和文字有变化才写，避免和页面监听互相触发
+  function renderWorksGroups() {
+    const { layout } = worksCanvas;
+    if (!layout) return;
+    const layer = ensureWorksGroupsLayer();
+    if (!layer) return;
+    if (!worksCanvas.interaction) {
+      for (const [id, card] of worksCardsById()) worksCanvas.heights.set(id, card.offsetHeight || worksCardHeight(id));
+    }
+    const present = new Set(worksCardsById().keys());
+    const alive = new Set();
+    for (const group of layout.groups) {
+      const frame = worksGroupFrame(group, present);
+      if (!frame) continue;
+      alive.add(group.id);
+      let node = [...layer.children].find(child => child.getAttribute('data-nest-wc-group') === group.id);
+      if (!node) {
+        node = document.createElement('div');
+        node.setAttribute('data-nest-wc-group', group.id);
+        node.innerHTML = '<div data-nest-wc-group-head title="拖这里移动整组；双击名字改名"><span data-nest-wc-group-name></span><button type="button" data-nest-wc-rename title="改分组名" aria-label="改分组名">✎</button><span data-nest-wc-group-count></span><button type="button" data-nest-wc-ungroup title="解散分组（卡片留在原处）">解组</button></div>';
+        layer.appendChild(node);
+      }
+      node.style.left = `${Math.round(frame.x)}px`;
+      node.style.top = `${Math.round(frame.y)}px`;
+      node.style.width = `${Math.round(frame.w)}px`;
+      node.style.height = `${Math.round(frame.h)}px`;
+      const name = node.querySelector('[data-nest-wc-group-name]');
+      const count = node.querySelector('[data-nest-wc-group-count]');
+      const displayName = worksGroupDisplayName(group);
+      if (name && name.textContent !== displayName) name.textContent = displayName;
+      const countText = `${frame.count} 个版本`;
+      if (count && count.textContent !== countText) count.textContent = countText;
+    }
+    for (const child of [...layer.children]) if (!alive.has(child.getAttribute('data-nest-wc-group'))) child.remove();
+  }
+
+  function setWorksSelection(next) {
+    worksCanvas.selected = next;
+    for (const card of worksGridCards()) {
+      const selected = next.has(worksCardId(card));
+      if (selected && card.dataset.nestWcSelected !== 'true') card.dataset.nestWcSelected = 'true';
+      else if (!selected && card.dataset.nestWcSelected) delete card.dataset.nestWcSelected;
+    }
+    const button = document.querySelector(`#${WORKS_CANVAS_HUD_ID} [data-nest-wc-act="group"]`);
+    if (button) {
+      button.hidden = next.size < 2;
+      const text = `打组（${next.size}）`;
+      if (button.textContent !== text) button.textContent = text;
+    }
+    scheduleWorksMinimap();
+  }
+
+  // ---- 搜索：镜头号或关键词，回车依次定位 ----
+  function worksSearchMatcher(query) {
+    const text = String(query || '').trim();
+    if (!text) return null;
+    const shot = text.match(/^(?:镜头|shot|s)?\s*0*(\d{1,3})$/i);
+    const terms = text.toLowerCase().split(/\s+/).filter(Boolean);
+    const keyword = card => {
+      const content = String(card.textContent || '').toLowerCase();
+      return terms.every(term => content.includes(term));
+    };
+    if (!shot) return [keyword];
+    const number = Number(shot[1]);
+    // 先按任务名里的镜头号（S02）匹配；一个都没有再退回关键词
+    return [card => worksCardShotNumber(card) === number, keyword];
+  }
+
+  function runWorksSearch(query) {
+    const { layout, world } = worksCanvas;
+    const search = worksCanvas.search;
+    search.query = String(query || '');
+    search.index = -1;
+    search.hits = [];
+    const matchers = worksSearchMatcher(search.query);
+    const cards = worksGridCards();
+    if (matchers && layout) {
+      for (const matcher of matchers) {
+        search.hits = cards.filter(matcher).map(worksCardId).filter(id => layout.cards[id]);
+        if (search.hits.length) break;
+      }
+      search.hits.sort((a, b) => (layout.cards[a].y - layout.cards[b].y) || (layout.cards[a].x - layout.cards[b].x));
+    }
+    if (world) {
+      if (matchers) world.dataset.nestWcSearching = 'true';
+      else delete world.dataset.nestWcSearching;
+    }
+    markWorksSearchHits();
+  }
+
+  function markWorksSearchHits() {
+    const { hits, index } = worksCanvas.search;
+    const hitSet = new Set(hits);
+    const current = hits[index];
+    for (const card of worksGridCards()) {
+      const id = worksCardId(card);
+      const value = id === current ? 'current' : hitSet.has(id) ? 'match' : '';
+      if (value && card.dataset.nestWcHit !== value) card.dataset.nestWcHit = value;
+      else if (!value && card.dataset.nestWcHit) delete card.dataset.nestWcHit;
+    }
+    const count = document.querySelector(`#${WORKS_CANVAS_HUD_ID} [data-nest-wc-count]`);
+    if (count) {
+      const text = !worksCanvas.search.query.trim() ? '' : hits.length ? `${index >= 0 ? index + 1 : 0}/${hits.length}` : '无结果';
+      if (count.textContent !== text) count.textContent = text;
+    }
+    scheduleWorksMinimap();
+  }
+
+  function stepWorksSearch(direction) {
+    const search = worksCanvas.search;
+    if (!search.hits.length) return;
+    search.index = (search.index + direction + search.hits.length) % search.hits.length;
+    markWorksSearchHits();
+    flyWorksCanvasToCard(search.hits[search.index]);
+  }
+
+  function flyWorksCanvasTo(target) {
+    const { layout } = worksCanvas;
+    if (!layout) return;
+    cancelAnimationFrame(worksCanvas.flyFrame);
+    const start = { ...layout.camera };
+    const startedAt = performance.now();
+    const step = now => {
+      const t = Math.min(1, (now - startedAt) / 280);
+      const k = 1 - (1 - t) ** 3;
+      layout.camera = {
+        x: start.x + (target.x - start.x) * k,
+        y: start.y + (target.y - start.y) * k,
+        zoom: start.zoom + (target.zoom - start.zoom) * k,
+      };
+      markWorksCanvasMoving();
+      applyWorksCanvasCamera();
+      if (t < 1) worksCanvas.flyFrame = requestAnimationFrame(step);
+      else saveWorksCanvasLayout();
+    };
+    worksCanvas.flyFrame = requestAnimationFrame(step);
+  }
+
+  // 让世界坐标 (x, y) 落在视口中央
+  function worksCameraCenteredOn(x, y, zoom) {
+    const { viewport } = worksCanvas;
+    return { x: viewport.clientWidth / 2 - x * zoom, y: viewport.clientHeight / 2 - y * zoom, zoom };
+  }
+
+  function flyWorksCanvasToCard(id) {
+    const { layout, viewport } = worksCanvas;
+    const pos = layout?.cards[id];
+    if (!pos || !viewport) return;
+    const width = layout.cardWidth || WORKS_CANVAS_DEFAULT_CARD_WIDTH;
+    const zoom = clampWorksCanvas(layout.camera.zoom < 0.6 ? 0.8 : layout.camera.zoom, WORKS_CANVAS_MIN_ZOOM, WORKS_CANVAS_MAX_ZOOM);
+    flyWorksCanvasTo(worksCameraCenteredOn(pos.x + width / 2, pos.y + worksCardHeight(id) / 2, zoom));
+  }
+
+  // ---- 小地图 ----
+  function ensureWorksMinimap() {
+    if (document.getElementById(WORKS_CANVAS_MINIMAP_ID)) return;
+    const minimap = document.createElement('div');
+    minimap.id = WORKS_CANVAS_MINIMAP_ID;
+    minimap.title = '小地图：点或拖动跳到对应位置';
+    minimap.innerHTML = '<canvas></canvas>';
+    const jump = event => {
+      const geometry = worksCanvas.minimapGeometry;
+      const { layout } = worksCanvas;
+      if (!geometry || !layout) return;
+      const rect = minimap.getBoundingClientRect();
+      const x = geometry.minX + (event.clientX - rect.left - geometry.offsetX) / geometry.scale;
+      const y = geometry.minY + (event.clientY - rect.top - geometry.offsetY) / geometry.scale;
+      cancelAnimationFrame(worksCanvas.flyFrame);
+      layout.camera = worksCameraCenteredOn(x, y, layout.camera.zoom);
+      markWorksCanvasMoving();
+      applyWorksCanvasCamera();
+    };
+    minimap.addEventListener('pointerdown', event => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      minimap.setPointerCapture?.(event.pointerId);
+      worksCanvas.minimapDragging = true;
+      jump(event);
+    });
+    minimap.addEventListener('pointermove', event => { if (worksCanvas.minimapDragging) jump(event); });
+    const stop = () => {
+      if (!worksCanvas.minimapDragging) return;
+      worksCanvas.minimapDragging = false;
+      saveWorksCanvasLayout();
+    };
+    minimap.addEventListener('pointerup', stop);
+    minimap.addEventListener('pointercancel', stop);
+    minimap.addEventListener('wheel', event => event.preventDefault(), { passive: false });
+    document.body.appendChild(minimap);
+  }
+
+  function scheduleWorksMinimap() {
+    if (worksCanvas.minimapScheduled || !worksCanvas.layout) return;
+    worksCanvas.minimapScheduled = true;
+    requestAnimationFrame(drawWorksMinimap);
+  }
+
+  function drawWorksMinimap() {
+    worksCanvas.minimapScheduled = false;
+    const { layout, viewport } = worksCanvas;
+    const canvas = document.querySelector(`#${WORKS_CANVAS_MINIMAP_ID} canvas`);
+    if (!layout || !viewport || !canvas?.getContext) return;
+    const width = layout.cardWidth || WORKS_CANVAS_DEFAULT_CARD_WIDTH;
+    const ids = [...worksCardsById().keys()].filter(id => layout.cards[id]);
+    const { zoom } = layout.camera;
+    const view = { x: -layout.camera.x / zoom, y: -layout.camera.y / zoom, w: viewport.clientWidth / zoom, h: viewport.clientHeight / zoom };
+    const boxes = ids.map(id => ({ id, x: layout.cards[id].x, y: layout.cards[id].y, w: width, h: worksCardHeight(id) }));
+    const present = new Set(ids);
+    const frames = layout.groups.map(group => worksGroupFrame(group, present)).filter(Boolean);
+    const all = [...boxes, ...frames, view];
+    const minX = Math.min(...all.map(box => box.x));
+    const minY = Math.min(...all.map(box => box.y));
+    const maxX = Math.max(...all.map(box => box.x + box.w));
+    const maxY = Math.max(...all.map(box => box.y + box.h));
+    const ratio = window.devicePixelRatio || 1;
+    const cssW = WORKS_CANVAS_MINIMAP_WIDTH;
+    const cssH = WORKS_CANVAS_MINIMAP_HEIGHT;
+    if (canvas.width !== cssW * ratio) canvas.width = cssW * ratio;
+    if (canvas.height !== cssH * ratio) canvas.height = cssH * ratio;
+    const pad = 8;
+    const scale = Math.min((cssW - pad * 2) / Math.max(1, maxX - minX), (cssH - pad * 2) / Math.max(1, maxY - minY));
+    const offsetX = (cssW - (maxX - minX) * scale) / 2;
+    const offsetY = (cssH - (maxY - minY) * scale) / 2;
+    worksCanvas.minimapGeometry = { minX, minY, scale, offsetX, offsetY };
+    const theme = getComputedStyle(document.body);
+    const accent = theme.getPropertyValue('--nest-theme-accent').trim() || '#6f9bff';
+    const muted = theme.getPropertyValue('--nest-theme-muted').trim() || '#8b919c';
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const project = box => [offsetX + (box.x - minX) * scale, offsetY + (box.y - minY) * scale, Math.max(1.5, box.w * scale), Math.max(1.5, box.h * scale)];
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = accent;
+    for (const frame of frames) ctx.fillRect(...project(frame));
+    const hits = new Set(worksCanvas.search.hits);
+    const searching = Boolean(worksCanvas.search.query.trim());
+    for (const box of boxes) {
+      const strong = hits.has(box.id) || worksCanvas.selected.has(box.id);
+      ctx.globalAlpha = strong ? 0.95 : searching ? 0.25 : 0.6;
+      ctx.fillStyle = strong ? accent : muted;
+      ctx.fillRect(...project(box));
+    }
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(...project(view));
+  }
+
+  function applyWorksCanvasCamera() {
+    const { viewport, world, layout } = worksCanvas;
+    if (!viewport || !world || !layout) return;
+    const { x, y, zoom } = layout.camera;
+    const transform = `translate(${x}px, ${y}px) scale(${zoom})`;
+    world.style.setProperty('transform', transform, 'important');
+    const layer = document.getElementById(WORKS_CANVAS_GROUPS_ID);
+    if (layer) layer.style.transform = transform;
+    viewport.style.setProperty('background-position', `${x}px ${y}px`);
+    viewport.style.setProperty('background-size', `${20 * zoom}px ${20 * zoom}px, ${100 * zoom}px ${100 * zoom}px, ${100 * zoom}px ${100 * zoom}px`);
+    const label = document.querySelector(`#${WORKS_CANVAS_HUD_ID} [data-nest-wc-act="zoom"]`);
+    const text = `${Math.round(zoom * 100)}%`;
+    if (label && label.textContent !== text) label.textContent = text;
+    scheduleWorksMinimap();
+  }
+
+  // 平移/缩放期间才开 will-change，停下后去掉，免得放大后文字一直是模糊的位图
+  function markWorksCanvasMoving() {
+    const { viewport } = worksCanvas;
+    if (!viewport) return;
+    viewport.dataset.nestWcMoving = 'true';
+    clearTimeout(worksCanvas.idleTimer);
+    worksCanvas.idleTimer = setTimeout(() => { if (viewport.isConnected) viewport.dataset.nestWcMoving = 'false'; }, 180);
+  }
+
+  function worksCanvasOrigin() {
+    // 世界层大小为 0，它的包围盒左上角 = 原点 + 平移量
+    const rect = worksCanvas.world.getBoundingClientRect();
+    return { x: rect.left - worksCanvas.layout.camera.x, y: rect.top - worksCanvas.layout.camera.y };
+  }
+
+  function zoomWorksCanvasAt(nextZoom, clientX, clientY) {
+    const { layout, viewport } = worksCanvas;
+    if (!layout || !viewport) return;
+    cancelAnimationFrame(worksCanvas.flyFrame);
+    const camera = layout.camera;
+    const zoom = clampWorksCanvas(nextZoom, WORKS_CANVAS_MIN_ZOOM, WORKS_CANVAS_MAX_ZOOM);
+    if (clientX === undefined) {
+      const rect = viewport.getBoundingClientRect();
+      clientX = rect.left + rect.width / 2;
+      clientY = rect.top + rect.height / 2;
+    }
+    const origin = worksCanvasOrigin();
+    const cursorX = clientX - origin.x;
+    const cursorY = clientY - origin.y;
+    camera.x = cursorX - ((cursorX - camera.x) * zoom) / camera.zoom;
+    camera.y = cursorY - ((cursorY - camera.y) * zoom) / camera.zoom;
+    camera.zoom = zoom;
+    markWorksCanvasMoving();
+    applyWorksCanvasCamera();
+    saveWorksCanvasLayout();
+  }
+
+  function fitWorksCanvas() {
+    const { layout, viewport, world } = worksCanvas;
+    if (!layout || !viewport || !world) return;
+    const width = layout.cardWidth || WORKS_CANVAS_DEFAULT_CARD_WIDTH;
+    const boxes = [...world.children].map(card => ({ pos: layout.cards[worksCardId(card)], height: card.offsetHeight || WORKS_CANVAS_DEFAULT_CARD_HEIGHT })).filter(box => box.pos);
+    if (!boxes.length) return;
+    const left = Math.min(...boxes.map(box => box.pos.x));
+    const top = Math.min(...boxes.map(box => box.pos.y)) - (layout.groups.length ? WORKS_CANVAS_GROUP_HEADER + WORKS_CANVAS_GROUP_PAD : 0);
+    const right = Math.max(...boxes.map(box => box.pos.x + width));
+    const bottom = Math.max(...boxes.map(box => box.pos.y + box.height));
+    const pad = 32;
+    const zoom = clampWorksCanvas(Math.min((viewport.clientWidth - pad * 2) / Math.max(1, right - left), (viewport.clientHeight - pad * 2) / Math.max(1, bottom - top)), WORKS_CANVAS_MIN_ZOOM, 1.5);
+    cancelAnimationFrame(worksCanvas.flyFrame);
+    layout.camera = {
+      x: (viewport.clientWidth - (right - left) * zoom) / 2 - left * zoom,
+      y: Math.max(pad, (viewport.clientHeight - (bottom - top) * zoom) / 2) - top * zoom,
+      zoom,
+    };
+    applyWorksCanvasCamera();
+    saveWorksCanvasLayout();
+  }
+
+  // 重排：分组整块先排（组内紧凑），其余作品再按网格补进空位；分组保留
+  function resetWorksCanvasLayout() {
+    const { layout, viewport, world } = worksCanvas;
+    if (!layout || !viewport || !world) return;
+    if (!window.confirm('把所有作品按网格重新排列？你拖过的位置会被覆盖，分组会保留。')) return;
+    const byId = worksCardsById();
+    layout.cards = {};
+    layout.columns = Math.max(1, Math.floor((viewport.clientWidth - 24) / ((layout.cardWidth || WORKS_CANVAS_DEFAULT_CARD_WIDTH) + WORKS_CANVAS_GAP)));
+    layout.camera = { x: 24, y: 24, zoom: 1 };
+    worksCanvas.topZ = 1;
+    const occupied = [];
+    for (const group of layout.groups) {
+      const ids = group.ids.filter(id => byId.has(id));
+      if (!ids.length) continue;
+      const size = worksGroupBlockSize(ids);
+      const spot = findWorksFreeSpot(size.w, size.h, occupied);
+      arrangeWorksGroupMembers(ids, spot.x, spot.y);
+      occupied.push(spot);
+    }
+    for (const card of byId.values()) card.style.removeProperty('--nest-wc-cx');
+    placeWorksCards([...byId.values()]);
+    renderWorksGroups();
+    applyWorksCanvasCamera();
+    markWorksCanvasOrderChanged();
+    saveWorksCanvasLayout();
+  }
+
+  function positionWorksCanvasOverlays() {
+    const { viewport } = worksCanvas;
+    const hud = document.getElementById(WORKS_CANVAS_HUD_ID);
+    const minimap = document.getElementById(WORKS_CANVAS_MINIMAP_ID);
+    const toggle = document.getElementById(WORKS_CANVAS_TOGGLE_ID);
+    const floating = toggle?.dataset.placement === 'floating';
+    if (!hud && !floating && !minimap) return;
+    const target = viewport?.isConnected ? viewport : worksViewportFor(worksGridFromCards(worksTaskCards()));
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
+    if (hud) {
+      hud.style.left = `${Math.round(rect.left + 12)}px`;
+      hud.style.bottom = `${Math.round(window.innerHeight - rect.bottom + 12)}px`;
+    }
+    if (minimap) {
+      // 页面右下角固定着「页面配色」「专注布局」两个按钮，作品区贴着窗口右边时小地图让到它们上面
+      const bottom = window.innerHeight - rect.bottom + 12;
+      const nearRightEdge = window.innerWidth - rect.right < 180;
+      minimap.style.right = `${Math.round(window.innerWidth - rect.right + 12)}px`;
+      minimap.style.bottom = `${Math.round(nearRightEdge ? Math.max(bottom, 108) : bottom)}px`;
+    }
+    if (floating) {
+      toggle.style.setProperty('top', `${Math.round(rect.top + 10)}px`, 'important');
+      toggle.style.setProperty('right', `${Math.round(window.innerWidth - rect.right + 12)}px`, 'important');
+    }
+  }
+
+  function ensureWorksCanvasHud() {
+    if (document.getElementById(WORKS_CANVAS_HUD_ID)) return;
+    const hud = document.createElement('div');
+    hud.id = WORKS_CANVAS_HUD_ID;
+    hud.innerHTML = '<button type="button" data-nest-wc-act="out" title="缩小">−</button><button type="button" data-nest-wc-act="zoom" title="回到 100%">100%</button><button type="button" data-nest-wc-act="in" title="放大">+</button><button type="button" data-nest-wc-act="fit" title="让所有作品都显示在画面里">适应</button><button type="button" data-nest-wc-act="reset" title="按网格重新排列所有作品（分组保留）">重排</button><span data-nest-wc-sep></span><input type="search" data-nest-wc-search placeholder="镜头号 / 关键词，回车定位" title="输入镜头号（如 2、S02、镜头2）或关键词；回车跳到下一个，Shift+回车上一个，Esc 清空"><span data-nest-wc-count></span><button type="button" data-nest-wc-act="group" hidden title="把选中的作品归成一组">打组</button><span data-nest-wc-sep></span><span data-nest-wc-hint>拖空白处框选 · 中键或空格+拖平移 · Shift 加选</span>';
+    hud.addEventListener('click', event => {
+      const act = event.target instanceof Element ? event.target.closest('[data-nest-wc-act]')?.getAttribute('data-nest-wc-act') : '';
+      const zoom = worksCanvas.layout?.camera.zoom || 1;
+      if (act === 'in') zoomWorksCanvasAt(zoom * 1.2);
+      else if (act === 'out') zoomWorksCanvasAt(zoom / 1.2);
+      else if (act === 'zoom') zoomWorksCanvasAt(1);
+      else if (act === 'fit') fitWorksCanvas();
+      else if (act === 'reset') resetWorksCanvasLayout();
+      else if (act === 'group') groupSelectedWorks();
+    });
+    const input = hud.querySelector('[data-nest-wc-search]');
+    input?.addEventListener('input', () => runWorksSearch(input.value));
+    // 输入框里的按键不传给 AI Flow，免得触发它的快捷键
+    input?.addEventListener('keydown', event => {
+      event.stopPropagation();
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        if (worksCanvas.search.query !== input.value) runWorksSearch(input.value);
+        stepWorksSearch(event.shiftKey ? -1 : 1);
+      } else if (event.key === 'Escape') {
+        input.value = '';
+        runWorksSearch('');
+      }
+    });
+    for (const type of ['keyup', 'keypress']) input?.addEventListener(type, event => event.stopPropagation());
+    document.body.appendChild(hud);
+    if (worksCanvas.search.query && input) input.value = worksCanvas.search.query;
+  }
+
+  function attachWorksCanvas(grid, cards) {
+    const viewport = worksViewportFor(grid);
+    if (!viewport) return;
+    ensureWorksCanvasStyle();
+    clearWorksListOrder(cards);
+    updateWorksOrderButton(false);
+    const key = worksCanvasLayoutKey();
+    const layout = loadWorksCanvasLayout(key);
+    // 卡片宽度和列数在切换前量好：画布初始排法和原来的网格一致
+    if (!layout.cardWidth) layout.cardWidth = Math.round(cards[0]?.getBoundingClientRect().width) || WORKS_CANVAS_DEFAULT_CARD_WIDTH;
+    if (!layout.columns) layout.columns = Math.max(1, Math.floor((viewport.clientWidth - 24) / (layout.cardWidth + WORKS_CANVAS_GAP)));
+    Object.assign(worksCanvas, { viewport, world: grid, layout, layoutKey: key, savedScrollTop: viewport.scrollTop, topZ: 1, selected: new Set(), heights: new Map() });
+    const height = viewport.clientHeight;
+    viewport.scrollTop = 0;
+    viewport.classList.add(WORKS_CANVAS_VIEWPORT_CLASS);
+    for (let node = grid.parentElement; node && node !== viewport; node = node.parentElement) node.classList.add(WORKS_CANVAS_PASSTHROUGH_CLASS);
+    grid.classList.add(WORKS_CANVAS_WORLD_CLASS);
+    grid.style.setProperty('--nest-wc-card-w', `${layout.cardWidth}px`);
+    // 视口高度原本靠内容撑开时，网格变成绝对定位后会塌成 0，给一个保底高度
+    worksCanvas.savedMinHeight = false;
+    if (viewport.clientHeight < 160) {
+      viewport.style.setProperty('min-height', `${Math.max(320, height, window.innerHeight - viewport.getBoundingClientRect().top - 16)}px`, 'important');
+      worksCanvas.savedMinHeight = true;
+    }
+    ensureWorksCanvasHud();
+    ensureWorksMinimap();
+    ensureWorksGroupsLayer();
+    applyWorksCanvasCamera();
+    if (typeof ResizeObserver === 'function') {
+      worksCanvas.resizeObserver = new ResizeObserver(() => { positionWorksCanvasOverlays(); scheduleWorksMinimap(); });
+      worksCanvas.resizeObserver.observe(viewport);
+    }
+  }
+
+  function detachWorksCanvas() {
+    // 退出画布前立刻存盘，列表马上按最新位置排
+    writeWorksCanvasLayout();
+    worksCanvas.listCache = null;
+    const { viewport, world } = worksCanvas;
+    cancelAnimationFrame(worksCanvas.flyFrame);
+    if (world) {
+      world.classList.remove(WORKS_CANVAS_WORLD_CLASS);
+      world.style.removeProperty('transform');
+      world.style.removeProperty('--nest-wc-card-w');
+      delete world.dataset.nestWcSearching;
+      for (const card of world.children) {
+        for (const name of ['--nest-wc-cx', '--nest-wc-cy', '--nest-wc-z']) card.style?.removeProperty(name);
+        if (card.dataset) for (const key of ['nestWcDragging', 'nestWcSelected', 'nestWcHit']) delete card.dataset[key];
+      }
+    }
+    document.querySelectorAll(`.${WORKS_CANVAS_PASSTHROUGH_CLASS}`).forEach(node => node.classList.remove(WORKS_CANVAS_PASSTHROUGH_CLASS));
+    if (viewport) {
+      viewport.classList.remove(WORKS_CANVAS_VIEWPORT_CLASS);
+      viewport.style.removeProperty('background-position');
+      viewport.style.removeProperty('background-size');
+      if (worksCanvas.savedMinHeight) viewport.style.removeProperty('min-height');
+      delete viewport.dataset.nestWcMoving;
+      delete viewport.dataset.nestWcSpace;
+      if (viewport.isConnected) viewport.scrollTop = worksCanvas.savedScrollTop;
+    }
+    worksCanvas.resizeObserver?.disconnect();
+    for (const id of [WORKS_CANVAS_HUD_ID, WORKS_CANVAS_MINIMAP_ID, WORKS_CANVAS_GROUPS_ID, WORKS_CANVAS_MARQUEE_ID]) document.getElementById(id)?.remove();
+    delete document.body.dataset.nestWcInteracting;
+    Object.assign(worksCanvas, { viewport: null, world: null, layout: null, layoutKey: '', interaction: null, resizeObserver: null, savedMinHeight: false, selected: new Set(), minimapGeometry: null });
+    worksCanvas.search = { query: worksCanvas.search.query, hits: [], index: -1 };
+  }
+
+  function updateWorksCanvasToggle() {
+    const button = document.getElementById(WORKS_CANVAS_TOGGLE_ID);
+    if (!button) return;
+    const enabled = String(worksCanvas.enabled);
+    const text = worksCanvas.enabled ? '退出画布' : '无限画布';
+    if (button.dataset.enabled !== enabled) button.dataset.enabled = enabled;
+    if (button.textContent !== text) button.textContent = text;
+    button.title = worksCanvas.enabled ? '回到 AI Flow 原来的作品网格（画布上的位置会记住）' : '把作品摆在可平移、缩放的画布上，卡片能拖动；按钮照常使用';
+  }
+
+  let worksCanvasToggleRetryTimer = 0;
+  function retryWorksCanvasToggle(delay) {
+    if (worksCanvasToggleRetryTimer) return;
+    worksCanvasToggleRetryTimer = window.setTimeout(() => {
+      worksCanvasToggleRetryTimer = 0;
+      scheduleWorksCanvasSync();
+    }, Math.max(0, delay));
+  }
+
+  function injectWorksCanvasToggle() {
+    let button = document.getElementById(WORKS_CANVAS_TOGGLE_ID);
+    if (button?.dataset.placement === 'title') return;
+    // 找「作品」标题要扫一片 DOM，没找到时最多每 1.5 秒再找一次。
+    // 只有作品网格已出现时才计时；节流期间到点自己补一次，不靠 AI Flow 下一次页面变动——
+    // 以前刷新后卡片还没出来就先占掉 1.5 秒，之后页面一安静，按钮要等很久才出现。
+    const cards = worksTaskCards();
+    const grid = worksCanvas.world?.isConnected ? worksCanvas.world : worksGridFromCards(cards);
+    if (!grid) return;
+    const now = Date.now();
+    const sinceSearch = now - worksCanvas.titleSearchAt;
+    if (sinceSearch < WORKS_CANVAS_TITLE_RETRY_MS) {
+      retryWorksCanvasToggle(WORKS_CANVAS_TITLE_RETRY_MS - sinceSearch);
+      return;
+    }
+    worksCanvas.titleSearchAt = now;
+    ensureWorksCanvasStyle();
+    const title = worksCanvasTitle(grid);
+    if (!button) {
+      button = document.createElement('button');
+      button.id = WORKS_CANVAS_TOGGLE_ID;
+      button.type = 'button';
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        setWorksCanvasEnabled(!worksCanvas.enabled);
+      });
+    }
+    if (title) {
+      worksCanvas.titleRetries = 0;
+      button.dataset.placement = 'title';
+      button.style.removeProperty('top');
+      button.style.removeProperty('right');
+      title.insertAdjacentElement('afterend', button);
+    } else {
+      if (!button.isConnected) {
+        button.dataset.placement = 'floating';
+        document.body.appendChild(button);
+      }
+      // 先浮在作品区右上角，标题渲染出来后自动挪到标题旁；最多自己补找 10 次，之后只随页面变动再找
+      if (worksCanvas.titleRetries < 10) {
+        worksCanvas.titleRetries += 1;
+        retryWorksCanvasToggle(WORKS_CANVAS_TITLE_RETRY_MS);
+      }
+    }
+    updateWorksCanvasToggle();
+    positionWorksCanvasOverlays();
+  }
+
+  function syncWorksCanvas() {
+    worksCanvas.scheduled = false;
+    if (!document.body) return;
+    injectWorksCanvasToggle();
+    if (!worksCanvas.enabled) {
+      syncWorksListOrder();
+      return;
+    }
+    const cards = worksTaskCards();
+    const grid = worksGridFromCards(cards);
+    if (!grid) {
+      if (worksCanvas.world) detachWorksCanvas();
+      return;
+    }
+    if (grid !== worksCanvas.world || !worksCanvas.viewport?.isConnected) {
+      detachWorksCanvas();
+      attachWorksCanvas(grid, cards);
+    } else if (worksCanvasLayoutKey() !== worksCanvas.layoutKey) {
+      // 换了项目：同一个网格，换一份位置
+      worksCanvas.layoutKey = worksCanvasLayoutKey();
+      worksCanvas.layout = loadWorksCanvasLayout(worksCanvas.layoutKey);
+      worksCanvas.layout.cardWidth ||= WORKS_CANVAS_DEFAULT_CARD_WIDTH;
+      worksCanvas.layout.columns ||= 4;
+      worksCanvas.selected = new Set();
+      for (const card of cards) card.style.removeProperty('--nest-wc-cx');
+      applyWorksCanvasCamera();
+    }
+    if (!worksCanvas.world) return;
+    // 卡片都已有位置时不再量高度：AI Flow 刷新进度等频繁变动不会每帧触发一次排版
+    const gridCards = cards.filter(card => card.parentElement === grid);
+    const fresh = gridCards.some(card => !card.style.getPropertyValue('--nest-wc-cx'));
+    if (!worksCanvas.interaction && fresh) {
+      placeWorksCards(gridCards);
+      renderWorksGroups();
+      // AI Flow 重绘出的新卡片节点要补上选中和搜索标记
+      setWorksSelection(worksCanvas.selected);
+      if (worksCanvas.search.query) runWorksSearch(worksCanvas.search.query);
+    } else if (!document.getElementById(WORKS_CANVAS_GROUPS_ID)) renderWorksGroups();
+    positionWorksCanvasOverlays();
+  }
+
+  function scheduleWorksCanvasSync() {
+    if (worksCanvas.scheduled) return;
+    worksCanvas.scheduled = true;
+    requestAnimationFrame(syncWorksCanvas);
+  }
+
+  function setWorksCanvasEnabled(enabled) {
+    worksCanvas.enabled = Boolean(enabled);
+    try { localStorage.setItem(WORKS_CANVAS_ENABLED_KEY, String(worksCanvas.enabled)); } catch { /* 存储被禁用时只在本次生效 */ }
+    if (!worksCanvas.enabled) detachWorksCanvas();
+    updateWorksCanvasToggle();
+    syncWorksCanvas();
+  }
+
+  function isWorksCanvasFormField(target) {
+    return Boolean(target.closest('input, textarea, select, option, [contenteditable=""], [contenteditable="true"]'));
+  }
+
+  function worksClientToWorld(clientX, clientY) {
+    const origin = worksCanvasOrigin();
+    const { camera } = worksCanvas.layout;
+    return { x: (clientX - origin.x - camera.x) / camera.zoom, y: (clientY - origin.y - camera.y) / camera.zoom };
+  }
+
+  function startWorksCanvasPointer(event) {
+    const { enabled, viewport, world, layout } = worksCanvas;
+    const target = event.target instanceof Element ? event.target : null;
+    if (!enabled || !viewport || !world || !layout || !target || !viewport.contains(target)) return;
+    // 分组标题栏：拖动整组（「解组」按钮走自己的 click）
+    const head = target.closest('[data-nest-wc-group-head]');
+    if (head && event.button === 0) {
+      // 「解组」、改名铅笔和改名输入框不算拖动
+      if (target.closest('[data-nest-wc-ungroup], [data-nest-wc-rename]') || isWorksCanvasFormField(target)) return;
+      const group = layout.groups.find(item => item.id === head.closest('[data-nest-wc-group]')?.getAttribute('data-nest-wc-group'));
+      if (!group) return;
+      event.preventDefault();
+      const byId = worksCardsById();
+      const members = group.ids.filter(id => byId.has(id) && layout.cards[id]).map(id => ({ id, card: byId.get(id), x: layout.cards[id].x, y: layout.cards[id].y }));
+      worksCanvas.interaction = { kind: 'group', members, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY };
+      document.body.dataset.nestWcInteracting = 'true';
+      return;
+    }
+    const card = target.closest('.task-card');
+    const onCard = card && card.parentElement === world;
+    if (onCard && event.button === 0) {
+      if (isWorksCanvasFormField(target)) return;
+      const id = worksCardId(card);
+      const pos = layout.cards[id];
+      if (!id || !pos) return;
+      // Shift+点卡片：加入/移出选择，这次点击不交给 AI Flow
+      if (event.shiftKey) {
+        event.preventDefault();
+        const next = new Set(worksCanvas.selected);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        setWorksSelection(next);
+        worksCanvas.suppressClickUntil = Date.now() + 400;
+        return;
+      }
+      if (event.altKey) return;
+      // 卡片上不拦按下：移动超过 4px 才算拖动，否则就是普通点击，AI Flow 的按钮照常响应
+      const ids = worksCanvas.selected.has(id) && worksCanvas.selected.size > 1 ? [...worksCanvas.selected] : [id];
+      const byId = ids.length > 1 ? worksCardsById() : new Map([[id, card]]);
+      const members = ids.filter(item => byId.has(item) && layout.cards[item]).map(item => ({ id: item, card: byId.get(item), x: layout.cards[item].x, y: layout.cards[item].y }));
+      worksCanvas.interaction = { kind: 'card-pending', card, id, members, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, x: pos.x, y: pos.y };
+      return;
+    }
+    if (event.button !== 1 && (event.button !== 0 || onCard)) return;
+    if (event.button === 0 && isWorksCanvasFormField(target)) return;
+    event.preventDefault();
+    // 左键拖空白处 = 框选（Shift/Ctrl 加选）；中键或按住空格再拖 = 平移
+    if (event.button === 0 && !worksCanvas.spaceHeld) {
+      const additive = event.shiftKey || event.ctrlKey || event.metaKey;
+      worksCanvas.interaction = { kind: 'marquee', pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, additive, base: additive ? new Set(worksCanvas.selected) : new Set() };
+      let marquee = document.getElementById(WORKS_CANVAS_MARQUEE_ID);
+      if (!marquee) {
+        marquee = document.createElement('div');
+        marquee.id = WORKS_CANVAS_MARQUEE_ID;
+        document.body.appendChild(marquee);
+      }
+      Object.assign(marquee.style, { left: `${event.clientX}px`, top: `${event.clientY}px`, width: '0px', height: '0px' });
+      document.body.dataset.nestWcInteracting = 'true';
+      return;
+    }
+    worksCanvas.interaction = { kind: 'pan', pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, x: layout.camera.x, y: layout.camera.y, moved: false };
+    cancelAnimationFrame(worksCanvas.flyFrame);
+    document.body.dataset.nestWcInteracting = 'true';
+  }
+
+  function moveWorksMembers(members, dx, dy) {
+    const { layout } = worksCanvas;
+    for (const member of members) {
+      const pos = layout.cards[member.id];
+      if (!pos) continue;
+      pos.x = member.x + dx / layout.camera.zoom;
+      pos.y = member.y + dy / layout.camera.zoom;
+      setWorksCardPosition(member.card, pos);
+    }
+    if (layout.groups.length) renderWorksGroups();
+    scheduleWorksMinimap();
+  }
+
+  function moveWorksCanvasPointer(event) {
+    const action = worksCanvas.interaction;
+    const { layout } = worksCanvas;
+    if (!action || !layout || event.pointerId !== action.pointerId) return;
+    const dx = event.clientX - action.startX;
+    const dy = event.clientY - action.startY;
+    if (action.kind === 'pan') {
+      if (Math.hypot(dx, dy) >= 4) action.moved = true;
+      layout.camera.x = action.x + dx;
+      layout.camera.y = action.y + dy;
+      markWorksCanvasMoving();
+      applyWorksCanvasCamera();
+      return;
+    }
+    if (action.kind === 'marquee') {
+      const marquee = document.getElementById(WORKS_CANVAS_MARQUEE_ID);
+      if (marquee) {
+        Object.assign(marquee.style, {
+          left: `${Math.min(action.startX, event.clientX)}px`,
+          top: `${Math.min(action.startY, event.clientY)}px`,
+          width: `${Math.abs(dx)}px`,
+          height: `${Math.abs(dy)}px`,
+        });
+      }
+      action.endX = event.clientX;
+      action.endY = event.clientY;
+      return;
+    }
+    if (action.kind === 'group') {
+      moveWorksMembers(action.members, dx, dy);
+      return;
+    }
+    if (action.kind === 'card-pending') {
+      if (Math.hypot(dx, dy) < 4) return;
+      action.kind = 'card';
+      for (const member of action.members) {
+        worksCanvas.topZ += 1;
+        layout.cards[member.id].z = worksCanvas.topZ;
+      }
+      action.card.dataset.nestWcDragging = 'true';
+      document.body.dataset.nestWcInteracting = 'true';
+      window.getSelection?.()?.removeAllRanges?.();
+    }
+    moveWorksMembers(action.members, dx, dy);
+  }
+
+  function finishWorksMarquee(action) {
+    document.getElementById(WORKS_CANVAS_MARQUEE_ID)?.remove();
+    const { layout } = worksCanvas;
+    if (!layout) return;
+    // 没拖开就是点了一下空白处：取消选择（加选模式下保持不变）
+    if (action.endX === undefined || Math.hypot(action.endX - action.startX, action.endY - action.startY) < 4) {
+      if (!action.additive && worksCanvas.selected.size) setWorksSelection(new Set());
+      return;
+    }
+    const a = worksClientToWorld(action.startX, action.startY);
+    const b = worksClientToWorld(action.endX, action.endY);
+    const box = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
+    const width = layout.cardWidth || WORKS_CANVAS_DEFAULT_CARD_WIDTH;
+    const next = new Set(action.base);
+    for (const id of worksCardsById().keys()) {
+      const pos = layout.cards[id];
+      if (pos && worksRectsOverlap(box, { x: pos.x, y: pos.y, w: width, h: worksCardHeight(id) }, 0)) next.add(id);
+    }
+    setWorksSelection(next);
+  }
+
+  function endWorksCanvasPointer(event) {
+    const action = worksCanvas.interaction;
+    if (!action || (event.pointerId !== undefined && event.pointerId !== action.pointerId)) return;
+    worksCanvas.interaction = null;
+    delete document.body.dataset.nestWcInteracting;
+    if (action.kind === 'card-pending') return;
+    if (action.kind === 'marquee') {
+      finishWorksMarquee(action);
+      return;
+    }
+    if (action.kind === 'pan' && !action.moved) return;
+    if (action.kind === 'card') {
+      delete action.card.dataset.nestWcDragging;
+      // 拖完松手会跟一个 click，吞掉它，免得误点到卡片上的按钮
+      worksCanvas.suppressClickUntil = Date.now() + 400;
+    }
+    if (action.kind === 'card' || action.kind === 'group') {
+      renderWorksGroups();
+      markWorksCanvasOrderChanged();
+    }
+    saveWorksCanvasLayout();
+  }
+
+  document.addEventListener('pointerdown', startWorksCanvasPointer, true);
+  window.addEventListener('pointermove', moveWorksCanvasPointer, true);
+  window.addEventListener('pointerup', endWorksCanvasPointer, true);
+  window.addEventListener('pointercancel', endWorksCanvasPointer, true);
+  window.addEventListener('click', event => {
+    if (Date.now() > worksCanvas.suppressClickUntil) return;
+    worksCanvas.suppressClickUntil = 0;
+    if (!(event.target instanceof Element) || !worksCanvas.viewport?.contains(event.target)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+  // 画布上滚轮 = 以光标为中心缩放（和素材库参考板一致）
+  document.addEventListener('wheel', event => {
+    const { enabled, viewport, layout } = worksCanvas;
+    if (!enabled || !viewport || !layout || !(event.target instanceof Element) || !viewport.contains(event.target)) return;
+    event.preventDefault();
+    zoomWorksCanvasAt(layout.camera.zoom * Math.exp(-event.deltaY * 0.0012), event.clientX, event.clientY);
+  }, { capture: true, passive: false });
+  // 卡片里的图片、视频原生拖拽会打断画布拖动；按住 Alt 时仍交给 AI Flow
+  document.addEventListener('dragstart', event => {
+    if (!worksCanvas.enabled || event.altKey || !(event.target instanceof Node) || !worksCanvas.world?.contains(event.target)) return;
+    event.preventDefault();
+  }, true);
+  window.addEventListener('resize', positionWorksCanvasOverlays);
+  const setWorksSpaceHeld = held => {
+    if (worksCanvas.spaceHeld === held) return;
+    worksCanvas.spaceHeld = held;
+    const { viewport } = worksCanvas;
+    if (!viewport) return;
+    if (held) viewport.dataset.nestWcSpace = 'true';
+    else delete viewport.dataset.nestWcSpace;
+  };
+  // 在输入框、提示词里打空格不算；只在画布开着时记录，不拦截空格本身
+  window.addEventListener('keydown', event => {
+    if (event.code !== 'Space' || !worksCanvas.enabled || !worksCanvas.viewport) return;
+    const target = event.target instanceof Element ? event.target : null;
+    if (target && isWorksCanvasFormField(target)) return;
+    setWorksSpaceHeld(true);
+  }, true);
+  window.addEventListener('keyup', event => { if (event.code === 'Space') setWorksSpaceHeld(false); }, true);
+  window.addEventListener('blur', () => setWorksSpaceHeld(false));
+
+  // ===== 引用素材侧栏（DEC-015）=====
+  // AI Flow 把引用素材（#assetTags：@图片1、@音频1……）排在提示词下面，素材一多要往下翻。
+  // 这里把整块引用区挪到提示词框右侧，竖着一行一个；只移动节点、不改 AI Flow 的内容和事件，
+  // 原位置留注释占位，点「放回下方」原样还原。类名和 id 都不用 nest-aiflow- 前缀：
+  // isNestOwnedNode 会把带这个前缀的祖先当成扩展自己的窗口，提示词框就会被误判。
+  const ASSET_SIDE_ENABLED_KEY = 'nest-aiflow-asset-side-enabled';
+  const ASSET_SIDE_STYLE_ID = 'nest-aiflow-asset-side-style';
+  const assetSide = { split: null, side: null, editorBox: null, tagsBlock: null, editorMark: null, tagsMark: null, toggle: null };
+
+  function assetSideEnabled() {
+    try { return localStorage.getItem(ASSET_SIDE_ENABLED_KEY) !== 'false'; } catch { return true; }
+  }
+
+  // 引用区：从 #assetTags 往上找，把提示文字（"点击 ↓ 插入描述"）和「清除全部」一起带走；
+  // 碰到包含输入框、或带有引用区以外按钮的祖先就停（那是「生成前审查」「找范例」所在的大区块）。
+  function assetTagsBlock(tags, editor) {
+    let block = tags;
+    for (let parent = block.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
+      if (parent.contains(editor) || parent.querySelector('textarea, input:not([type="hidden"]), select')) break;
+      const outsideButtons = [...parent.querySelectorAll('button, [role="button"]')]
+        .filter(button => !tags.contains(button) && !/清除全部|清空/.test(String(button.textContent || '')));
+      if (outsideButtons.length) break;
+      if (String(parent.textContent || '').length - String(tags.textContent || '').length > 80) break;
+      block = parent;
+    }
+    return block;
+  }
+
+  function ensureAssetSideStyle() {
+    if (document.getElementById(ASSET_SIDE_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = ASSET_SIDE_STYLE_ID;
+    style.textContent = `
+      .nest-asset-split { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(220px, 36%) !important; gap: 10px !important; align-items: stretch !important; min-width: 0 !important; }
+      .nest-asset-split > :first-child { min-width: 0 !important; }
+      /* height:0 + min-height:100%：侧栏不撑高这一行，高度跟提示词框一致，素材多了在侧栏里滚动 */
+      .nest-asset-side { display: flex !important; flex-direction: column !important; gap: 8px !important; height: 0 !important; min-height: 100% !important; min-width: 0 !important; box-sizing: border-box !important; padding: 8px !important; overflow: auto !important; overscroll-behavior: contain !important; border: 1px solid var(--nest-theme-border, #2a2f38) !important; border-radius: 12px !important; background: var(--nest-theme-field, #0b0d10) !important; }
+      .nest-asset-side-head { display: flex !important; align-items: center !important; gap: 8px !important; flex: none !important; color: var(--nest-theme-muted, #8b919c) !important; font: 600 12px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; }
+      .nest-asset-side-head span { flex: 1 1 auto !important; }
+      .nest-asset-side-toggle { flex: none !important; min-height: 24px !important; padding: 3px 10px !important; border: 1px solid var(--nest-theme-border, #2a2f38) !important; border-radius: 999px !important; background: transparent !important; color: var(--nest-theme-muted, #8b919c) !important; font: 600 11px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; cursor: pointer !important; }
+      .nest-asset-side-toggle:hover { border-color: var(--nest-theme-accent, #6f9bff) !important; color: var(--nest-theme-text, #e8eaee) !important; }
+      .nest-asset-side-toggle[data-placement="below"] { align-self: flex-start !important; margin: 4px 0 !important; }
+      /* 一行一个：和原来每个素材的样子一样，只是竖着排、占满侧栏宽度 */
+      .nest-asset-side #assetTags { display: flex !important; flex-direction: column !important; flex-wrap: nowrap !important; align-items: stretch !important; gap: 6px !important; width: 100% !important; max-width: none !important; }
+      .nest-asset-side #assetTags .asset-tag { width: 100% !important; max-width: none !important; min-width: 0 !important; margin: 0 !important; box-sizing: border-box !important; }
+      .nest-asset-side .nest-asset-side-block { display: flex !important; flex-direction: column !important; gap: 6px !important; min-width: 0 !important; }
+    `;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  function assetSideToggleButton() {
+    if (assetSide.toggle) return assetSide.toggle;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'nest-asset-side-toggle';
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const next = !assetSideEnabled();
+      try { localStorage.setItem(ASSET_SIDE_ENABLED_KEY, String(next)); } catch { /* 存储被禁用时只在本次生效 */ }
+      if (next) injectAssetTagsSidebar();
+      else restoreAssetTagsSidebar(true);
+    });
+    assetSide.toggle = button;
+    return button;
+  }
+
+  // 还原：引用区和提示词框都回到注释占位处，拆掉分栏
+  function restoreAssetTagsSidebar(showBelowToggle = false) {
+    const { split, editorBox, tagsBlock, editorMark, tagsMark } = assetSide;
+    // 已被 AI Flow 从页面拿掉的旧节点不放回去，免得重绘后出现两份
+    if (tagsBlock?.isConnected && split?.contains(tagsBlock) && tagsMark?.parentNode) tagsMark.parentNode.insertBefore(tagsBlock, tagsMark);
+    if (editorBox?.isConnected && split?.contains(editorBox) && editorMark?.parentNode) editorMark.parentNode.insertBefore(editorBox, editorMark);
+    tagsMark?.remove();
+    editorMark?.remove();
+    split?.remove();
+    tagsBlock?.classList?.remove('nest-asset-side-block');
+    Object.assign(assetSide, { split: null, side: null, editorBox: null, tagsBlock: null, editorMark: null, tagsMark: null });
+    const button = assetSideToggleButton();
+    if (showBelowToggle && tagsBlock?.parentNode) {
+      button.textContent = '放到提示词右侧';
+      button.dataset.placement = 'below';
+      tagsBlock.parentNode.insertBefore(button, tagsBlock);
+    } else {
+      button.remove();
+    }
+  }
+
+  function injectAssetTagsSidebar() {
+    const editor = document.getElementById('promptInput');
+    const tags = document.getElementById('assetTags');
+    if (!(editor instanceof Element) || !(tags instanceof Element)) {
+      if (assetSide.split && !assetSide.split.isConnected) restoreAssetTagsSidebar();
+      return;
+    }
+    if (!assetSideEnabled()) {
+      // 关着时只保证「放到提示词右侧」按钮在引用区上方
+      if (assetSide.split) restoreAssetTagsSidebar();
+      const button = assetSideToggleButton();
+      const block = assetTagsBlock(tags, editor);
+      if (button.nextElementSibling === block) return;
+      if (block.parentNode) {
+        ensureAssetSideStyle();
+        button.textContent = '放到提示词右侧';
+        button.dataset.placement = 'below';
+        block.parentNode.insertBefore(button, block);
+      }
+      return;
+    }
+    const { split, side } = assetSide;
+    if (split?.isConnected && split.contains(editor) && side?.contains(tags)) return;
+    // AI Flow 重绘换掉了节点：先把旧的还原，再重新挪
+    if (split) restoreAssetTagsSidebar();
+    const editorBox = editor.parentElement;
+    if (!editorBox || editorBox === document.body || !editorBox.parentElement || editorBox.contains(tags)) return;
+    const tagsBlock = assetTagsBlock(tags, editor);
+    if (tagsBlock.contains(editorBox)) return;
+    ensureAssetSideStyle();
+    const editorMark = document.createComment('nest-asset-side:editor');
+    const tagsMark = document.createComment('nest-asset-side:tags');
+    const newSplit = document.createElement('div');
+    newSplit.className = 'nest-asset-split';
+    const newSide = document.createElement('div');
+    newSide.className = 'nest-asset-side';
+    const head = document.createElement('div');
+    head.className = 'nest-asset-side-head';
+    const label = document.createElement('span');
+    label.textContent = '引用素材';
+    const button = assetSideToggleButton();
+    button.textContent = '放回下方';
+    button.dataset.placement = 'side';
+    head.append(label, button);
+    editorBox.parentElement.insertBefore(editorMark, editorBox);
+    tagsBlock.parentNode.insertBefore(tagsMark, tagsBlock);
+    editorMark.parentNode.insertBefore(newSplit, editorMark);
+    newSplit.appendChild(editorBox);
+    tagsBlock.classList.add('nest-asset-side-block');
+    newSide.append(head, tagsBlock);
+    newSplit.appendChild(newSide);
+    Object.assign(assetSide, { split: newSplit, side: newSide, editorBox, tagsBlock, editorMark, tagsMark });
   }
 
   function isLikelyPromptEditor(editor) {
@@ -1765,12 +3447,20 @@
       layer.remove();
       promptHighlighters.delete(editor);
     };
+    let lastGeometryKey = '';
     const sync = () => {
       if (!editor.isConnected) {
         dispose();
         return;
       }
       const style = getComputedStyle(editor), parentBox = parent.getBoundingClientRect(), editorBox = editor.getBoundingClientRect();
+      // 每 180ms 的定时刷新以前会无条件重写三十来个内联样式，每次都让浏览器重算样式（LES-021）；
+      // 现在先比对几何和字体，没变就跳过写入，只看文字和引用有没有变。
+      const geometryKey = [editorBox.top - parentBox.top, editorBox.left - parentBox.left, parent.scrollTop, parent.scrollLeft,
+        editor.clientWidth, editor.clientHeight, editor.scrollTop, editor.scrollLeft, style.font, style.padding,
+        style.lineHeight, style.letterSpacing, style.wordSpacing, style.whiteSpace, style.textIndent].join('|');
+      if (geometryKey !== lastGeometryKey) {
+        lastGeometryKey = geometryKey;
       // offsetTop/offsetLeft use the offset parent and become wrong when AI Flow
       // moves the textarea inside a scrolled or transformed layout. Both boxes
       // describe the rendered positions, so translate them back into the
@@ -1798,6 +3488,7 @@
       // the native caret or make Enter appear to land on another visual line.
       layer.style.background = 'transparent';
       content.style.transform = `translate(${-editor.scrollLeft}px, ${-editor.scrollTop}px)`;
+      }
       const currentText = promptEditorText(editor);
       const inventory = promptReferenceInventory(editor);
       const inventoryKey = inventory ? JSON.stringify([...inventory].sort()) : 'unknown';
@@ -1813,6 +3504,7 @@
       }
       // Remake can update font, wrapping and scroll position independently of
       // value (and without input/scroll events). Refresh geometry every tick.
+      if (document.hidden) return;
       sync();
     };
     resizeObserver = new ResizeObserver(sync);
@@ -2098,30 +3790,30 @@
     style.textContent = `
       #${FOLDER_DIFF_PANEL_ID} {
         display: grid !important; gap: 12px !important; margin: 10px 0 12px !important; padding: 14px !important;
-        border: 1px solid rgba(67, 206, 161, .48) !important; border-radius: 10px !important;
-        background: linear-gradient(135deg, rgba(7, 47, 40, .97), rgba(8, 30, 43, .97)) !important;
-        color: #e9fff6 !important; box-shadow: 0 10px 26px rgba(0, 0, 0, .24) !important;
+        border: 1px solid var(--nest-theme-border, #2a2f38) !important; border-radius: 14px !important;
+        background: var(--nest-theme-overlay, #1c1f26) !important;
+        color: var(--nest-theme-text, #e8eaee) !important; box-shadow: 0 12px 30px rgba(0, 0, 0, .3) !important;
         font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
       }
       #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-header { display: flex !important; align-items: flex-start !important; gap: 10px !important; }
-      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-title { margin: 0 !important; color: #f5fffb !important; font-size: 15px !important; font-weight: 700 !important; }
-      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-copy { margin: 2px 0 0 !important; color: #a9d6c8 !important; font-size: 12px !important; }
-      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-close { margin-left: auto !important; min-width: 30px !important; min-height: 30px !important; border: 1px solid rgba(136, 185, 171, .46) !important; border-radius: 7px !important; background: rgba(5, 30, 36, .84) !important; color: #cce8df !important; cursor: pointer !important; }
-      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-close:hover { border-color: #72e6bf !important; color: #ffffff !important; }
+      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-title { margin: 0 !important; color: var(--nest-theme-text, #e8eaee) !important; font-size: 15px !important; font-weight: 700 !important; }
+      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-copy { margin: 2px 0 0 !important; color: var(--nest-theme-muted, #8b919c) !important; font-size: 12px !important; }
+      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-close { margin-left: auto !important; min-width: 30px !important; min-height: 30px !important; border: 1px solid var(--nest-theme-border, #2a2f38) !important; border-radius: 999px !important; background: var(--nest-theme-button, #1d2027) !important; color: var(--nest-theme-muted, #8b919c) !important; cursor: pointer !important; }
+      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-close:hover { border-color: var(--nest-theme-accent, #6f9bff) !important; color: var(--nest-theme-text, #e8eaee) !important; }
       #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-metrics { display: grid !important; grid-template-columns: repeat(5, minmax(100px, 1fr)) !important; gap: 8px !important; }
-      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-metric { min-width: 0 !important; padding: 9px 10px !important; border: 1px solid rgba(105, 175, 157, .26) !important; border-radius: 8px !important; background: rgba(1, 19, 27, .5) !important; }
-      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-metric strong { display: block !important; color: #ffffff !important; font-size: 18px !important; line-height: 1.1 !important; }
-      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-metric span { display: block !important; margin-top: 3px !important; color: #a5c9bd !important; font-size: 11px !important; }
-      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-section { padding-top: 10px !important; border-top: 1px solid rgba(107, 179, 161, .2) !important; }
-      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-section h4 { margin: 0 0 6px !important; color: #dffbf1 !important; font-size: 12px !important; }
-      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-section ul { display: grid !important; gap: 4px !important; margin: 0 !important; padding-left: 18px !important; color: #b8d8ce !important; }
-      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-note { margin: 0 !important; color: #99c5b7 !important; font-size: 12px !important; }
-      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-warning { padding: 9px 10px !important; border: 1px solid rgba(239, 178, 89, .55) !important; border-radius: 7px !important; background: rgba(87, 54, 11, .25) !important; color: #ffe2a7 !important; }
+      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-metric { min-width: 0 !important; padding: 9px 10px !important; border: 0 !important; border-radius: 10px !important; background: var(--nest-theme-field, #0b0d10) !important; }
+      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-metric strong { display: block !important; color: var(--nest-theme-text, #e8eaee) !important; font-size: 18px !important; line-height: 1.1 !important; }
+      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-metric span { display: block !important; margin-top: 3px !important; color: var(--nest-theme-muted, #8b919c) !important; font-size: 11px !important; }
+      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-section { padding-top: 10px !important; border-top: 1px solid var(--nest-theme-border, #2a2f38) !important; }
+      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-section h4 { margin: 0 0 6px !important; color: var(--nest-theme-text, #e8eaee) !important; font-size: 12px !important; }
+      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-section ul { display: grid !important; gap: 4px !important; margin: 0 !important; padding-left: 18px !important; color: var(--nest-theme-muted, #8b919c) !important; }
+      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-note { margin: 0 !important; color: var(--nest-theme-muted, #8b919c) !important; font-size: 12px !important; }
+      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-warning { padding: 9px 10px !important; border: 1px solid rgba(232, 170, 92, .35) !important; border-radius: 10px !important; background: rgba(232, 170, 92, .08) !important; color: #f0cf9f !important; }
       #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-actions { display: flex !important; align-items: center !important; gap: 8px !important; flex-wrap: wrap !important; }
-      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-actions button { min-height: 34px !important; padding: 7px 12px !important; border: 1px solid rgba(71, 214, 166, .8) !important; border-radius: 7px !important; background: #106f58 !important; color: #f2fff9 !important; font: 700 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; cursor: pointer !important; }
-      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-actions button:hover:not(:disabled) { background: #168568 !important; box-shadow: 0 0 0 2px rgba(65, 231, 180, .14) !important; }
+      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-actions button { min-height: 34px !important; padding: 7px 12px !important; border: 0 !important; border-radius: 999px !important; background: var(--nest-theme-primary, #3f6fe6) !important; color: var(--nest-theme-primary-text, #ffffff) !important; font: 700 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; cursor: pointer !important; }
+      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-actions button:hover:not(:disabled) { background: color-mix(in srgb, var(--nest-theme-primary, #3f6fe6) 88%, #fff) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--nest-theme-primary, #3f6fe6) 22%, transparent) !important; }
       #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-actions button:disabled { cursor: not-allowed !important; opacity: .55 !important; }
-      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-status { color: #bde5d9 !important; font-size: 12px !important; }
+      #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-status { color: var(--nest-theme-muted, #8b919c) !important; font-size: 12px !important; }
       @media (max-width: 920px) { #${FOLDER_DIFF_PANEL_ID} .nest-aiflow-diff-metrics { grid-template-columns: repeat(2, minmax(110px, 1fr)) !important; } }
     `;
     (document.head || document.documentElement).appendChild(style);
@@ -2473,8 +4165,13 @@
     return false;
   }
 
+  // 页面在后台时降频到 LIVE_SYNC_HIDDEN_INTERVAL_MS，生成完成照样会同步进素材库，只是不再每 3 秒查一次。
+  const LIVE_SYNC_HIDDEN_INTERVAL_MS = 15 * 1000;
+  let lastLiveSyncAt = 0;
   function requestLiveSync() {
     if (Date.now() < bridgeRetryAfter) return;
+    if (document.hidden && Date.now() - lastLiveSyncAt < LIVE_SYNC_HIDDEN_INTERVAL_MS) return;
+    lastLiveSyncAt = Date.now();
     const toolbar = folderToolbar();
     const projectId = currentProjectId();
     if (!toolbar || !projectId || isSharedLibraryView()) return;
@@ -2568,30 +4265,48 @@
     return true;
   });
 
-  pageMutationObserver = new MutationObserver(() => {
+  let pageScanTimer = 0;
+  let lastPageScanAt = 0;
+  function runPageScan() {
+    pageScanTimer = 0;
+    lastPageScanAt = Date.now();
     injectButton();
-        injectFolderSyncButton();
-        injectFolderStructureLinkButton();
-        injectFolderStructureSyncButton();
-        injectPromptReferenceHighlights();
-        injectVideoExtendLibraryPanel();
-        injectVideoExtendAutoMatchButton();
-        injectVideoExtendWorkbench();
-        injectAIFlowThemeSwitcher();
-        injectAIFlowFocusLayoutToggle();
+    injectFolderSyncButton();
+    injectFolderStructureLinkButton();
+    injectFolderStructureSyncButton();
+    injectPromptReferenceHighlights();
+    injectAssetTagsSidebar();
+    injectVideoExtendLibraryPanel();
+    injectVideoExtendAutoMatchButton();
+    injectVideoExtendWorkbench();
+    injectAIFlowThemeSwitcher();
+    injectAIFlowFocusLayoutToggle();
+    scheduleWorksCanvasSync();
     document.getElementById(LEGACY_UPLOAD_BUTTON_ID)?.remove();
     ensureLiveSyncTimer();
+  }
+  function schedulePageScan() {
+    if (pageScanTimer) return;
+    const wait = Math.max(0, PAGE_SCAN_MIN_INTERVAL_MS - (Date.now() - lastPageScanAt));
+    pageScanTimer = window.setTimeout(() => requestAnimationFrame(runPageScan), wait);
+  }
+
+  pageMutationObserver = new MutationObserver(records => {
+    if (records.every(isNestOnlyMutation)) return;
+    schedulePageScan();
   });
   pageMutationObserver.observe(document.documentElement, PAGE_OBSERVER_OPTIONS);
   injectFolderSyncButton();
   injectFolderStructureLinkButton();
   injectFolderStructureSyncButton();
       injectPromptReferenceHighlights();
+      injectAssetTagsSidebar();
       injectVideoExtendLibraryPanel();
       injectVideoExtendAutoMatchButton();
       injectVideoExtendWorkbench();
       injectAIFlowThemeSwitcher();
       injectAIFlowFocusLayoutToggle();
+      scheduleWorksCanvasSync();
   document.getElementById(LEGACY_UPLOAD_BUTTON_ID)?.remove();
   ensureLiveSyncTimer();
 })();

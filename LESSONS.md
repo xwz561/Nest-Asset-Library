@@ -181,3 +181,46 @@
 - 证据：`test/reference-board-drag-out.test.cjs` 6 项通过；撤掉本改动的副本与当前树的全量失败名单一致。
 - 边界：Linux 环境下 vite/rolldown 缺原生绑定无法构建，未实际渲染验证。
 - 复审条件：画布交互改用原生拖动或换拖拽库。
+
+### LES-018：全页点击监听先过滤目标，再安排昂贵的 DOM 检查
+
+- 日期：2026-11-11
+- 状态：代码级回归测试通过；真实 AI Flow 待用户复测
+- 场景：`aiflow-page.js` 曾在捕获阶段为每次点击（包括空白处和扩展浮窗）安排 80/400ms 两次延长窗口检查。检查会遍历页面的 textarea 并读取祖先文本；AI Flow 大页面连续点击会堆积同步 DOM 扫描，可能触发网页未响应。
+- 做法：只对任务卡片、原生弹窗交互及「重制/延长」按钮安排复查；扩展自己的 `nest-aiflow-*` 浮窗点击直接忽略。保留重制/延长专用 800/1300/2000ms 检查。
+- 证据：`test/aiflow-blank-click.test.cjs` 空白点击、扩展浮窗点击与重制延迟检查通过；全量测试与 r4 失败名单一致。
+- 边界：未在真实 AI Flow 页面复现网页未响应；不得点提交或生成按钮。
+- 复审条件：AI Flow 弹窗关闭交互改为无法由弹窗目标或任务卡片识别的纯样式切换。
+
+### LES-019：识别 AI Flow 延长窗口时排除扩展自己的浮窗
+
+- 日期：2026-11-11
+- 状态：隔离测试通过；真 AI Flow 待用户复测
+- 场景：用户截图反馈延长工作台开着时在空白处点几下网页"未响应"。LES-018 只减少了点击触发的扫描，根因还在：工作台（`nest-aiflow-video-extend-workbench`）里也有「延长秒数」「提交延长」和 textarea，`isVideoExtendPrompt` 把它当成延长窗口。AI Flow 原窗口一藏起来，`currentVideoExtendEditor` 只剩工作台可选，注入函数拿工作台当窗口：删旧建新，新工作台触发 MutationObserver 再重建，死循环。与点击无关，任何页面变动都可能触发。
+- 做法：`isNestOwnedNode` 沿祖先查 `nest-aiflow-` 前缀 id，`isVideoExtendPrompt` / `videoExtendContainer` 遇到扩展自己的节点直接排除。
+- 证据：`test/aiflow-extend-reopen.test.cjs` 新增"工作台不被当成延长窗口"测试通过。
+- 边界：4.0.3 安装包里没有这处，需要重打或直接加载仓库 `browser-extension`。
+- 复审条件：扩展新增浮窗不用 `nest-aiflow-` 前缀时。
+
+### LES-020：根节点上的 :has(:active) 让每次点击都重算整页样式
+
+- 日期：2026-11-12
+- 状态：静态检查与测试通过；未在 Windows 真机测帧率
+- 场景：用户反馈素材库"点击/悬停反应慢"。`styles.css` 有 `.app:has(main:active) .masonry article{transition-duration:.08s}`：每次在素材区按下、松开鼠标，`main` 的 :active 变化都会让 `.app` 的 :has 失效，整棵界面重新匹配样式。另外悬停时 `.thumb img/video` 放大 1.012，大图和视频每次悬停都重新栅格化。
+- 做法：改成 `main:active .masonry article`（素材网格本来就在 main 里，效果不变、失效范围只到 main）；soft-ui 下悬停不再缩放缩略图（Eagle 式网格已用描边环表示悬停）。`test/click-hover-performance.test.cjs` 禁止根节点 :has() 依赖 :active/:hover/:focus。
+- 边界：`main.jsx` 的 App 是一个 3400 行的大组件、没有任何 React.memo，点选素材会重渲染整个界面（文件夹树、所有可见卡片），这是另一处可能的点击延迟来源；Linux 上跑不了 vite，没动。
+- 复审条件：真机仍觉得点击慢时，用 React Profiler 看点选一次的渲染耗时，再考虑把素材卡片和文件夹树抽成 memo 组件。
+
+### LES-021：内容脚本的页面监听要节流，并忽略自己造成的变动
+
+- 日期：2026-11-12
+- 状态：测试通过；未在真实 AI Flow 上量过 CPU 和帧率
+- 场景：用户反馈"插件对浏览器的压力有点大，浏览器有点卡了"。`aiflow-page.js` 的 MutationObserver 监听整页的 childList 和 class 变动，每批变动都同步执行十几个 inject*（每个都会全页 querySelectorAll）。AI Flow 的进度条和计时器会不停地改 class，扩展自己插入浮窗、加 nest-* class 又会再触发一轮，形成自激循环。另外，提示词高亮每 180ms 无条件重写三十来个内联样式，每次都让浏览器重新计算样式。
+- 做法：
+  - 观察器回调只做 `schedulePageScan()`：每 250ms 最多扫描一次，扫描放在 rAF 里执行。
+  - 扫描前用 `isNestOnlyMutation` 过滤掉扩展自己引起的变动：扩展浮窗内部的变动、插入扩展自己的节点、只增减 nest-* class 的变动（靠 `attributeOldValue` 比对）。
+  - 提示词高亮先比对几何和字体签名，没变就跳过写入；页面在后台时不刷新。
+  - 实时同步在页面后台时降到 15 秒一次，不停掉，生成完成照样会进素材库。
+- 规则：以后给 AI Flow 节点加的 class 一律以 `nest-` 开头，插入的节点 id 或 class 也要以 `nest-` 开头，否则会触发重扫。新增的定时器先判断 `document.hidden`。
+- 边界：「页面配色」的样式表里有大量 `[class*=…]` 选择器，AI Flow 每次重绘都要按它们重新匹配。如果真机上仍然卡，先选「AI Flow 原版」对比；如果确认是配色造成的，再把这些选择器收窄。
+- 回归测试：`test/aiflow-page-performance.test.cjs`。

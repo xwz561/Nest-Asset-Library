@@ -571,6 +571,18 @@ html[data-platform=darwin] .app.soft-ui.ready-ui.ui-refresh .soft-side-panel > .
   color: var(--soft-on-accent) !important;
   box-shadow: var(--soft-btn-shadow-primary) !important;
 }
+/* 空状态彩蛋：按钮被鼠标轻轻吸住（src/magnetic-pull.js 写入 --magnet-x/y）。用独立的 translate 属性，
+   不覆盖按下时的 transform；带一点回弹。减少动态效果时不位移。只在空状态出现，不碰素材网格（LES-007）。 */
+.app.soft-ui.ready-ui.ui-refresh .empty-library-actions button {
+  translate: var(--magnet-x, 0px) var(--magnet-y, 0px);
+  transition:
+    background .12s, border-color .12s,
+    filter var(--motion-base) var(--motion-ease), scale var(--motion-fast) var(--motion-spring),
+    translate .32s cubic-bezier(.34, 1.56, .64, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .app.soft-ui.ready-ui.ui-refresh .empty-library-actions button { translate: none; }
+}
 
 /* ---------- 右侧详情面板 -------------------------------------------------- */
 .app.soft-ui.ready-ui.ui-refresh .detail {
@@ -1371,3 +1383,164 @@ html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh.soft-desk-app .sof
 
 /* 滚动时暂停卡片悬停（main 上的 is-scrolling 由滚动事件加上、停下 160ms 后去掉；LES-007） */
 .app.soft-ui.ready-ui.ui-refresh main.is-scrolling .masonry article { pointer-events: none; }
+
+/* 窗口拖动区（Windows 自绘标题栏、macOS hiddenInset 都靠 -webkit-app-region）：
+   原来只有 win32 的顶栏卡片能拖，实际只剩面包屑和搜索框中间那一小段空白。
+   现在顶栏卡片、标题卡片（文件夹名那块）、侧栏顶部「小旺仔素材库」一行、图标栏、窗口最上方一条边距都能拖；
+   按钮、输入框、链接、弹出菜单一律不拖，点击照常。素材区留给框选，不设拖动。
+   编辑布局时卡片自己要能拖，soft-layout-editing 下全部关掉（见上面 [data-soft-card] * 规则）。 */
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh::before,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 12px;
+  z-index: 0;
+  pointer-events: none;
+  -webkit-app-region: drag;
+}
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh:not(.soft-layout-editing) main header,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh:not(.soft-layout-editing) .toolbar,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh:not(.soft-layout-editing) aside .brand,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh:not(.soft-layout-editing) .soft-rail,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh:not(.soft-layout-editing) main header,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh:not(.soft-layout-editing) .toolbar,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh:not(.soft-layout-editing) aside .brand,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh:not(.soft-layout-editing) .soft-rail {
+  -webkit-app-region: drag;
+}
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh main header button,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh main header input,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh main header textarea,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh main header select,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh main header a,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh main header label,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh main header img,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh main header [role="button"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh main header [role="menu"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh main header [role="listbox"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh main header [role="dialog"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh main header [contenteditable="true"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh main header [title],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh main header .search,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh main header .toolbar-popover,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh main header .asset-menu,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .toolbar button,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .toolbar input,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .toolbar textarea,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .toolbar select,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .toolbar a,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .toolbar label,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .toolbar img,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .toolbar [role="button"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .toolbar [role="menu"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .toolbar [role="listbox"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .toolbar [role="dialog"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .toolbar [contenteditable="true"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .toolbar [title],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .toolbar .search,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .toolbar .toolbar-popover,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .toolbar .asset-menu,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh aside .brand button,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh aside .brand input,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh aside .brand textarea,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh aside .brand select,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh aside .brand a,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh aside .brand label,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh aside .brand img,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh aside .brand [role="button"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh aside .brand [role="menu"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh aside .brand [role="listbox"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh aside .brand [role="dialog"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh aside .brand [contenteditable="true"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh aside .brand [title],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh aside .brand .search,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh aside .brand .toolbar-popover,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh aside .brand .asset-menu,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail button,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail input,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail textarea,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail select,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail a,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail label,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail img,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail [role="button"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail [role="menu"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail [role="listbox"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail [role="dialog"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail [contenteditable="true"],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail [title],
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail .search,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail .toolbar-popover,
+html[data-platform="win32"] .app.soft-ui.ready-ui.ui-refresh .soft-rail .asset-menu,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh main header button,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh main header input,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh main header textarea,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh main header select,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh main header a,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh main header label,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh main header img,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh main header [role="button"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh main header [role="menu"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh main header [role="listbox"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh main header [role="dialog"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh main header [contenteditable="true"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh main header [title],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh main header .search,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh main header .toolbar-popover,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh main header .asset-menu,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .toolbar button,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .toolbar input,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .toolbar textarea,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .toolbar select,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .toolbar a,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .toolbar label,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .toolbar img,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .toolbar [role="button"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .toolbar [role="menu"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .toolbar [role="listbox"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .toolbar [role="dialog"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .toolbar [contenteditable="true"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .toolbar [title],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .toolbar .search,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .toolbar .toolbar-popover,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .toolbar .asset-menu,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh aside .brand button,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh aside .brand input,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh aside .brand textarea,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh aside .brand select,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh aside .brand a,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh aside .brand label,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh aside .brand img,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh aside .brand [role="button"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh aside .brand [role="menu"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh aside .brand [role="listbox"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh aside .brand [role="dialog"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh aside .brand [contenteditable="true"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh aside .brand [title],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh aside .brand .search,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh aside .brand .toolbar-popover,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh aside .brand .asset-menu,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .soft-rail button,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .soft-rail input,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .soft-rail textarea,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .soft-rail select,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .soft-rail a,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .soft-rail label,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .soft-rail img,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .soft-rail [role="button"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .soft-rail [role="menu"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .soft-rail [role="listbox"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .soft-rail [role="dialog"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .soft-rail [contenteditable="true"],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .soft-rail [title],
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .soft-rail .search,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .soft-rail .toolbar-popover,
+html[data-platform="darwin"] .app.soft-ui.ready-ui.ui-refresh .soft-rail .asset-menu {
+  -webkit-app-region: no-drag;
+}
+
+/* 点击/悬停卡顿（LES-020）：悬停时把整张缩略图放大 1.2% 会让大图、视频每次悬停都重新栅格化；
+   Eagle 式网格已经用描边环表示悬停，这里不再缩放图片。 */
+.app.soft-ui.ready-ui.ui-refresh .masonry article:hover .thumb img,
+.app.soft-ui.ready-ui.ui-refresh .masonry article:hover .thumb video { transform: none !important; }
