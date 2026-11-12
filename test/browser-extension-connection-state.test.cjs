@@ -60,7 +60,7 @@ test('the same connection classifier is loaded by the worker, popup, and AI Flow
   assert.match(worker, /classifyConnection/);
   assert.match(main, /\/extension-status/);
   assert.match(main, /readCollectorExtensionStatus/);
-  assert.match(releaseNotes, /网页采集器升级到 1\.16\.9/);
+  assert.match(releaseNotes, /网页采集器升级到 1\.16\.10/);
   assert.match(releaseNotes, /素材库没打开时不再反复弹通知/);
 });
 

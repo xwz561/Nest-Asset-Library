@@ -178,3 +178,18 @@
 - 适用范围：`browser-extension/aiflow-page.js` 引用素材侧栏一段（injectAssetTagsSidebar，已接入 runPageScan）；回归测试 `test/aiflow-asset-side.test.cjs`（假 DOM）。网页采集器 1.16.9。
 - 已知风险：真实 AI Flow 的 DOM 嵌套没有看过（内置浏览器连不上内网），#promptInput 的父元素是不是提示词框、引用区往上找到的边界是否合适，都要真机确认。如果 AI Flow 的代码靠父子位置找引用区，拖动排序或删除可能失效，这时先点「放回下方」。
 - 失效或复审条件：真机上布局不对、拖动排序或删除失效，或者用户想换位置、宽度。
+
+### DEC-016：AI Flow「专注布局」改为隐藏顶栏和左侧军团、分集栏
+
+- 日期：2026-11-12
+- 状态：有效，未真机验证
+- 决策：点「专注布局」后，隐藏 AI Flow 顶栏和左侧「军团 + 分集」整列（`.gen-navigation` 加按位置认出的列），并把 `--project-nav-width` 设为 0；生成表单和作品区保持不动。参数栏不再压到 240px（原来的压窄做法会挤坏 DEC-015 的引用素材侧栏）。点「恢复布局」只去掉 body 类，选择照旧记在 `nest-aiflow-focus-layout-enabled`。
+- 实现：顶栏和左侧栏没有稳定的类名，所以按位置识别。
+  - 顶栏：从含「AI Flow」字样的元素往上找，取贴顶、高度不超过 100px、宽度不小于窗口 80% 的祖先。
+  - 左侧栏：从「搜索成员」输入框（找不到就用分集列表）往上找，取贴左、宽度不超过 max(320px, 窗口 25%)、高度不小于窗口一半的祖先。
+  - 不能选中包含 `#generatePanel` 或扩展自己节点的元素。
+  - 识别出的元素加上 `nest-focus-hidden` 和 `data-nest-focus`，CSS 只在 body 有专注类时隐藏它们。
+  - AI Flow 重绘后，临时去掉 body 类重新识别一次，每 2 秒最多一次，最多 5 次。
+- 原因：用户 2026-11-12 原话「我点专注布局之后，能不能把周围的布局隐藏掉」，截图圈出顶栏和左侧军团、分集栏。
+- 适用范围：`browser-extension/aiflow-page.js`（ensureAIFlowFocusLayoutStyle、markFocusLayoutTargets、setAIFlowFocusLayout、injectAIFlowFocusLayoutToggle）；回归测试 `test/aiflow-focus-layout.test.cjs`。网页采集器 1.16.10。
+- 已知风险：真实 DOM 没看过。如果顶栏是 position:fixed、正文靠 margin 或 padding 让位，隐藏后上方可能留出空白；如果左栏宽度由 CSS 变量以外的方式决定，左边也可能留空白。都要真机确认。

@@ -39,6 +39,7 @@
   const FOCUS_LAYOUT_TOGGLE_ID = 'nest-aiflow-focus-layout-toggle';
   const FOCUS_LAYOUT_CLASS = 'nest-aiflow-focus-layout';
   const FOCUS_LAYOUT_STORAGE_KEY = 'nest-aiflow-focus-layout-enabled';
+  const FOCUS_HIDE_CLASS = 'nest-focus-hidden';
   const WORKS_CANVAS_STYLE_ID = 'nest-aiflow-works-canvas-style';
   const WORKS_CANVAS_TOGGLE_ID = 'nest-aiflow-works-canvas-toggle';
   const WORKS_CANVAS_HUD_ID = 'nest-aiflow-works-canvas-hud';
@@ -1687,11 +1688,10 @@
     const style = document.createElement('style');
     style.id = FOCUS_LAYOUT_STYLE_ID;
     style.textContent = `
-      body.${FOCUS_LAYOUT_CLASS} { --sidebar-w: 240px !important; --project-nav-width: 150px !important; }
-      body.${FOCUS_LAYOUT_CLASS} .gen-navigation { width: 150px !important; min-width: 150px !important; }
-      body.${FOCUS_LAYOUT_CLASS} #generatePanel > .sidebar {
-        width: 240px !important; min-width: 220px !important; max-width: 240px !important;
-      }
+      /* 专注布局（DEC-016）：隐藏顶栏和左侧「军团 + 分集」栏，只留生成表单和作品区；参数栏不再压窄 */
+      body.${FOCUS_LAYOUT_CLASS} { --project-nav-width: 0px !important; }
+      body.${FOCUS_LAYOUT_CLASS} .gen-navigation,
+      body.${FOCUS_LAYOUT_CLASS} .${FOCUS_HIDE_CLASS} { display: none !important; }
       #${FOCUS_LAYOUT_TOGGLE_ID} {
         position: fixed !important; right: 18px !important; bottom: 18px !important; z-index: 2147483646 !important;
         border: 1px solid var(--nest-theme-border, #2a2f38) !important; border-radius: 999px !important;
@@ -1708,22 +1708,71 @@
     try { return localStorage.getItem(FOCUS_LAYOUT_STORAGE_KEY) === 'true'; } catch { return false; }
   }
 
+  // 顶栏和左侧军团栏没有稳定的类名，按位置认：
+  // 顶栏 = 含「AI Flow」字样、贴着页面顶部、几乎和窗口一样宽的矮条；
+  // 左侧栏 = 含「搜索成员」或分集列表、贴着页面左边、窄而高的一列。两者都不能包含生成表单（#generatePanel）或扩展自己的节点。
+  function focusLayoutCandidate(start, accept) {
+    let found = null;
+    for (let node = start; node && node !== document.body && node !== document.documentElement; node = node.parentElement) {
+      if (node.querySelector?.('#generatePanel') || node.id === 'generatePanel' || isNestOwnedNode(node)) break;
+      if (accept(node.getBoundingClientRect())) found = node;
+    }
+    return found;
+  }
+
+  function markFocusLayoutTargets() {
+    for (const node of document.querySelectorAll(`.${FOCUS_HIDE_CLASS}`)) {
+      if (node.querySelector('#generatePanel')) node.classList.remove(FOCUS_HIDE_CLASS);
+    }
+    const width = window.innerWidth || document.documentElement.clientWidth || 0;
+    const height = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (!document.querySelector(`.${FOCUS_HIDE_CLASS}[data-nest-focus="top"]`)) {
+      const brand = [...document.querySelectorAll('span, div, b, strong, h1, a')]
+        .find(node => node.childElementCount === 0 && /^AI\s*Flow$/i.test(String(node.textContent || '').trim()) && !isNestOwnedNode(node));
+      const top = brand && focusLayoutCandidate(brand, rect => rect.top <= 4 && rect.height > 0 && rect.height <= 100 && rect.width >= width * 0.8);
+      if (top) { top.classList.add(FOCUS_HIDE_CLASS); top.dataset.nestFocus = 'top'; }
+    }
+    if (!document.querySelector(`.${FOCUS_HIDE_CLASS}[data-nest-focus="side"]`)) {
+      const anchor = document.querySelector('input[placeholder*="搜索成员"]') || document.querySelector('.gen-episode-list') || document.querySelector('.gen-current-project');
+      const side = anchor && focusLayoutCandidate(anchor, rect => rect.left <= 4 && rect.width > 0 && rect.width <= Math.max(320, width * 0.25) && rect.height >= height * 0.5);
+      if (side) { side.classList.add(FOCUS_HIDE_CLASS); side.dataset.nestFocus = 'side'; }
+    }
+  }
+
   function setAIFlowFocusLayout(enabled) {
+    // 先在可见状态下按位置认出顶栏和左侧栏，再加 body 类把它们隐藏
+    if (enabled) { focusLayoutRemarkTries = 0; markFocusLayoutTargets(); }
     document.body.classList.toggle(FOCUS_LAYOUT_CLASS, enabled);
     try { localStorage.setItem(FOCUS_LAYOUT_STORAGE_KEY, String(enabled)); } catch { /* storage can be blocked by the page */ }
     const button = document.getElementById(FOCUS_LAYOUT_TOGGLE_ID);
     if (button) {
       button.dataset.enabled = String(enabled);
       button.textContent = enabled ? '恢复布局' : '专注布局';
-      button.title = enabled ? '恢复 AI Flow 原来的布局' : '压缩左侧导航与参数栏，扩大工作区域；不修改任何数据';
+      button.title = enabled ? '恢复 AI Flow 原来的布局' : '隐藏顶栏和左侧军团、分集栏，只留生成表单和作品区；不修改任何数据';
     }
   }
 
+  let focusLayoutRemarkAt = 0;
+  let focusLayoutRemarkTries = 0;
   function injectAIFlowFocusLayoutToggle() {
     if (!document.body || !document.getElementById('generatePanel')) return;
     ensureAIFlowFocusLayoutStyle();
     const existing = document.getElementById(FOCUS_LAYOUT_TOGGLE_ID);
-    if (existing) return;
+    if (existing) {
+      // AI Flow 重绘出新的顶栏或左侧栏时补标记。隐藏的元素量不到位置，所以只在还没有可用标记时，
+      // 临时去掉 body 类量一次再加回（同一帧内完成，不会闪）。
+      if (document.body.classList.contains(FOCUS_LAYOUT_CLASS)
+        && (!document.querySelector(`.${FOCUS_HIDE_CLASS}[data-nest-focus="top"]`) || !document.querySelector(`.${FOCUS_HIDE_CLASS}[data-nest-focus="side"]`))
+        && focusLayoutRemarkTries < 5 && Date.now() - focusLayoutRemarkAt > 2000) {
+        // 最多补认 5 次：页面上确实没有顶栏或左侧栏时，不再反复强制排版
+        focusLayoutRemarkTries += 1;
+        focusLayoutRemarkAt = Date.now();
+        document.body.classList.remove(FOCUS_LAYOUT_CLASS);
+        markFocusLayoutTargets();
+        document.body.classList.add(FOCUS_LAYOUT_CLASS);
+      }
+      return;
+    }
     const button = document.createElement('button');
     button.id = FOCUS_LAYOUT_TOGGLE_ID;
     button.type = 'button';
