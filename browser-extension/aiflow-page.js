@@ -135,10 +135,21 @@
     return editor instanceof HTMLTextAreaElement ? editor.value : editor.textContent || '';
   }
 
+  // 小旺仔自己插进页面的浮窗（延长工作台、素材库等，id 都以 nest-aiflow- 开头）里也写着
+  // 「延长秒数」「提交延长」，绝不能当成 AI Flow 的延长窗口：否则原窗口一藏起来，
+  // 工作台会拿自己当窗口反复重建，页面卡死（LES-019）。
+  function isNestOwnedNode(node) {
+    for (let current = node; current && current !== document.body; current = current.parentElement) {
+      if (String(current.id || '').startsWith('nest-aiflow-')) return true;
+    }
+    return false;
+  }
+
   function isVideoExtendPrompt(editor) {
     // AI Flow has changed the modal class names more than once. The two visible
     // labels are stable, so walk upward from the editor instead of relying on a
     // particular dialog class.
+    if (isNestOwnedNode(editor)) return false;
     let container = editor.parentElement;
     while (container && container !== document.body) {
       const text = String(container.textContent || '');
@@ -149,6 +160,7 @@
   }
 
   function videoExtendContainer(editor) {
+    if (isNestOwnedNode(editor)) return null;
     let container = editor.parentElement;
     while (container && container !== document.body) {
       const text = String(container.textContent || '');
@@ -2494,18 +2506,29 @@
   document.addEventListener('visibilitychange', retryBridgeWhenPageReturns);
 
   document.addEventListener('click', event => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+    // Clicks inside our floating UI do not change AI Flow's native extend window.
+    // In particular, don't queue whole-page scans for repeated clicks on blank
+    // space in the workbench or its material library.
+    if (target.closest('[id^="nest-aiflow-"]')) return;
     const card = AI_FLOW_DOM?.taskFromTarget?.(event.target)
-      || (event.target instanceof Element ? event.target.closest('.task-card[data-taskid]') : null);
+      || target.closest('.task-card[data-taskid]');
     const taskId = String(AI_FLOW_DOM?.taskId?.(card) || card?.dataset?.taskid || '').trim();
     if (taskId) lastVideoExtendTaskId = taskId;
-    // AI Flow 重新拿出藏起来的延长窗口时，可能只改 style，页面监听收不到；点完稍后再查一次
+    const actionButton = target.closest('button, [role="button"]');
+    const actionText = String(actionButton?.textContent || actionButton?.getAttribute('title') || '').replace(/\s+/g, '');
+    const extendAction = /^(重制|延长)$/.test(actionText);
+    const nativeDialog = target.closest('[role="dialog"], [aria-modal="true"], [class*="modal"], [class*="dialog"]');
+    // Blank page clicks cannot open or close the native dialog. Only inspect
+    // after a task-card click, an extend/rebuild action, or dialog interaction.
+    if (!taskId && !extendAction && !nativeDialog) return;
+    // AI Flow can reuse a hidden dialog after a click changes only its style.
     setTimeout(injectVideoExtendWorkbench, 80);
     setTimeout(injectVideoExtendWorkbench, 400);
     // 延长出来的视频点「重制」也会打开 AI Flow 的延长窗口，但它要先读任务参数，窗口来得晚；
     // 点「重制」「延长」后多查到 2 秒，保证弹出的是小旺仔延长工作台
-    const actionButton = event.target instanceof Element ? event.target.closest('button, [role="button"]') : null;
-    const actionText = String(actionButton?.textContent || actionButton?.getAttribute('title') || '').replace(/\s+/g, '');
-    if (/^(重制|延长)$/.test(actionText)) for (const delay of [800, 1300, 2000]) setTimeout(injectVideoExtendWorkbench, delay);
+    if (extendAction) for (const delay of [800, 1300, 2000]) setTimeout(injectVideoExtendWorkbench, delay);
   }, true);
 
   document.addEventListener('contextmenu', event => {

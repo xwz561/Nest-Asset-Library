@@ -80,19 +80,19 @@ jobs:
       - name: Package DMG and ZIP for Apple silicon only
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-          NEST_PACKAGE_OUTPUT: release-4.0.2-r3-macos-arm64
+          NEST_PACKAGE_OUTPUT: release-4.0.3-macos-arm64
         run: npm run package:mac
 
       - name: Compute installer sizes and SHA-256 manifest
         shell: bash
         run: |
           set -euo pipefail
-          output_dir="release-4.0.2-r3-macos-arm64"
+          output_dir="release-4.0.3-macos-arm64"
           : > "$output_dir/SHA256SUMS.txt"
 
           for arch in arm64; do
             for extension in dmg zip; do
-              archive="$output_dir/NestAssetLibrary-4.0.2-macOS-$arch.$extension"
+              archive="$output_dir/NestAssetLibrary-4.0.3-macOS-$arch.$extension"
               test -s "$archive"
               printf '%s bytes  %s\n' "$(wc -c < "$archive" | tr -d '[:space:]')" "$archive"
               shasum -a 256 "$archive" | tee -a "$output_dir/SHA256SUMS.txt"
@@ -102,8 +102,8 @@ jobs:
       - name: Upload arm64 DMG
         uses: actions/upload-artifact@v4
         with:
-          name: 小旺仔素材库-4.0.2-r3-macOS-arm64-dmg
-          path: release-4.0.2-r3-macos-arm64/NestAssetLibrary-4.0.2-macOS-arm64.dmg
+          name: 小旺仔素材库-4.0.3-macOS-arm64-dmg
+          path: release-4.0.3-macos-arm64/NestAssetLibrary-4.0.3-macOS-arm64.dmg
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
@@ -111,8 +111,8 @@ jobs:
       - name: Upload arm64 ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: 小旺仔素材库-4.0.2-r3-macOS-arm64-zip
-          path: release-4.0.2-r3-macos-arm64/NestAssetLibrary-4.0.2-macOS-arm64.zip
+          name: 小旺仔素材库-4.0.3-macOS-arm64-zip
+          path: release-4.0.3-macos-arm64/NestAssetLibrary-4.0.3-macOS-arm64.zip
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
@@ -120,8 +120,8 @@ jobs:
       - name: Upload SHA-256 manifest
         uses: actions/upload-artifact@v4
         with:
-          name: 小旺仔素材库-4.0.2-r3-macOS-arm64-SHA256
-          path: release-4.0.2-r3-macos-arm64/SHA256SUMS.txt
+          name: 小旺仔素材库-4.0.3-macOS-arm64-SHA256
+          path: release-4.0.3-macos-arm64/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
 
@@ -129,7 +129,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          output_dir="release-4.0.2-r3-macos-arm64"
+          output_dir="release-4.0.3-macos-arm64"
           temp_root="$RUNNER_TEMP/macos-package-verify"
           mkdir -p "$temp_root"
 
@@ -152,7 +152,7 @@ jobs:
             }
           };
           const pkg = JSON.parse(readAsarFile('package.json').toString('utf8'));
-          assert.equal(pkg.version, '4.0.2', `unexpected app version: ${pkg.version}`);
+          assert.equal(pkg.version, '4.0.3', `unexpected app version: ${pkg.version}`);
           const frames = entries.filter(name => /^dist\/pets\/maid-leash-kitten\/frame-\d{3}\.png$/.test(name));
           assert.equal(frames.length, 24, `expected 24 kitten frames, found ${frames.length}`);
           assert(entries.includes('electron/pet-leash.js'), 'electron/pet-leash.js is missing');
@@ -160,19 +160,39 @@ jobs:
           assert(cssFiles.length > 0, 'bundled index CSS is missing');
           assert(cssFiles.some(name => readAsarFile(name).toString('utf8').includes('--rf-btn-surface')),
             'r8 UI token --rf-btn-surface is missing from bundled index CSS');
+          const jsFiles = entries.filter(name => /^dist\/assets\/.*\.js$/.test(name));
+          assert(jsFiles.some(name => readAsarFile(name).toString('utf8').includes('网页采集器升级到 1.16.5')),
+            'extension 1.16.5 release note is missing from bundled JavaScript');
           console.log(`Verified app.asar ${pkg.version}: ${frames.length} kitten frames, leash engine, and r8 UI token`);
           NODE
           }
 
+          verify_extension() {
+            EXTENSION_DIR="$1/browser-extension" node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const dir = process.env.EXTENSION_DIR;
+          const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8'));
+          const script = fs.readFileSync(path.join(dir, 'aiflow-page.js'), 'utf8');
+          assert.equal(manifest.version, '1.16.5');
+          for (const marker of ['isNestOwnedNode', 'resumeAfterVideoExtendDialogCloses', '[800, 1300, 2000]']) {
+            assert(script.includes(marker), `extension marker missing: ${marker}`);
+          }
+          console.log('Verified browser extension 1.16.5 and extend workbench fixes');
+          NODE
+          }
+
           for arch in arm64; do
-            dmg="$output_dir/NestAssetLibrary-4.0.2-macOS-$arch.dmg"
-            zip="$output_dir/NestAssetLibrary-4.0.2-macOS-$arch.zip"
+            dmg="$output_dir/NestAssetLibrary-4.0.3-macOS-$arch.dmg"
+            zip="$output_dir/NestAssetLibrary-4.0.3-macOS-$arch.zip"
 
             mountpoint="$temp_root/mount-$arch"
             mkdir -p "$mountpoint"
             hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$mountpoint" >/dev/null
             dmg_asar="$(find "$mountpoint" -path '*/Contents/Resources/app.asar' -print -quit)"
             test -n "$dmg_asar"
+            verify_extension "$(dirname "$dmg_asar")"
             cp "$dmg_asar" "$temp_root/app-$arch-dmg.asar"
             hdiutil detach "$mountpoint" -quiet
             verify_app_asar "$temp_root/app-$arch-dmg.asar"
@@ -183,6 +203,7 @@ jobs:
             ditto -x -k "$zip" "$zip_extract"
             zip_asar="$(find "$zip_extract" -path '*/Contents/Resources/app.asar' -type f -print -quit)"
             test -n "$zip_asar"
+            verify_extension "$(dirname "$zip_asar")"
             cp "$zip_asar" "$temp_root/app-$arch-zip.asar"
             verify_app_asar "$temp_root/app-$arch-zip.asar"
             rm -rf "$zip_extract"

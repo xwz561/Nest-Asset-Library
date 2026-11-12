@@ -321,3 +321,8 @@ body.soft-ui-body .app-menu .app-menu-divider { background: var(--soft-line) !im
 
 /* AI 页右侧“助手提示语”：旧样式把所有输入框（包括多行的 textarea）都定成 34px 高，提示语只露出一行半 */
 .app.soft-ui.ready-ui.ui-refresh .ai-settings-side textarea { height: auto !important; min-height: 84px; padding: 8px 12px 24px !important; line-height: 1.55; resize: vertical; }
+
+/* 更新弹窗跟随窗口高度：标题、版本号和按钮始终露出，更新说明在中间单独滚动 */
+.app.soft-ui.ready-ui.ui-refresh .modal-backdrop > .app-dialog.update-dialog { display: flex !important; flex-direction: column; max-height: calc(100vh - 36px) !important; max-height: calc(100dvh - 36px) !important; overflow: hidden !important; }
+.app.soft-ui.ready-ui.ui-refresh .app-dialog.update-dialog > * { flex-shrink: 0; }
+.app.soft-ui.ready-ui.ui-refresh .app-dialog.update-dialog > .release-notes { flex: 1 1 auto; min-height: 120px; overflow: auto; overscroll-behavior: contain; }

@@ -10,8 +10,8 @@ const slice = (start, end) => page.slice(page.indexOf(start), page.indexOf(end))
 // 关掉一次延长窗口后再点「延长」，要重新弹出小旺仔延长工作台，而不是停在 AI Flow 原窗口。
 function loadHelpers() {
   class FakeElement {
-    constructor({ display = 'block', visibility = 'visible', parent = null, rects = 1, connected = true, text = '' } = {}) {
-      Object.assign(this, { display, visibility, parentElement: parent, rects, connected, textContent: text });
+    constructor({ id = '', display = 'block', visibility = 'visible', parent = null, rects = 1, connected = true, text = '' } = {}) {
+      Object.assign(this, { id, display, visibility, parentElement: parent, rects, connected, textContent: text });
     }
     get isConnected() { return this.connected; }
     getClientRects() { return { length: this.rects }; }
@@ -24,9 +24,9 @@ function loadHelpers() {
   };
   vm.createContext(sandbox);
   const source = [
-    slice('  function isVideoExtendPrompt(editor)', '  function referenceAssetKey(asset)'),
+    slice('  function isNestOwnedNode(node)', '  function referenceAssetKey(asset)'),
   ].join('\n');
-  vm.runInContext(`${source}\nglobalThis.__t = { isVideoExtendDialogShown, currentVideoExtendEditor };`, sandbox);
+  vm.runInContext(`${source}\nglobalThis.__t = { isVideoExtendDialogShown, currentVideoExtendEditor, isVideoExtendPrompt };`, sandbox);
   const make = (options = {}) => new FakeElement({ parent: documentElement, ...options });
   const extendDialog = (options = {}) => {
     const dialog = make({ text: '延长秒数 提交延长', ...options });
@@ -80,4 +80,17 @@ test('closing, submitting or using the native window never leaves the workbench 
   assert.match(click, /setTimeout\(injectVideoExtendWorkbench, 80\)/);
   assert.match(click, /\/\^\(重制\|延长\)\$\/\.test\(actionText\)/, '点「重制」「延长」后多查到 2 秒');
   assert.match(click, /\[800, 1300, 2000\]/);
+});
+
+test('the extension\'s own workbench is never mistaken for AI Flow\'s extend window (page freeze, LES-019)', () => {
+  const { api, sandbox, make, extendDialog } = loadHelpers();
+  const hiddenNative = extendDialog({ display: 'none' });
+  const workbench = make({ id: 'nest-aiflow-video-extend-workbench', text: '延长秒数 提交延长' });
+  const column = make({ parent: workbench });
+  const workbenchPrompt = make({ parent: column });
+  assert.equal(api.isVideoExtendPrompt(workbenchPrompt), false);
+  sandbox.document.textareas = [hiddenNative.editor, workbenchPrompt];
+  assert.equal(api.currentVideoExtendEditor(), hiddenNative.editor, '原窗口藏起来时也不能选中工作台，否则会反复重建');
+  sandbox.document.textareas = [workbenchPrompt];
+  assert.equal(api.currentVideoExtendEditor(), undefined);
 });
